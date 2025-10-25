@@ -1,0 +1,648 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F1142EAD0899002CA0FA /* Assets.xcassets */; };
+		DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */; };
+		DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */; };
+		DAA0F11B2EAD0899002CA0FA /* AlmaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */; };
+		DAA0F11C2EAD0899002CA0FA /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */; };
+		DAA0F11D2EAD0899002CA0FA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1152EAD0899002CA0FA /* ContentView.swift */; };
+		DAA0F11E2EAD0899002CA0FA /* HotkeyEventTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */; };
+		DAA0F11F2EAD0899002CA0FA /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */; };
+		DAA0F1202EAD0899002CA0FA /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */; };
+		DAA0F1212EAD0899002CA0FA /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */; };
+		DAA0F1222EAD0899002CA0FA /* MicPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */; };
+		DAA0F1232EAD0899002CA0FA /* TranscribeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */; };
+		DAA0F1242EAD0899002CA0FA /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DAA0F0AA2EAABCD6002CA0FA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DAA0F0902EAABCD3002CA0FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DAA0F0972EAABCD3002CA0FA;
+			remoteInfo = Alma;
+		};
+		DAA0F0B42EAABCD6002CA0FA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DAA0F0902EAABCD3002CA0FA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DAA0F0972EAABCD3002CA0FA;
+			remoteInfo = Alma;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
+		DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
+		DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPillView.swift; sourceTree = "<group>"; };
+		DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
+		DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
+		DAA0F1112EAD0899002CA0FA /* Alma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Alma.entitlements; sourceTree = "<group>"; };
+		DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlmaApp.swift; sourceTree = "<group>"; };
+		DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		DAA0F1142EAD0899002CA0FA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DAA0F1152EAD0899002CA0FA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		DAA0F0AC2EAABCD6002CA0FA /* AlmaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AlmaTests;
+			sourceTree = "<group>";
+		};
+		DAA0F0B62EAABCD6002CA0FA /* AlmaUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AlmaUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DAA0F0952EAABCD3002CA0FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0A62EAABCD6002CA0FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0B02EAABCD6002CA0FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		DAA0F08F2EAABCD3002CA0FA = {
+			isa = PBXGroup;
+			children = (
+				DAA0F0AC2EAABCD6002CA0FA /* AlmaTests */,
+				DAA0F0B62EAABCD6002CA0FA /* AlmaUITests */,
+				DAA0F0992EAABCD3002CA0FA /* Products */,
+				DAA0F1172EAD0899002CA0FA /* App */,
+			);
+			sourceTree = "<group>";
+		};
+		DAA0F0992EAABCD3002CA0FA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F0982EAABCD3002CA0FA /* Alma.app */,
+				DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */,
+				DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DAA0F1072EAD0899002CA0FA /* Input */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */,
+				DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */,
+				DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */,
+			);
+			path = Input;
+			sourceTree = "<group>";
+		};
+		DAA0F1092EAD0899002CA0FA /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		DAA0F10C2EAD0899002CA0FA /* Overlay */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */,
+				DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */,
+			);
+			path = Overlay;
+			sourceTree = "<group>";
+		};
+		DAA0F10E2EAD0899002CA0FA /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		DAA0F1102EAD0899002CA0FA /* System */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */,
+			);
+			path = System;
+			sourceTree = "<group>";
+		};
+		DAA0F1172EAD0899002CA0FA /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DAA0F1072EAD0899002CA0FA /* Input */,
+				DAA0F1092EAD0899002CA0FA /* Networking */,
+				DAA0F10C2EAD0899002CA0FA /* Overlay */,
+				DAA0F10E2EAD0899002CA0FA /* Preview Content */,
+				DAA0F1102EAD0899002CA0FA /* System */,
+				DAA0F1112EAD0899002CA0FA /* Alma.entitlements */,
+				DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */,
+				DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */,
+				DAA0F1142EAD0899002CA0FA /* Assets.xcassets */,
+				DAA0F1152EAD0899002CA0FA /* ContentView.swift */,
+				DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DAA0F0972EAABCD3002CA0FA /* Alma */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DAA0F0BD2EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "Alma" */;
+			buildPhases = (
+				DAA0F0942EAABCD3002CA0FA /* Sources */,
+				DAA0F0952EAABCD3002CA0FA /* Frameworks */,
+				DAA0F0962EAABCD3002CA0FA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Alma;
+			packageProductDependencies = (
+			);
+			productName = Alma;
+			productReference = DAA0F0982EAABCD3002CA0FA /* Alma.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DAA0F0A82EAABCD6002CA0FA /* AlmaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DAA0F0C02EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "AlmaTests" */;
+			buildPhases = (
+				DAA0F0A52EAABCD6002CA0FA /* Sources */,
+				DAA0F0A62EAABCD6002CA0FA /* Frameworks */,
+				DAA0F0A72EAABCD6002CA0FA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DAA0F0AB2EAABCD6002CA0FA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DAA0F0AC2EAABCD6002CA0FA /* AlmaTests */,
+			);
+			name = AlmaTests;
+			packageProductDependencies = (
+			);
+			productName = AlmaTests;
+			productReference = DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DAA0F0B22EAABCD6002CA0FA /* AlmaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DAA0F0C32EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "AlmaUITests" */;
+			buildPhases = (
+				DAA0F0AF2EAABCD6002CA0FA /* Sources */,
+				DAA0F0B02EAABCD6002CA0FA /* Frameworks */,
+				DAA0F0B12EAABCD6002CA0FA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DAA0F0B52EAABCD6002CA0FA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				DAA0F0B62EAABCD6002CA0FA /* AlmaUITests */,
+			);
+			name = AlmaUITests;
+			packageProductDependencies = (
+			);
+			productName = AlmaUITests;
+			productReference = DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DAA0F0902EAABCD3002CA0FA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					DAA0F0972EAABCD3002CA0FA = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					DAA0F0A82EAABCD6002CA0FA = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = DAA0F0972EAABCD3002CA0FA;
+					};
+					DAA0F0B22EAABCD6002CA0FA = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = DAA0F0972EAABCD3002CA0FA;
+					};
+				};
+			};
+			buildConfigurationList = DAA0F0932EAABCD3002CA0FA /* Build configuration list for PBXProject "Alma" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = DAA0F08F2EAABCD3002CA0FA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DAA0F0992EAABCD3002CA0FA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DAA0F0972EAABCD3002CA0FA /* Alma */,
+				DAA0F0A82EAABCD6002CA0FA /* AlmaTests */,
+				DAA0F0B22EAABCD6002CA0FA /* AlmaUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DAA0F0962EAABCD3002CA0FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */,
+				DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0A72EAABCD6002CA0FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0B12EAABCD6002CA0FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DAA0F0942EAABCD3002CA0FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */,
+				DAA0F11B2EAD0899002CA0FA /* AlmaApp.swift in Sources */,
+				DAA0F11C2EAD0899002CA0FA /* QuoteBubbleView.swift in Sources */,
+				DAA0F11D2EAD0899002CA0FA /* ContentView.swift in Sources */,
+				DAA0F11E2EAD0899002CA0FA /* HotkeyEventTap.swift in Sources */,
+				DAA0F11F2EAD0899002CA0FA /* MenuBarController.swift in Sources */,
+				DAA0F1202EAD0899002CA0FA /* AudioEngine.swift in Sources */,
+				DAA0F1212EAD0899002CA0FA /* AudioRecorder.swift in Sources */,
+				DAA0F1222EAD0899002CA0FA /* MicPillView.swift in Sources */,
+				DAA0F1232EAD0899002CA0FA /* TranscribeAPI.swift in Sources */,
+				DAA0F1242EAD0899002CA0FA /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0A52EAABCD6002CA0FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA0F0AF2EAABCD6002CA0FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DAA0F0AB2EAABCD6002CA0FA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DAA0F0972EAABCD3002CA0FA /* Alma */;
+			targetProxy = DAA0F0AA2EAABCD6002CA0FA /* PBXContainerItemProxy */;
+		};
+		DAA0F0B52EAABCD6002CA0FA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DAA0F0972EAABCD3002CA0FA /* Alma */;
+			targetProxy = DAA0F0B42EAABCD6002CA0FA /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		DAA0F0BB2EAABCD6002CA0FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DAA0F0BC2EAABCD6002CA0FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		DAA0F0BE2EAABCD6002CA0FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/Alma.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"App/Preview Content\"";
+				DEVELOPMENT_TEAM = BZZ744Q3KB;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alma needs microphone access for hold‑to‑talk.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alma transcribes speech to text to paste into apps.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.Alma;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		DAA0F0BF2EAABCD6002CA0FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App/Alma.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"App/Preview Content\"";
+				DEVELOPMENT_TEAM = BZZ744Q3KB;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alma needs microphone access for hold‑to‑talk.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alma transcribes speech to text to paste into apps.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.Alma;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		DAA0F0C12EAABCD6002CA0FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.AlmaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Alma.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Alma";
+			};
+			name = Debug;
+		};
+		DAA0F0C22EAABCD6002CA0FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.AlmaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Alma.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Alma";
+			};
+			name = Release;
+		};
+		DAA0F0C42EAABCD6002CA0FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.AlmaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Alma;
+			};
+			name = Debug;
+		};
+		DAA0F0C52EAABCD6002CA0FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.AlmaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Alma;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		DAA0F0932EAABCD3002CA0FA /* Build configuration list for PBXProject "Alma" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAA0F0BB2EAABCD6002CA0FA /* Debug */,
+				DAA0F0BC2EAABCD6002CA0FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DAA0F0BD2EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "Alma" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAA0F0BE2EAABCD6002CA0FA /* Debug */,
+				DAA0F0BF2EAABCD6002CA0FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DAA0F0C02EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "AlmaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAA0F0C12EAABCD6002CA0FA /* Debug */,
+				DAA0F0C22EAABCD6002CA0FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DAA0F0C32EAABCD6002CA0FA /* Build configuration list for PBXNativeTarget "AlmaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DAA0F0C42EAABCD6002CA0FA /* Debug */,
+				DAA0F0C52EAABCD6002CA0FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = DAA0F0902EAABCD3002CA0FA /* Project object */;
+}
