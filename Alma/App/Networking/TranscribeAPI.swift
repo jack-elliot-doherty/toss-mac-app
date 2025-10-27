@@ -15,12 +15,14 @@ final class TranscribeAPI {
         self.apiKey = apiKey
     }
 
-    func transcribe(fileURL: URL, completion: @escaping (Result<String, Error>) -> Void) {
+    func transcribe(fileURL: URL, token: String? = nil, completion: @escaping (Result<String, Error>) -> Void) {
         let url = baseURL.appendingPathComponent("/transcribe")
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        if let apiKey = apiKey, !apiKey.isEmpty {
+        if let token, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if let apiKey = apiKey, !apiKey.isEmpty {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         let boundary = "Boundary-\(UUID().uuidString)"

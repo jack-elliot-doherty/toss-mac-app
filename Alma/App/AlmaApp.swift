@@ -5,7 +5,11 @@ struct AlmaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // No main window. Keep a Settings scene to satisfy SwiftUI.
+        Window("Alma", id: "main") {
+            ContentView()
+        }
+        .defaultSize(width: 820, height: 520)
+
         Settings { EmptyView() }
     }
 }

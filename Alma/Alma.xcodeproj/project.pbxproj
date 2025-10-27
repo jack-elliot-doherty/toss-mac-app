@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA36233B2EAF9721000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */; };
+		DA96475E2EAD534600BDF991 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA96475C2EAD534600BDF991 /* UpdateManager.swift */; };
+		DA9647602EAD666A00BDF991 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA96475F2EAD666A00BDF991 /* AuthManager.swift */; };
 		DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F1142EAD0899002CA0FA /* Assets.xcassets */; };
 		DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */; };
 		DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */; };
@@ -40,6 +43,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
+		DA96475C2EAD534600BDF991 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
+		DA96475F2EAD666A00BDF991 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -97,6 +103,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		DA36233A2EAF9720000207F0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		DA96475D2EAD534600BDF991 /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				DA96475C2EAD534600BDF991 /* UpdateManager.swift */,
+			);
+			path = Updates;
+			sourceTree = "<group>";
+		};
 		DAA0F08F2EAABCD3002CA0FA = {
 			isa = PBXGroup;
 			children = (
@@ -163,6 +185,9 @@
 		DAA0F1172EAD0899002CA0FA /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA36233A2EAF9720000207F0 /* Resources */,
+				DA96475F2EAD666A00BDF991 /* AuthManager.swift */,
+				DA96475D2EAD534600BDF991 /* Updates */,
 				DAA0F1072EAD0899002CA0FA /* Input */,
 				DAA0F1092EAD0899002CA0FA /* Networking */,
 				DAA0F10C2EAD0899002CA0FA /* Overlay */,
@@ -297,6 +322,7 @@
 			files = (
 				DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */,
 				DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */,
+				DA36233B2EAF9721000207F0 /* digital-click-357350.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -324,11 +350,13 @@
 				DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */,
 				DAA0F11B2EAD0899002CA0FA /* AlmaApp.swift in Sources */,
 				DAA0F11C2EAD0899002CA0FA /* QuoteBubbleView.swift in Sources */,
+				DA9647602EAD666A00BDF991 /* AuthManager.swift in Sources */,
 				DAA0F11D2EAD0899002CA0FA /* ContentView.swift in Sources */,
 				DAA0F11E2EAD0899002CA0FA /* HotkeyEventTap.swift in Sources */,
 				DAA0F11F2EAD0899002CA0FA /* MenuBarController.swift in Sources */,
 				DAA0F1202EAD0899002CA0FA /* AudioEngine.swift in Sources */,
 				DAA0F1212EAD0899002CA0FA /* AudioRecorder.swift in Sources */,
+				DA96475E2EAD534600BDF991 /* UpdateManager.swift in Sources */,
 				DAA0F1222EAD0899002CA0FA /* MicPillView.swift in Sources */,
 				DAA0F1232EAD0899002CA0FA /* TranscribeAPI.swift in Sources */,
 				DAA0F1242EAD0899002CA0FA /* AppDelegate.swift in Sources */,
@@ -495,7 +523,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"App/Preview Content\"";
 				DEVELOPMENT_TEAM = BZZ744Q3KB;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alma needs microphone access for hold‑to‑talk.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alma transcribes speech to text to paste into apps.";
@@ -523,7 +552,8 @@
 				DEVELOPMENT_ASSET_PATHS = "\"App/Preview Content\"";
 				DEVELOPMENT_TEAM = BZZ744Q3KB;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Alma needs microphone access for hold‑to‑talk.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Alma transcribes speech to text to paste into apps.";

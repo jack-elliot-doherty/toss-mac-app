@@ -1,6 +1,7 @@
 import Cocoa
 import Foundation
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var menuBarController: MenuBarController?
@@ -9,9 +10,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var didPaste: Bool = false
     private var pasteRetryTimer: Timer?
     private var pasteRetryCount: Int = 0
+    private var startSound: NSSound?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "Alma"
         let menuBarController = MenuBarController(statusItem: statusItem)
@@ -19,20 +21,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.menuBarController = menuBarController
 
         // Remove MCP; focus on dictation -> server -> paste
+        // Show idle mic pill always-on
+        menuBarController.beginListening()
+        menuBarController.endListening() // ensure window exists then hide; we'll keep it idle and visible
 
         // Wire hold-to-talk
         hotkey.onHoldStart = { [weak self] in
             guard let self = self else { return }
             self.didPaste = false
             self.menuBarController?.beginListening()
+            self.playStartSound()
             self.recorder.start()
         }
         hotkey.onHoldEnd = { [weak self] in
             guard let self = self else { return }
             let url = self.recorder.stop()
-            self.menuBarController?.endListening()
-            guard let url = url else { NSLog("[AppDelegate] no temp file URL"); return }
-            TranscribeAPI.shared.transcribe(fileURL: url) { result in
+            // Keep pill visible and show loading while we transcribe
+            self.menuBarController?.showLoading()
+            guard let url = url else {
+                NSLog("[AppDelegate] no temp file URL")
+                self.menuBarController?.endListening()
+                return
+            }
+            let token = AuthManager.shared.accessToken
+            TranscribeAPI.shared.transcribe(fileURL: url, token: token) { result in
                 DispatchQueue.main.async {
                     switch result {
                     case .success(let text):
@@ -42,16 +54,57 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         } else {
                             self.showNoFocusPopup()
                         }
+                        self.menuBarController?.endListening()
                     case .failure(let error):
                         NSLog("[Transcribe] error: \(error.localizedDescription)")
+                        self.menuBarController?.endListening()
                     }
                 }
             }
         }
         hotkey.start()
 
+        // Bring main window to front on first launch
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.title == "Alma" }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+
         // Observe planner demo trigger
         NotificationCenter.default.addObserver(self, selector: #selector(runPlannerDemo), name: Notification.Name("plannerDemoRequested"), object: nil)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            if let window = NSApp.windows.first(where: { $0.title == "Alma" }) {
+                NSApp.activate(ignoringOtherApps: true)
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+        return true
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls { _ = AuthManager.shared.handleDeepLink(url: url) }
+    }
+
+    private func playStartSound() {
+        // Prefer bundled asset
+        if let url = Bundle.main.url(forResource: "digital-click-357350", withExtension: "mp3") {
+            let sound = NSSound(contentsOf: url, byReference: true)
+            self.startSound = sound
+            if sound?.play() == true { return }
+        }
+        // Dev fallback: play from repository path if running locally
+        let devPath = "/Users/jackdoherty/code/alma/alma-server/digital-click-357350.mp3"
+        if FileManager.default.fileExists(atPath: devPath) {
+            let url = URL(fileURLWithPath: devPath)
+            let sound = NSSound(contentsOf: url, byReference: true)
+            self.startSound = sound
+            if sound?.play() == true { return }
+        }
+        // Final fallback
+        NSSound.beep()
     }
 
     private func pasteToFrontmostApp(text: String) {
@@ -60,25 +113,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // If we can't post key events yet, at least leave text on clipboard
         if !AccessibilityAuth.isTrusted() {
             NSLog("[AppDelegate] Accessibility not trusted — copied to clipboard only. Will auto-paste if enabled within 15s.")
-            // Open Accessibility pane to make it easy to enable
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
-            // Start a short-lived retry loop that will paste once trust becomes true
-            pasteRetryTimer?.invalidate()
-            pasteRetryCount = 0
-            pasteRetryTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
-                guard let self = self else { timer.invalidate(); return }
-                self.pasteRetryCount += 1
-                if AccessibilityAuth.isTrusted() {
-                    self.sendCmdV()
-                    timer.invalidate()
-                    NSLog("[AppDelegate] Auto-paste succeeded after Accessibility granted")
-                } else if self.pasteRetryCount > 30 { // ~15s
-                    timer.invalidate()
-                    NSLog("[AppDelegate] Auto-paste retry window elapsed; user can press Cmd+V")
-                }
-            }
+            // Do not auto-open Accessibility settings or retry; leave text on clipboard
             return
         }
         sendCmdV()
