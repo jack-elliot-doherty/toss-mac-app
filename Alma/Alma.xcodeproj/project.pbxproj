@@ -7,22 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DA36233B2EAF9721000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */; };
-		DA96475E2EAD534600BDF991 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA96475C2EAD534600BDF991 /* UpdateManager.swift */; };
-		DA9647602EAD666A00BDF991 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA96475F2EAD666A00BDF991 /* AuthManager.swift */; };
-		DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F1142EAD0899002CA0FA /* Assets.xcassets */; };
-		DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */; };
-		DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */; };
-		DAA0F11B2EAD0899002CA0FA /* AlmaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */; };
-		DAA0F11C2EAD0899002CA0FA /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */; };
-		DAA0F11D2EAD0899002CA0FA /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1152EAD0899002CA0FA /* ContentView.swift */; };
-		DAA0F11E2EAD0899002CA0FA /* HotkeyEventTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */; };
-		DAA0F11F2EAD0899002CA0FA /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */; };
-		DAA0F1202EAD0899002CA0FA /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */; };
-		DAA0F1212EAD0899002CA0FA /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */; };
-		DAA0F1222EAD0899002CA0FA /* MicPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */; };
-		DAA0F1232EAD0899002CA0FA /* TranscribeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */; };
-		DAA0F1242EAD0899002CA0FA /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */; };
+		DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234B2EB23FCE000207F0 /* PillViewModel.swift */; };
+		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
+		DA3623682EB23FCE000207F0 /* MicPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623482EB23FCE000207F0 /* MicPillView.swift */; };
+		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
+		DA36236B2EB23FCE000207F0 /* AgentPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623472EB23FCE000207F0 /* AgentPanelController.swift */; };
+		DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623402EB23FCE000207F0 /* AudioEngine.swift */; };
+		DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623412EB23FCE000207F0 /* AudioRecorder.swift */; };
+		DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623612EB23FCE000207F0 /* ContentView.swift */; };
+		DA3623702EB23FCE000207F0 /* SpeechTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */; };
+		DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623532EB23FCE000207F0 /* HistoryRepository.swift */; };
+		DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */; };
+		DA3623732EB23FCE000207F0 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623642EB23FCE000207F0 /* MenuBarController.swift */; };
+		DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623492EB23FCE000207F0 /* PillPanelController.swift */; };
+		DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623582EB23FCE000207F0 /* PasteManager.swift */; };
+		DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */; };
+		DA3623772EB23FCE000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623562EB23FCE000207F0 /* AuthManager.swift */; };
+		DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */; };
+		DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235E2EB23FCE000207F0 /* AppDelegate.swift */; };
+		DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */; };
+		DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623552EB23FCE000207F0 /* Accessibility.swift */; };
+		DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235D2EB23FCE000207F0 /* AlmaApp.swift */; };
+		DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234A2EB23FCE000207F0 /* PillView.swift */; };
+		DA36237E2EB23FCE000207F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36235F2EB23FCE000207F0 /* Assets.xcassets */; };
+		DA3623802EB23FCE000207F0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */; };
+		DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,26 +52,38 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
-		DA96475C2EAD534600BDF991 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
-		DA96475F2EAD666A00BDF991 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		DA3623402EB23FCE000207F0 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		DA3623412EB23FCE000207F0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
+		DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTranscriber.swift; sourceTree = "<group>"; };
+		DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
+		DA3623472EB23FCE000207F0 /* AgentPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelController.swift; sourceTree = "<group>"; };
+		DA3623482EB23FCE000207F0 /* MicPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPillView.swift; sourceTree = "<group>"; };
+		DA3623492EB23FCE000207F0 /* PillPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillPanelController.swift; sourceTree = "<group>"; };
+		DA36234A2EB23FCE000207F0 /* PillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillView.swift; sourceTree = "<group>"; };
+		DA36234B2EB23FCE000207F0 /* PillViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillViewModel.swift; sourceTree = "<group>"; };
+		DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
+		DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastPanelController.swift; sourceTree = "<group>"; };
+		DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
+		DA3623532EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
+		DA3623552EB23FCE000207F0 /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
+		DA3623562EB23FCE000207F0 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXFocusHelper.swift; sourceTree = "<group>"; };
+		DA3623582EB23FCE000207F0 /* PasteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteManager.swift; sourceTree = "<group>"; };
+		DA36235A2EB23FCE000207F0 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
+		DA36235C2EB23FCE000207F0 /* Alma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Alma.entitlements; sourceTree = "<group>"; };
+		DA36235D2EB23FCE000207F0 /* AlmaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlmaApp.swift; sourceTree = "<group>"; };
+		DA36235E2EB23FCE000207F0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		DA36235F2EB23FCE000207F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DA3623602EB23FCE000207F0 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		DA3623612EB23FCE000207F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DA3623622EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
+		DA3623632EB23FCE000207F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		DA3623642EB23FCE000207F0 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
-		DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
-		DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
-		DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
-		DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPillView.swift; sourceTree = "<group>"; };
-		DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
-		DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
-		DAA0F1112EAD0899002CA0FA /* Alma.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Alma.entitlements; sourceTree = "<group>"; };
-		DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlmaApp.swift; sourceTree = "<group>"; };
-		DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		DAA0F1142EAD0899002CA0FA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		DAA0F1152EAD0899002CA0FA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -103,29 +124,113 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		DA36233A2EAF9720000207F0 /* Resources */ = {
+		DA3623442EB23FCE000207F0 /* Input */ = {
 			isa = PBXGroup;
 			children = (
-				DA3623392EAF9720000207F0 /* digital-click-357350.mp3 */,
+				DA3623402EB23FCE000207F0 /* AudioEngine.swift */,
+				DA3623412EB23FCE000207F0 /* AudioRecorder.swift */,
+				DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */,
+				DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */,
+			);
+			path = Input;
+			sourceTree = "<group>";
+		};
+		DA3623462EB23FCE000207F0 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		DA36234E2EB23FCE000207F0 /* Overlay */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623472EB23FCE000207F0 /* AgentPanelController.swift */,
+				DA3623482EB23FCE000207F0 /* MicPillView.swift */,
+				DA3623492EB23FCE000207F0 /* PillPanelController.swift */,
+				DA36234A2EB23FCE000207F0 /* PillView.swift */,
+				DA36234B2EB23FCE000207F0 /* PillViewModel.swift */,
+				DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */,
+				DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */,
+			);
+			path = Overlay;
+			sourceTree = "<group>";
+		};
+		DA3623502EB23FCE000207F0 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		DA3623522EB23FCE000207F0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
-		DA96475D2EAD534600BDF991 /* Updates */ = {
+		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
-				DA96475C2EAD534600BDF991 /* UpdateManager.swift */,
+				DA3623532EB23FCE000207F0 /* HistoryRepository.swift */,
+			);
+			path = Sections;
+			sourceTree = "<group>";
+		};
+		DA3623592EB23FCE000207F0 /* System */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623552EB23FCE000207F0 /* Accessibility.swift */,
+				DA3623562EB23FCE000207F0 /* AuthManager.swift */,
+				DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */,
+				DA3623582EB23FCE000207F0 /* PasteManager.swift */,
+			);
+			path = System;
+			sourceTree = "<group>";
+		};
+		DA36235B2EB23FCE000207F0 /* Updates */ = {
+			isa = PBXGroup;
+			children = (
+				DA36235A2EB23FCE000207F0 /* UpdateManager.swift */,
 			);
 			path = Updates;
+			sourceTree = "<group>";
+		};
+		DA3623652EB23FCE000207F0 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623442EB23FCE000207F0 /* Input */,
+				DA3623462EB23FCE000207F0 /* Networking */,
+				DA36234E2EB23FCE000207F0 /* Overlay */,
+				DA3623502EB23FCE000207F0 /* Preview Content */,
+				DA3623522EB23FCE000207F0 /* Resources */,
+				DA3623542EB23FCE000207F0 /* Sections */,
+				DA3623592EB23FCE000207F0 /* System */,
+				DA36235B2EB23FCE000207F0 /* Updates */,
+				DA36235C2EB23FCE000207F0 /* Alma.entitlements */,
+				DA36235D2EB23FCE000207F0 /* AlmaApp.swift */,
+				DA36235E2EB23FCE000207F0 /* AppDelegate.swift */,
+				DA36235F2EB23FCE000207F0 /* Assets.xcassets */,
+				DA3623602EB23FCE000207F0 /* AuthManager.swift */,
+				DA3623612EB23FCE000207F0 /* ContentView.swift */,
+				DA3623622EB23FCE000207F0 /* HistoryRepository.swift */,
+				DA3623632EB23FCE000207F0 /* Info.plist */,
+				DA3623642EB23FCE000207F0 /* MenuBarController.swift */,
+			);
+			path = App;
 			sourceTree = "<group>";
 		};
 		DAA0F08F2EAABCD3002CA0FA = {
 			isa = PBXGroup;
 			children = (
+				DA3623652EB23FCE000207F0 /* App */,
 				DAA0F0AC2EAABCD6002CA0FA /* AlmaTests */,
 				DAA0F0B62EAABCD6002CA0FA /* AlmaUITests */,
 				DAA0F0992EAABCD3002CA0FA /* Products */,
-				DAA0F1172EAD0899002CA0FA /* App */,
 			);
 			sourceTree = "<group>";
 		};
@@ -137,70 +242,6 @@
 				DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		DAA0F1072EAD0899002CA0FA /* Input */ = {
-			isa = PBXGroup;
-			children = (
-				DAA0F1032EAD0899002CA0FA /* AudioEngine.swift */,
-				DAA0F1042EAD0899002CA0FA /* AudioRecorder.swift */,
-				DAA0F1052EAD0899002CA0FA /* HotkeyEventTap.swift */,
-			);
-			path = Input;
-			sourceTree = "<group>";
-		};
-		DAA0F1092EAD0899002CA0FA /* Networking */ = {
-			isa = PBXGroup;
-			children = (
-				DAA0F1082EAD0899002CA0FA /* TranscribeAPI.swift */,
-			);
-			path = Networking;
-			sourceTree = "<group>";
-		};
-		DAA0F10C2EAD0899002CA0FA /* Overlay */ = {
-			isa = PBXGroup;
-			children = (
-				DAA0F10A2EAD0899002CA0FA /* MicPillView.swift */,
-				DAA0F10B2EAD0899002CA0FA /* QuoteBubbleView.swift */,
-			);
-			path = Overlay;
-			sourceTree = "<group>";
-		};
-		DAA0F10E2EAD0899002CA0FA /* Preview Content */ = {
-			isa = PBXGroup;
-			children = (
-				DAA0F10D2EAD0899002CA0FA /* Preview Assets.xcassets */,
-			);
-			path = "Preview Content";
-			sourceTree = "<group>";
-		};
-		DAA0F1102EAD0899002CA0FA /* System */ = {
-			isa = PBXGroup;
-			children = (
-				DAA0F10F2EAD0899002CA0FA /* Accessibility.swift */,
-			);
-			path = System;
-			sourceTree = "<group>";
-		};
-		DAA0F1172EAD0899002CA0FA /* App */ = {
-			isa = PBXGroup;
-			children = (
-				DA36233A2EAF9720000207F0 /* Resources */,
-				DA96475F2EAD666A00BDF991 /* AuthManager.swift */,
-				DA96475D2EAD534600BDF991 /* Updates */,
-				DAA0F1072EAD0899002CA0FA /* Input */,
-				DAA0F1092EAD0899002CA0FA /* Networking */,
-				DAA0F10C2EAD0899002CA0FA /* Overlay */,
-				DAA0F10E2EAD0899002CA0FA /* Preview Content */,
-				DAA0F1102EAD0899002CA0FA /* System */,
-				DAA0F1112EAD0899002CA0FA /* Alma.entitlements */,
-				DAA0F1122EAD0899002CA0FA /* AlmaApp.swift */,
-				DAA0F1132EAD0899002CA0FA /* AppDelegate.swift */,
-				DAA0F1142EAD0899002CA0FA /* Assets.xcassets */,
-				DAA0F1152EAD0899002CA0FA /* ContentView.swift */,
-				DAA0F1162EAD0899002CA0FA /* MenuBarController.swift */,
-			);
-			path = App;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -320,9 +361,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DAA0F1182EAD0899002CA0FA /* Assets.xcassets in Resources */,
-				DAA0F1192EAD0899002CA0FA /* Preview Assets.xcassets in Resources */,
-				DA36233B2EAF9721000207F0 /* digital-click-357350.mp3 in Resources */,
+				DA36237E2EB23FCE000207F0 /* Assets.xcassets in Resources */,
+				DA3623802EB23FCE000207F0 /* Preview Assets.xcassets in Resources */,
+				DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,19 +388,28 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DAA0F11A2EAD0899002CA0FA /* Accessibility.swift in Sources */,
-				DAA0F11B2EAD0899002CA0FA /* AlmaApp.swift in Sources */,
-				DAA0F11C2EAD0899002CA0FA /* QuoteBubbleView.swift in Sources */,
-				DA9647602EAD666A00BDF991 /* AuthManager.swift in Sources */,
-				DAA0F11D2EAD0899002CA0FA /* ContentView.swift in Sources */,
-				DAA0F11E2EAD0899002CA0FA /* HotkeyEventTap.swift in Sources */,
-				DAA0F11F2EAD0899002CA0FA /* MenuBarController.swift in Sources */,
-				DAA0F1202EAD0899002CA0FA /* AudioEngine.swift in Sources */,
-				DAA0F1212EAD0899002CA0FA /* AudioRecorder.swift in Sources */,
-				DA96475E2EAD534600BDF991 /* UpdateManager.swift in Sources */,
-				DAA0F1222EAD0899002CA0FA /* MicPillView.swift in Sources */,
-				DAA0F1232EAD0899002CA0FA /* TranscribeAPI.swift in Sources */,
-				DAA0F1242EAD0899002CA0FA /* AppDelegate.swift in Sources */,
+				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
+				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
+				DA3623682EB23FCE000207F0 /* MicPillView.swift in Sources */,
+				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
+				DA36236B2EB23FCE000207F0 /* AgentPanelController.swift in Sources */,
+				DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */,
+				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
+				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
+				DA3623702EB23FCE000207F0 /* SpeechTranscriber.swift in Sources */,
+				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
+				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
+				DA3623732EB23FCE000207F0 /* MenuBarController.swift in Sources */,
+				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
+				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
+				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
+				DA3623772EB23FCE000207F0 /* AuthManager.swift in Sources */,
+				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
+				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
+				DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */,
+				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
+				DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */,
+				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

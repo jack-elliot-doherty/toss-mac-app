@@ -11,63 +11,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var pasteRetryTimer: Timer?
     private var pasteRetryCount: Int = 0
     private var startSound: NSSound?
+    private let pasteManager = PasteManager()
+    private let historyRepo: InMemoryHistoryRepository = InMemoryHistoryRepository()
+    private let pillViewModel = PillViewModel()
+    private lazy var pillPanel = PillPanelController(viewModel: pillViewModel)
+    private lazy var toastPanel = ToastPanelController(anchorFrameProvider: { [weak self] in self?.pillPanel.frame })
+    private lazy var agentPanel = AgentPanelController(historyRepo: historyRepo)
+    private var lastTapAt: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
+        NSApp.setActivationPolicy(.accessory)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "Alma"
         let menuBarController = MenuBarController(statusItem: statusItem)
         self.statusItem = statusItem
         self.menuBarController = menuBarController
 
-        // Remove MCP; focus on dictation -> server -> paste
-        // Show idle mic pill always-on
-        menuBarController.beginListening()
-        menuBarController.endListening() // ensure window exists then hide; we'll keep it idle and visible
+        // Pill panel idle and visible (non-activating)
+        pillPanel.setState(.idle)
+        // No need to call show() separately - setState already positions and shows
 
         // Wire hold-to-talk
         hotkey.onHoldStart = { [weak self] in
             guard let self = self else { return }
             self.didPaste = false
-            self.menuBarController?.beginListening()
+            // Double-tap detection (~300ms)
+            let now = Date()
+            if let last = self.lastTapAt, now.timeIntervalSince(last) < 0.3 {
+                self.pillViewModel.toggleAlwaysOn()
+                let msg = self.pillViewModel.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"
+                self.toastPanel.show(message: msg, duration: 1.6)
+            }
+            self.pillPanel.setState(.listening)
             self.playStartSound()
             self.recorder.start()
+            self.recorder.onLevelUpdate = { [weak self] rms in
+                self?.pillViewModel.updateLevelRMS(rms)
+            }
         }
         hotkey.onHoldEnd = { [weak self] in
             guard let self = self else { return }
-            let url = self.recorder.stop()
-            // Keep pill visible and show loading while we transcribe
-            self.menuBarController?.showLoading()
-            guard let url = url else {
-                NSLog("[AppDelegate] no temp file URL")
-                self.menuBarController?.endListening()
+            self.lastTapAt = Date()
+            if self.pillViewModel.isAlwaysOn {
+                // Do not stop; user will press Stop
                 return
             }
-            let token = AuthManager.shared.accessToken
-            TranscribeAPI.shared.transcribe(fileURL: url, token: token) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let text):
-                        NSLog("[AppDelegate] pasting text len %d", text.count)
-                        if self.isTextInputFocused() {
-                            self.pasteToFrontmostApp(text: text)
-                        } else {
-                            self.showNoFocusPopup()
-                        }
-                        self.menuBarController?.endListening()
-                    case .failure(let error):
-                        NSLog("[Transcribe] error: \(error.localizedDescription)")
-                        self.menuBarController?.endListening()
-                    }
-                }
-            }
+            self.finishRecordingAndTranscribe()
         }
         hotkey.start()
 
-        // Bring main window to front on first launch
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title == "Alma" }) {
-            window.makeKeyAndOrderFront(nil)
+        // Expose UI intents from pill
+        pillViewModel.onRequestStop = { [weak self] in self?.finishRecordingAndTranscribe() }
+        pillViewModel.onRequestCancel = { [weak self] in
+            guard let self = self else { return }
+            _ = self.recorder.stop()
+            self.pillPanel.setState(.idle)
         }
 
         // Observe planner demo trigger
@@ -107,49 +105,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSSound.beep()
     }
 
-    private func pasteToFrontmostApp(text: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        // If we can't post key events yet, at least leave text on clipboard
-        if !AccessibilityAuth.isTrusted() {
-            NSLog("[AppDelegate] Accessibility not trusted — copied to clipboard only. Will auto-paste if enabled within 15s.")
-            // Do not auto-open Accessibility settings or retry; leave text on clipboard
+    private func finishRecordingAndTranscribe() {
+        let url = self.recorder.stop()
+        self.pillPanel.setState(.transcribing)
+        guard let url = url else {
+            NSLog("[AppDelegate] no temp file URL")
+            self.pillPanel.setState(.idle)
             return
         }
-        sendCmdV()
+        let token = AuthManager.shared.accessToken
+        TranscribeAPI.shared.transcribe(fileURL: url, token: token) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let text):
+                    NSLog("[AppDelegate] received text len %d", text.count)
+                    if self.pillViewModel.agentModeEnabled {
+                        let thread = self.cacheTranscript(text)
+                        self.toastPanel.show(message: "Sent to Agent", duration: 1.8)
+                        self.agentPanel.show(for: thread)
+                        self.pillPanel.setState(.idle)
+                    } else {
+                        let hasFocus = AXFocusHelper.hasFocusedTextInput()
+                        let axTrusted = AccessibilityAuth.isTrusted()
+                        self.pasteManager.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { pasteResult in
+                            self.pillPanel.setState(.done(pasteResult))
+                            switch pasteResult {
+                            case .pasted:
+                                self.toastPanel.show(message: "Pasted • Undo", duration: 2.2, onTap: { [weak self] in self?.pasteManager.sendCmdZ() })
+                            case .copiedNoFocus:
+                                self.toastPanel.show(message: "No input detected — text copied to clipboard", duration: 2.4)
+                            case .error(let err):
+                                self.toastPanel.show(message: "Error: \(err)", duration: 2.4)
+                            }
+                            _ = self.cacheTranscript(text)
+                            self.pillPanel.setState(.idle)
+                        }
+                    }
+                case .failure(let error):
+                    NSLog("[Transcribe] error: \(error.localizedDescription)")
+                    self.toastPanel.show(message: "Transcription failed: \(error.localizedDescription)", duration: 2.4)
+                    self.pillPanel.setState(.idle)
+                }
+            }
+        }
     }
 
-    private func sendCmdV() {
-        let src = CGEventSource(stateID: .hidSystemState)
-        let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: true)
-        cmdDown?.flags = .maskCommand
-        let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)
-        vDown?.flags = .maskCommand
-        let vUp = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false)
-        vUp?.flags = .maskCommand
-        let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: false)
-        cmdUp?.flags = .maskCommand
-        let tap = CGEventTapLocation.cghidEventTap
-        cmdDown?.post(tap: tap)
-        vDown?.post(tap: tap)
-        vUp?.post(tap: tap)
-        cmdUp?.post(tap: tap)
-        didPaste = true
-        NSLog("[AppDelegate] Cmd+V sent")
-    }
-
-    private func isTextInputFocused() -> Bool {
-        // For simplicity, assume true; improve later with AX API.
-        return true
-    }
-
-    private func showNoFocusPopup() {
-        let alert = NSAlert()
-        alert.messageText = "Whoops — no focused input box"
-        alert.informativeText = "Click into a text field and try again."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+    private func cacheTranscript(_ text: String) -> ThreadModel {
+        let thread = historyRepo.upsertThread(title: "Quick Dictations")
+        _ = historyRepo.appendMessage(threadId: thread.id, role: .user, content: text, status: .final)
+        return thread
     }
 
     func applicationWillTerminate(_ notification: Notification) {

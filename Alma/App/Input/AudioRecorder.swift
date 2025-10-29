@@ -7,6 +7,7 @@ final class AudioRecorder {
     private var tempFileURL: URL?
 
     var onError: ((Error) -> Void)?
+    var onLevelUpdate: ((Float) -> Void)? // 0…1 linear RMS
 
     private(set) var isRunning = false
 
@@ -36,6 +37,22 @@ final class AudioRecorder {
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { [weak self] buffer, _ in
             guard let self = self, let file = self.audioFile else { return }
             do { try file.write(from: buffer) } catch { /* ignore */ }
+            // Compute RMS level for UI waveform (mono aggregation)
+            if let ch0 = buffer.floatChannelData?[0] {
+                let frameCount = Int(buffer.frameLength)
+                var sum: Float = 0
+                var i = 0
+                while i < frameCount {
+                    let s = ch0[i]
+                    sum += s * s
+                    i += 1
+                }
+                let mean = sum / max(1, Float(frameCount))
+                var rms = sqrtf(mean)
+                // Simple normalization for visual use
+                rms = min(1.0, max(0.0, rms * 4.0))
+                DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
+            }
         }
 
         engine.prepare()
