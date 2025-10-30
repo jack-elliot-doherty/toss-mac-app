@@ -49,7 +49,7 @@ struct PillView: View {
 
             Toggle(isOn: Binding(get: { viewModel.agentModeEnabled }, set: { new in
                 viewModel.agentModeEnabled = new
-                viewModel.toggleAgentMode()
+                viewModel.onToggleAgentMode?(new)
             })) {
                 Text("Agent")
                     .foregroundColor(.white.opacity(0.9))
@@ -59,23 +59,26 @@ struct PillView: View {
             .tint(.red)
             .labelsHidden()
 
-            Button {
-                viewModel.cancel()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
+            if viewModel.isAlwaysOn {
+                
+                Button {
+                    viewModel.onRequestCancel?()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.white.opacity(0.9))
+                
+                Button {
+                    viewModel.onRequestStop?()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .foregroundColor(.white.opacity(0.9))
-
-            Button {
-                viewModel.endListening()
-            } label: {
-                Image(systemName: "stop.fill")
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(.red)
-            }
-            .buttonStyle(.plain)
         }
     }
 

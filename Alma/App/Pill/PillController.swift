@@ -92,6 +92,9 @@ final class PillController {
                 viewModel.idle()
                 pillPanel.setState(.idle)
 
+            case .setAlwaysOn(let on):
+                viewModel.isAlwaysOn = on
+                
             case .showToast(let message):
                 toast.show(message: message, duration: 1.8)
 
@@ -105,19 +108,22 @@ final class PillController {
     private func handleStartAudio() {
         // Guard against re-entry
         guard !isRecording else { return }
-        isRecording = true
 
         // Start audio engine; provide level callback to update the waveform
-        // TODO: audio.start()
-        // TODO: audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
+        audio.start()
+        audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
+        
+        isRecording = true
+
     }
 
     private func handleStopAudio() {
         guard isRecording else { return }
-        isRecording = false
-
+        
         // Stop audio and keep the file URL for transcription
-        // TODO: lastRecordingURL = audio.stop()
+        lastRecordingURL = audio.stop()
+        
+        isRecording = false
     }
 
     private func handleStartTranscription() {
@@ -129,41 +135,41 @@ final class PillController {
         isTranscribing = true
 
         // Get auth token (however you manage it)
-        // TODO: let token = auth.accessToken
+        let token = auth.accessToken
 
         // Call your Hono/Wispr API and map completion back into the machine
-        // TODO: transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
-        //   Task { @MainActor in
-        //     self?.isTranscribing = false
-        //     switch result {
-        //       case .success(let text): self?.send(.transcriptionSucceeded(text: text))
-        //       case .failure(let err):  self?.send(.transcriptionFailed(error: err.localizedDescription))
-        //     }
-        //   }
-        // }
+        transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
+           Task { @MainActor in
+             self?.isTranscribing = false
+             switch result {
+               case .success(let text): self?.send(.transcriptionSucceeded(text: text))
+               case .failure(let err):  self?.send(.transcriptionFailed(text: err.localizedDescription))
+             }
+           }
+         }
     }
 
     private func handlePasteOrCopy(_ text: String) {
         // Decide based on AX focus and trust; then use your PasteManager
-        // TODO:
-        // let hasFocus = AXFocusHelper.hasFocusedTextInput()
-        // let axTrusted = AccessibilityAuth.isTrusted()
-        // paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { result in
-        //   switch result {
-        //     case .pasted:
-        //       self.toast.show(message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
-        //     case .copiedNoFocus:
-        //       self.toast.show(message: "No input detected — text copied to clipboard", duration: 2.0)
-        //     case .error(let e):
-        //       self.toast.show(message: "Paste error: \(e)", duration: 2.0)
-        //   }
-        //   // Cache to local history regardless
-        //   self.cacheTranscript(text)
-        // }
+        
+         let hasFocus = AXFocusHelper.hasFocusedTextInput()
+         let axTrusted = AccessibilityAuth.isTrusted()
+         paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { result in
+           switch result {
+             case .pasted:
+               self.toast.show(message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
+             case .copiedNoFocus:
+               self.toast.show(message: "No input detected — text copied to clipboard", duration: 2.0)
+             case .error(let e):
+               self.toast.show(message: "Paste error: \(e)", duration: 2.0)
+           }
+           // Cache to local history regardless
+           self.cacheTranscript(text)
+         }
     }
 
     private func handleCopy(_ text: String) {
-        // TODO: paste.copy(text); toast.show("Copied", …); cacheTranscript(text)
+//        paste.copy(text); toast.show("Copied", …); cacheTranscript(text)
     }
 
     private func handleSendToAgent(_ text: String) {
@@ -181,7 +187,7 @@ final class PillController {
 
     // MARK: - Logging helpers
 
-    private func machineStateDebug() -> String {
+    private func machineStateDebug() -> String {    
         // Helpful when reading logs
         return "\(machine)"
     }

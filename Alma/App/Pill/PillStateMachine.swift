@@ -53,6 +53,7 @@ enum PillEffect: Equatable {
     case setVisualStateListening
     case setVisualStateTranscribing
     case setVisualStateIdle
+    case setAlwaysOn(Bool)
 }
 
 struct PillContext: Equatable {
@@ -94,7 +95,9 @@ struct PillStateMachine {
 
         case (.idle, .doubleTapFn):
             ctx.isAlwaysOn.toggle()
-            effects += [.showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled")]
+            effects += [
+                .setAlwaysOn(ctx.isAlwaysOn),
+                .showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled")]
 
         // - LISTENING
         case (.listening(let mode), .fnUp):
@@ -106,13 +109,22 @@ struct PillStateMachine {
             state = .transcribing(mode)
             effects += [.stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
 
-        case (.listening, .stopButton):
+        // When were in always all mode hitting fn again will end the dictation
+        case (.listening, .fnDown) where ctx.isAlwaysOn:
+            ctx.isAlwaysOn = false
             state = .transcribing(currentMode)
-            effects += [.stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
+            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
+
+            
+        case (.listening, .stopButton):
+            ctx.isAlwaysOn = false
+            state = .transcribing(currentMode)
+            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
 
         case (.listening, .cancelButton):
+            ctx.isAlwaysOn = false
             state = .idle
-            effects += [.stopAudioCapture, .setVisualStateIdle, .showToast("Cancelled")]
+            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle, .showToast("Cancelled")]
 
         case (.listening, .cmdDown):
             ctx.isCmdHeld = true

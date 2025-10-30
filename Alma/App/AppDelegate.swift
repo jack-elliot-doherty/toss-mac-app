@@ -32,21 +32,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // No need to call show() separately - setState already positions and shows
 
         pillController = PillController(
-            audio: <#T##AudioRecorder#>,
-            transcriber: <#T##TranscribeAPI#>,
-            paste: <#T##PasteManager#>,
-            pillPanel: <#T##PillPanelController#>,
-            toast: <#T##ToastPanelController#>,
-            viewModel: <#T##PillViewModel#>,
-            auth: <#T##AuthManager#>
+            audio: recorder,
+            transcriber: TranscribeAPI.shared,
+            paste: pasteManager,
+            pillPanel: pillPanel,
+            toast: toastPanel,
+            viewModel: pillViewModel,
+            auth: AuthManager.shared
         )
 
         // Wire hold-to-talk
-        hotkey.onHoldStart = { [weak self] in
+        hotkey.onFnDown = { [weak self] in
             self?.pillController.send(.fnDown)
         }
-        hotkey.onHoldEnd = { [weak self] in
+        hotkey.onFnUp = { [weak self] in
             self?.pillController.send(.fnUp)
+        }
+        hotkey.onCmdDown = { [weak self] in
+            self?.pillController.send(.cmdDown)
+        }
+        hotkey.onCmdUp = { [weak self] in
+            self?.pillController.send(.cmdUp)
+        }
+        hotkey.onDoubleTapFn = { [weak self] in
+          self?.pillController.send(.doubleTapFn)
         }
         hotkey.start()
 
