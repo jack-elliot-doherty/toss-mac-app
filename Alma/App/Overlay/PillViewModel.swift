@@ -7,17 +7,15 @@ enum PasteResult: Equatable {
     case error(String)
 }
 
-enum PillState: Equatable {
+enum PillVisualState: Equatable {
     case idle
-    case listening
-    case transcribing
-    case done(PasteResult)
-    case cancelled
+    case listening(PillMode)
+    case transcribing(PillMode)
 }
 
 @MainActor
 final class PillViewModel: ObservableObject {
-    @Published var state: PillState = .idle
+    @Published var visualState: PillVisualState = .idle
     @Published var isAlwaysOn: Bool = false
     @Published var levelRMS: Float = 0.0
     @Published var agentModeEnabled: Bool = false
@@ -27,34 +25,19 @@ final class PillViewModel: ObservableObject {
     var onRequestCancel: (() -> Void)?
     var onToggleAgentMode: ((Bool) -> Void)?
 
-    func beginListening() {
-        state = .listening
+    
+    func listening(_ mode:PillMode) {
+        visualState = .listening(mode)
     }
-
-    func endListening() {
-        // Owner should start transcription
-        state = .transcribing
-        onRequestStop?()
+    
+    func transcribing(_ mode:PillMode) {
+        visualState = .transcribing(mode)
     }
-
-    func cancel() {
-        state = .cancelled
-        onRequestCancel?()
+    
+    func idle(){
+        visualState = .idle
     }
-
-    func toggleAlwaysOn() {
-        isAlwaysOn.toggle()
-    }
-
-    func setState(_ newState: PillState) {
-        state = newState
-    }
-
-    func onTranscriptionResult(_ text: String) {
-        // Owner will handle paste/copy/toast; here we simply mark done
-        state = .done(.pasted) // placeholder; owner should set precise PasteResult via setState
-    }
-
+    
     func updateLevelRMS(_ value: Float) {
         // Clamp and publish; UI can animate from this
         let clamped = max(0, min(1, value))

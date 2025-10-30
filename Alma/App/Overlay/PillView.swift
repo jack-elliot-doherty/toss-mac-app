@@ -5,24 +5,18 @@ struct PillView: View {
 
     var body: some View {
         let isIdle = {
-            if case .idle = viewModel.state { return true }
-            if case .done = viewModel.state { return true }
-            if case .cancelled = viewModel.state { return true }
+            if case .idle = viewModel.visualState { return true }
             return false
         }()
 
         Group {
-            switch viewModel.state {
+            switch viewModel.visualState {
             case .idle:
                 idle
             case .listening:
                 listening
             case .transcribing:
                 transcribing
-            case .done:
-                idle
-            case .cancelled:
-                idle
             }
         }
         .padding(.horizontal, isIdle ? 8 : 10)
@@ -36,7 +30,7 @@ struct PillView: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .animation(.easeInOut(duration: 0.18), value: viewModel.state)
+        .animation(.easeInOut(duration: 0.18), value: viewModel.visualState)
     }
 
     private var idle: some View {

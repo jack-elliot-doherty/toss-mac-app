@@ -32,6 +32,8 @@
 		DA36237E2EB23FCE000207F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36235F2EB23FCE000207F0 /* Assets.xcassets */; };
 		DA3623802EB23FCE000207F0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */; };
 		DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */; };
+		DA3623852EB3FF10000207F0 /* PillController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623822EB3FF10000207F0 /* PillController.swift */; };
+		DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623832EB3FF10000207F0 /* PillStateMachine.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,6 +83,8 @@
 		DA3623622EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
 		DA3623632EB23FCE000207F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA3623642EB23FCE000207F0 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		DA3623822EB3FF10000207F0 /* PillController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillController.swift; sourceTree = "<group>"; };
+		DA3623832EB3FF10000207F0 /* PillStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillStateMachine.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -203,6 +207,7 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA3623842EB3FF10000207F0 /* Pill */,
 				DA3623442EB23FCE000207F0 /* Input */,
 				DA3623462EB23FCE000207F0 /* Networking */,
 				DA36234E2EB23FCE000207F0 /* Overlay */,
@@ -222,6 +227,15 @@
 				DA3623642EB23FCE000207F0 /* MenuBarController.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		DA3623842EB3FF10000207F0 /* Pill */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623822EB3FF10000207F0 /* PillController.swift */,
+				DA3623832EB3FF10000207F0 /* PillStateMachine.swift */,
+			);
+			path = Pill;
 			sourceTree = "<group>";
 		};
 		DAA0F08F2EAABCD3002CA0FA = {
@@ -407,6 +421,8 @@
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
 				DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */,
+				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
+				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,

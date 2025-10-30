@@ -63,8 +63,8 @@ final class PillPanelController {
         }
     }
 
-    func setState(_ state: PillState) {
-        viewModel.setState(state)
+    func setState(_ state: PillVisualState) {
+        viewModel.visualState = state
         // Resize heuristics for main states and center in one atomic frame update
         let size = sizeForState(state)
         setSizeAndCenter(to: size, animated: true)
@@ -84,13 +84,13 @@ final class PillPanelController {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    private func sizeForState(_ state: PillState) -> NSSize {
+    private func sizeForState(_ state: PillVisualState) -> NSSize {
         switch state {
-        case .idle, .done, .cancelled:
+        case .idle:
             return Self.idleSize  // Use the constant defined above
-        case .listening:
+        case .listening(_):
             return NSSize(width: 240, height: 40)
-        case .transcribing:
+        case .transcribing(_):
             return NSSize(width: 200, height: 40)
         }
     }
