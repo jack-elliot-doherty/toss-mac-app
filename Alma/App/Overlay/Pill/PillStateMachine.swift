@@ -26,7 +26,7 @@ enum PillEvent: Equatable {
     case cmdDown
     case cmdUp
     case doubleTapFn
-    case StopButton
+    case stopButton
     case cancelButton
 
     // async results
@@ -106,7 +106,7 @@ struct PillStateMachine {
             state = .transcribing(mode)
             effects += [.stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
 
-        case (.listening, .StopButton):
+        case (.listening, .stopButton):
             state = .transcribing(currentMode)
             effects += [.stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
 
