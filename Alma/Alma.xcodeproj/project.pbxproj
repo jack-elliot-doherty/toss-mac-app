@@ -22,7 +22,6 @@
 		DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623492EB23FCE000207F0 /* PillPanelController.swift */; };
 		DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623582EB23FCE000207F0 /* PasteManager.swift */; };
 		DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */; };
-		DA3623772EB23FCE000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623562EB23FCE000207F0 /* AuthManager.swift */; };
 		DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */; };
 		DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235E2EB23FCE000207F0 /* AppDelegate.swift */; };
 		DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */; };
@@ -34,6 +33,7 @@
 		DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */; };
 		DA3623852EB3FF10000207F0 /* PillController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623822EB3FF10000207F0 /* PillController.swift */; };
 		DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623832EB3FF10000207F0 /* PillStateMachine.swift */; };
+		DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623602EB23FCE000207F0 /* AuthManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,7 +70,6 @@
 		DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
 		DA3623532EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
 		DA3623552EB23FCE000207F0 /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
-		DA3623562EB23FCE000207F0 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXFocusHelper.swift; sourceTree = "<group>"; };
 		DA3623582EB23FCE000207F0 /* PasteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteManager.swift; sourceTree = "<group>"; };
 		DA36235A2EB23FCE000207F0 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
@@ -189,7 +188,6 @@
 			isa = PBXGroup;
 			children = (
 				DA3623552EB23FCE000207F0 /* Accessibility.swift */,
-				DA3623562EB23FCE000207F0 /* AuthManager.swift */,
 				DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */,
 				DA3623582EB23FCE000207F0 /* PasteManager.swift */,
 			);
@@ -402,6 +400,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */,
 				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
 				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
 				DA3623682EB23FCE000207F0 /* MicPillView.swift in Sources */,
@@ -417,7 +416,6 @@
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
-				DA3623772EB23FCE000207F0 /* AuthManager.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
 				DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */,

@@ -150,10 +150,11 @@ final class PillController {
     }
 
     private func handlePasteOrCopy(_ text: String) {
+        
         // Decide based on AX focus and trust; then use your PasteManager
         
          let hasFocus = AXFocusHelper.hasFocusedTextInput()
-         let axTrusted = AccessibilityAuth.isTrusted()
+        let axTrusted = AccessibilityAuth.ensureAccess(prompt: true) 
          paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { result in
            switch result {
              case .pasted:
