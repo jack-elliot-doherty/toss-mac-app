@@ -1,6 +1,23 @@
 import Cocoa
 
 enum AXFocusHelper {
+    
+    static func focusedElement() -> AXUIElement? {
+        guard AccessibilityAuth.isTrusted() else {return nil}
+        let system = AXUIElementCreateSystemWide()
+        var focused: CFTypeRef?
+        let res = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused)
+        guard res == .success, let el  = focused else {return nil}
+        return (el! as  AXUIElement)
+    }
+    
+    static func hasEditableTextTarget() -> Bool {
+        guard let el = focusedElement() else {return false}
+        
+        var isSecure: CFTypeRef
+        
+    }
+    
     static func hasFocusedTextInput() -> Bool {
         guard AccessibilityAuth.isTrusted() else { return false }
         let system = AXUIElementCreateSystemWide()
