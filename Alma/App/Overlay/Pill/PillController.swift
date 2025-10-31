@@ -144,22 +144,23 @@ final class PillController {
     }
 
     private func handlePasteOrCopy(_ text: String) {
-        // Decide based on AX focus and trust; then use your PasteManager
-        // TODO:
-        // let hasFocus = AXFocusHelper.hasFocusedTextInput()
-        // let axTrusted = AccessibilityAuth.isTrusted()
-        // paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { result in
-        //   switch result {
-        //     case .pasted:
-        //       self.toast.show(message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
-        //     case .copiedNoFocus:
-        //       self.toast.show(message: "No input detected — text copied to clipboard", duration: 2.0)
-        //     case .error(let e):
-        //       self.toast.show(message: "Paste error: \(e)", duration: 2.0)
-        //   }
-        //   // Cache to local history regardless
-        //   self.cacheTranscript(text)
-        // }
+
+        let hasFocus = AXFocusHelper.hasFocusedTextInput()
+        let axTrusted = AccessibilityAuth.isTrusted()
+        paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.08) {
+            result in
+            switch result {
+            case .pasted:
+                self.toast.show(
+                    message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
+            case .copiedNoFocus:
+                self.toast.show(
+                    message: "No input detected — text copied to clipboard", duration: 2.0)
+            case .error(let e):
+                self.toast.show(message: "Paste error: \(e)", duration: 2.0)
+            }
+            self.cacheTranscript(text)
+        }
     }
 
     private func handleCopy(_ text: String) {

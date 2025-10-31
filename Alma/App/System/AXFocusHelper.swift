@@ -14,7 +14,7 @@ enum AXFocusHelper {
     static func hasEditableTextTarget() -> Bool {
         guard let el = focusedElement() else {return false}
         
-        var isSecure: CFTypeRef
+        var isSecure: CFTypeRef?
         if AXUIElementCopyAttributeValue(el, "AXSecure" as CFString, &isSecure) == .success,
            let secure = isSecure as? Bool, secure {return false}
         
