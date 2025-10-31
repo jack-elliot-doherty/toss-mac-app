@@ -8,14 +8,30 @@ enum AXFocusHelper {
         var focused: CFTypeRef?
         let res = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused)
         guard res == .success, let el  = focused else {return nil}
-        return (el! as  AXUIElement)
+        return (el as!  AXUIElement)
     }
     
     static func hasEditableTextTarget() -> Bool {
         guard let el = focusedElement() else {return false}
         
         var isSecure: CFTypeRef
+        if AXUIElementCopyAttributeValue(el, "AXSecure" as CFString, &isSecure) == .success,
+           let secure = isSecure as? Bool, secure {return false}
         
+        // Role Check
+        var role: CFTypeRef?
+        if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &role) == .success,
+           let roleStr = role as? String {
+            let editableRoles = [kAXTextFieldRole as String, kAXTextAreaRole as String, "AXSearchField"]
+            if editableRoles.contains(roleStr) { return true }
+        }
+        
+        // Editable?
+        var editable:CFTypeRef?
+        if AXUIElementCopyAttributeValue(el, "AXEditable" as CFString, &editable) == .success,
+           let canEdit = editable as? Bool {return canEdit}
+        
+        return false
     }
     
     static func hasFocusedTextInput() -> Bool {
