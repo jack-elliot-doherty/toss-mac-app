@@ -9,7 +9,7 @@ final class ToastPanelController {
 
     init(anchorFrameProvider: @escaping () -> NSRect?) {
         self.anchorFrameProvider = anchorFrameProvider
-        let contentRect = NSRect(x: 0, y: 0, width: 260, height: 32)
+        let contentRect = NSRect(x: 0, y: 40, width: 260, height: 32)
         self.panel = NSPanel(contentRect: contentRect,
                               styleMask: [.nonactivatingPanel, .borderless],
                               backing: .buffered,

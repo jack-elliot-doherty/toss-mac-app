@@ -136,6 +136,20 @@ struct PillStateMachine {
         case (.listening, .cmdUp):
             ctx.isCmdHeld = false
 
+        // handle double-tap while already listening
+        case (.listening(let mode), .doubleTapFn):
+          if ctx.isAlwaysOn == false {
+              // Enter Always-On, keep listening
+              ctx.isAlwaysOn = true
+              effects += [.setAlwaysOn(true), .showToast("Always-On enabled"), .setVisualStateListening]
+              // state remains .listening(mode)
+          } else {
+          // Already Always-On → treat as Done
+              ctx.isAlwaysOn = false
+              state = .transcribing(mode)
+              effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
+          }
+            
         // - TRANSCRIBING
         case (.transcribing, .transcriptionSucceeded(let text)):
             let mode = currentMode

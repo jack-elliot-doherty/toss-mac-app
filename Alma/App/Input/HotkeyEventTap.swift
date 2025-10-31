@@ -14,12 +14,19 @@ final class HotkeyEventTap {
     private var isHoldingCmd: Bool = false
     
     private var lastFnDownAt:Date?
-    private let doubleTapWindow: TimeInterval = 0.30
+    private let doubleTapWindow: TimeInterval = 0.5
     private var cooldownUntil :Date?
+    private let minFnHold: TimeInterval = 0.5
+    private var pendingFnUpTimer: Timer?
+    
+    private var swallowFnDownAfterDoubleTap = false
+    private var swallowNextFnUp = false
     
     private(set) var isStarted: Bool = false
     
     private var previousFlags: NSEvent.ModifierFlags = []
+    
+
     
     
     func start() {
@@ -41,21 +48,67 @@ final class HotkeyEventTap {
 
             // --- Fn edges ---
             if !fnWasDown && fnIsDown {
-                // Double-tap check
-                if let last = lastFnDownAt,
-                   now.timeIntervalSince(last) <= doubleTapWindow,
-                   (cooldownUntil.map { now >= $0 } ?? true) {
-                    print("[Hotkey] Fn double-tap")
-                    onDoubleTapFn?()
-                    cooldownUntil = now.addingTimeInterval(0.35)
+                // Double-tap check happens on the DOWN edge
+                var isDouble = false
+                if let last = self.lastFnDownAt,
+                   now.timeIntervalSince(last) <= self.doubleTapWindow,
+                   (self.cooldownUntil.map { now >= $0 } ?? true) {
+                    isDouble = true
                 }
+                
+                if isDouble {
+                    print("[Hotkey] Fn double tap")
+                    self.onDoubleTapFn?()
+                    cooldownUntil = now.addingTimeInterval(0.35)
+                    
+                    // Swallow the down up the formed the double tap
+                    self.swallowFnDownAfterDoubleTap = true
+                    self.swallowNextFnUp = true
+                    
+                    // ensure no delayed up from min hold
+                    self.pendingFnUpTimer?.invalidate()
+                    self.pendingFnUpTimer = nil
+                    self.lastFnDownAt = nil
+                    
+                    print("[Hotkey] (swallowing Fn DOWN/UP for double-tap)")
+                    self.previousFlags = flags
+                    return   // ← do NOT call onFnDown
+                    
+                }
+                
+                // normal single down path
+                pendingFnUpTimer?.invalidate()
+                pendingFnUpTimer = nil
                 lastFnDownAt = now
                 print("[Hotkey] Fn DOWN")
                 onFnDown?()
             }
             if fnWasDown && !fnIsDown {
+                
+            // If we just decided to swallow the post-double-tap UP, eat it and reset the flag
+               if self.swallowNextFnUp {
+                   self.swallowNextFnUp = false
+                   self.swallowFnDownAfterDoubleTap = false
+                   print("[Hotkey] (swallowed Fn UP after double-tap)")
+                   self.previousFlags = flags
+                   return
+               }
+                
                 print("[Hotkey] Fn UP")
-                onFnUp?()
+                let held = now.timeIntervalSince(lastFnDownAt ?? now)
+                if held >= minFnHold {
+                    onFnUp?()
+                } else {
+                    let delay = max(0,minFnHold - held)
+                    pendingFnUpTimer?.invalidate()
+                    pendingFnUpTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) {[weak self] _ in
+                        self?.onFnUp?()
+                        self?.pendingFnUpTimer = nil
+                    }
+                    RunLoop.main.add(pendingFnUpTimer!, forMode: .common) // don’t let UI interactions pause it
+
+                }
+                
             }
 
             // --- Cmd edges ---
@@ -72,36 +125,6 @@ final class HotkeyEventTap {
             print("Flags")
             print(flags)
             previousFlags = flags
-//            
-//            let fnDown = event.modifierFlags.contains(.function)
-//            let cmdDown = event.modifierFlags.contains(.command)
-//            if fnDown && !self.isHoldingFn {
-//                self.isHoldingFn = true
-//                
-//                // Double-tap check on the Fn-down edge
-//                               let now = Date()
-//                               if let last = self.lastFnDownAt,
-//                                  now.timeIntervalSince(last) <= self.doubleTapWindow,
-//                                  (self.cooldownUntil.map { now >= $0 } ?? true) {
-//                                   self.onDoubleTapFn?()
-//                                   // small cooldown to avoid triple-tap toggling twice
-//                                   self.cooldownUntil = now.addingTimeInterval(0.35)
-//                               }
-//                               self.lastFnDownAt = now
-//                
-//                self.onFnDown?()
-//            } else if !fnDown && self.isHoldingFn {
-//                self.isHoldingFn = false
-//                self.onFnUp?()
-//            }
-//            
-//            if cmdDown && !self.isHoldingCmd {
-//                self.isHoldingCmd = true
-//                self.onCmdDown?()
-//            } else if !cmdDown && self.isHoldingCmd {
-//                self.isHoldingCmd = false
-//                self.onCmdUp?()
-//            }
             
         }) {
             monitors.append(flagsMonitor)
@@ -113,6 +136,21 @@ final class HotkeyEventTap {
         monitors.forEach { NSEvent.removeMonitor($0) }
         monitors.removeAll()
         isStarted = false
+        
+//        cancel any pending delayed up event
+        pendingFnUpTimer?.invalidate()
+        pendingFnUpTimer = nil
+        
+        // clear swallow flags
+               swallowFnDownAfterDoubleTap = false
+               swallowNextFnUp = false
+        
+        // If Fn was logically down, synthesize an up so the app isn't stuck
+           if previousFlags.contains(.function) { onFnUp?() }
+           if previousFlags.contains(.command)  { onCmdUp?() }
+
+       previousFlags = []
+        
         if isHoldingFn {
             isHoldingFn = false
             onFnUp?()
