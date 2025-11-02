@@ -87,8 +87,7 @@ struct PillStateMachine {
 
         case (.idle, .cmdDown):
             ctx.isCmdHeld = true
-            // if the user already holding fn, we will switch on the next fn down otherwise noop
-            effects += []
+            // Noop until fn down starts a session
 
         case (.idle, .cmdUp):
             ctx.isCmdHeld = false
@@ -126,15 +125,21 @@ struct PillStateMachine {
             state = .idle
             effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle, .showToast("Cancelled")]
 
-        case (.listening, .cmdDown):
+        case (.listening(let mode), .cmdDown):
+            guard !ctx.isAlwaysOn else {break} // ignore cmd in always as its only for dictation
             ctx.isCmdHeld = true
-            // If they pressed cmd while already listening in dictating mode then convert it to command mode
-            if case .listening(.dictation) = state {
+            if mode != .command {
                 state = .listening(.command)
+                effects += [.setVisualStateListening]
             }
 
-        case (.listening, .cmdUp):
+        case (.listening(let mode), .cmdUp):
+            guard !ctx.isAlwaysOn else { break }
             ctx.isCmdHeld = false
+            if mode != .dictation {
+                state = .listening(.dictation)
+                effects += [.setVisualStateListening]
+            }
 
         // handle double-tap while already listening
         case (.listening(let mode), .doubleTapFn):

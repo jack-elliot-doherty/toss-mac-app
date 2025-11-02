@@ -34,6 +34,7 @@
 		DA3623852EB3FF10000207F0 /* PillController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623822EB3FF10000207F0 /* PillController.swift */; };
 		DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623832EB3FF10000207F0 /* PillStateMachine.swift */; };
 		DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623602EB23FCE000207F0 /* AuthManager.swift */; };
+		DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 		DA3623642EB23FCE000207F0 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		DA3623822EB3FF10000207F0 /* PillController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillController.swift; sourceTree = "<group>"; };
 		DA3623832EB3FF10000207F0 /* PillStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillStateMachine.swift; sourceTree = "<group>"; };
+		DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillPreviewModel.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -153,6 +155,7 @@
 				DA3623482EB23FCE000207F0 /* MicPillView.swift */,
 				DA3623492EB23FCE000207F0 /* PillPanelController.swift */,
 				DA36234A2EB23FCE000207F0 /* PillView.swift */,
+				DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */,
 				DA36234B2EB23FCE000207F0 /* PillViewModel.swift */,
 				DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */,
 				DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */,
@@ -414,6 +417,7 @@
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
 				DA3623732EB23FCE000207F0 /* MenuBarController.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
+				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,

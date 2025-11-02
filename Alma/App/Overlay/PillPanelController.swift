@@ -34,6 +34,24 @@ final class PillPanelController {
         panel.contentView = hostingView
     }
 
+    private func intrinsicPillSize(for state: PillVisualState) -> NSSize {
+        // Ask SwiftUI to recompute its size for the current visualState
+        hostingView.invalidateIntrinsicContentSize()
+        hostingView.layoutSubtreeIfNeeded()
+
+        var size = hostingView.fittingSize
+        // Optional: make transcribing a hair wider for the dots
+        if case .transcribing = state {
+            size.width += 6
+        }
+
+        // Pixel-align and fall back to idle if SwiftUI hasn't laid out yet
+        size.width  = ceil(max(size.width,  Self.idleSize.width))
+        size.height = ceil(max(size.height, Self.idleSize.height))
+        return size
+    }
+
+    
     var frame: NSRect { panel.frame }
 
     func show(at origin: NSPoint? = nil) {
@@ -85,14 +103,7 @@ final class PillPanelController {
     }
 
     private func sizeForState(_ state: PillVisualState) -> NSSize {
-        switch state {
-        case .idle:
-            return Self.idleSize  // Use the constant defined above
-        case .listening(_):
-            return NSSize(width: 240, height: 40)
-        case .transcribing(_):
-            return NSSize(width: 200, height: 40)
-        }
+        intrinsicPillSize(for: state)
     }
 
     private func setSizeAndCenter(to size: NSSize, animated: Bool, margin: CGFloat = 8) {
