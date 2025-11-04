@@ -120,8 +120,12 @@ final class PillController {
 
     }
 
+    private var stopTime: Date?
+
     private func handleStopAudio() {
         guard isRecording else { return }
+        stopTime = Date()
+        print("Stop time: \(stopTime!.timeIntervalSince1970)")
 
         // Stop audio and keep the file URL for transcription
         lastRecordingURL = audio.stop()
@@ -136,6 +140,8 @@ final class PillController {
             return
         }
         isTranscribing = true
+
+        print("⏱️ UPLOAD START: +\(Date().timeIntervalSince(stopTime!))s")
 
         // Get auth token (however you manage it)
         let token = auth.accessToken
