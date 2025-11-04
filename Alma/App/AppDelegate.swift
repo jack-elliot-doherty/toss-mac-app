@@ -5,7 +5,6 @@ import Foundation
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var pillController: PillController!
     private var statusItem: NSStatusItem?
-    private var menuBarController: MenuBarController?
     private let hotkey = HotkeyEventTap()
     private let recorder = AudioRecorder()
     private var didPaste: Bool = false
@@ -16,16 +15,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var toastPanel = ToastPanelController(anchorFrameProvider: { [weak self] in
         self?.pillPanel.frame
     })
-    private lazy var agentPanel = AgentPanelController(historyRepo: historyRepo)
+    private lazy var agentViewModel = AgentViewModel(auth: AuthManager.shared)
+    private lazy var agentPanel = AgentPanelController(
+        viewModel: agentViewModel,
+        anchorFrameProvider: { [weak self] in
+            self?.pillPanel.frame
+        })
     private var lastTapAt: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.title = "Alma"
-        let menuBarController = MenuBarController(statusItem: statusItem)
         self.statusItem = statusItem
-        self.menuBarController = menuBarController
 
         // Pill panel idle and visible (non-activating)
         pillPanel.setState(.idle)
@@ -38,7 +39,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             pillPanel: pillPanel,
             toast: toastPanel,
             viewModel: pillViewModel,
-            auth: AuthManager.shared
+            auth: AuthManager.shared,
+            agentPanel: agentPanel
+
         )
 
         // Wire hold-to-talk
@@ -55,13 +58,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillController.send(.cmdUp)
         }
         hotkey.onDoubleTapFn = { [weak self] in
-          self?.pillController.send(.doubleTapFn)
+            self?.pillController.send(.doubleTapFn)
         }
         hotkey.start()
 
         // Expose UI intents from pill
-        pillViewModel.onRequestStop = { [weak self] in self?.pillController.send(.stopButton)}
-        pillViewModel.onRequestCancel = { [weak self] in self?.pillController.send(.cancelButton)}
+        pillViewModel.onRequestStop = { [weak self] in self?.pillController.send(.stopButton) }
+        pillViewModel.onRequestCancel = { [weak self] in self?.pillController.send(.cancelButton) }
 
         // Observe planner demo trigger
         NotificationCenter.default.addObserver(

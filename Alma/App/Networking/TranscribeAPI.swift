@@ -7,15 +7,19 @@ final class TranscribeAPI {
     private let baseURL: URL
     private let apiKey: String?
 
-    init(session: URLSession = .shared,
-         baseURL: URL = URL(string: "http://127.0.0.1:8787")!,
-         apiKey: String? = ProcessInfo.processInfo.environment["ALMA_API_KEY"]) {
+    init(
+        session: URLSession = .shared,
+        baseURL: URL = URL(string: "http://127.0.0.1:8787")!,
+        apiKey: String? = ProcessInfo.processInfo.environment["ALMA_API_KEY"]
+    ) {
         self.session = session
         self.baseURL = baseURL
         self.apiKey = apiKey
     }
 
-    func transcribe(fileURL: URL, token: String? = nil, completion: @escaping (Result<String, Error>) -> Void) {
+    func transcribe(
+        fileURL: URL, token: String? = nil, completion: @escaping (Result<String, Error>) -> Void
+    ) {
         let url = baseURL.appendingPathComponent("/transcribe")
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
         var request = URLRequest(url: url)
@@ -26,7 +30,8 @@ final class TranscribeAPI {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         let boundary = "Boundary-\(UUID().uuidString)"
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
         func append(_ s: String) { body.append(s.data(using: .utf8)!) }
@@ -46,22 +51,84 @@ final class TranscribeAPI {
         request.httpBody = body
 
         let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                NSLog("[TranscribeAPI] network error: %@", error.localizedDescription)
+                completion(.failure(error))
+                return
+            }
+
+            guard let data = data else {
+                completion(
+                    .failure(
+                        NSError(
+                            domain: "TranscribeAPI", code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "No data"])))
+                return
+            }
             if let http = response as? HTTPURLResponse {
                 NSLog("[TranscribeAPI] response status %d", http.statusCode)
+                // Handle http status code
+
+                // Handle error status codes
+                if http.statusCode == 401 {
+                    completion(
+                        .failure(
+                            NSError(
+                                domain: "TranscribeAPI",
+                                code: 401,
+                                userInfo: [
+                                    NSLocalizedDescriptionKey: "Unauthorized - Please sign in"
+                                ]
+                            )))
+                    return
+                }
+
+                if http.statusCode >= 400 {
+                    // Try to parse error message from JSON
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                        let errorMsg = json["error"] as? String
+                    {
+                        completion(
+                            .failure(
+                                NSError(
+                                    domain: "TranscribeAPI",
+                                    code: http.statusCode,
+                                    userInfo: [NSLocalizedDescriptionKey: errorMsg]
+                                )))
+                        return
+                    }
+
+                    completion(
+                        .failure(
+                            NSError(
+                                domain: "TranscribeAPI",
+                                code: http.statusCode,
+                                userInfo: [
+                                    NSLocalizedDescriptionKey: "Server error: \(http.statusCode)"
+                                ]
+                            )))
+                    return
+                }
+
             }
-            if let error = error { completion(.failure(error)); return }
-            guard let data = data else {
-                completion(.failure(NSError(domain: "TranscribeAPI", code: 2, userInfo: [NSLocalizedDescriptionKey: "No data"]))); return
-            }
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let text = json["text"] as? String {
+
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let text = json["text"] as? String
+            {
                 NSLog("[TranscribeAPI] received text length %d", text.count)
-                completion(.success(text)); return
+                completion(.success(text))
+                return
             }
-            if let text = String(data: data, encoding: .utf8), !text.isEmpty { completion(.success(text)); return }
-            completion(.failure(NSError(domain: "TranscribeAPI", code: 3, userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])));
+            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                completion(.success(text))
+                return
+            }
+            completion(
+                .failure(
+                    NSError(
+                        domain: "TranscribeAPI", code: 3,
+                        userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])))
         }
         task.resume()
     }
 }
-
-

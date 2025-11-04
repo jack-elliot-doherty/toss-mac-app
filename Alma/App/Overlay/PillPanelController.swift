@@ -106,19 +106,34 @@ final class PillPanelController {
         intrinsicPillSize(for: state)
     }
 
-    private func setSizeAndCenter(to size: NSSize, animated: Bool, margin: CGFloat = 8) {
-        // Always use main screen for primary display
-        guard let screen = NSScreen.main else { return }
+    private func screenUnderMouse() -> NSScreen? {
+        let mouse = NSEvent.mouseLocation // global coords
+        // Use .frame (not .visibleFrame) for containment checks
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+    }
+
+    
+    private func setSizeAndCenter(
+        to size: NSSize,
+        on screen: NSScreen? = nil,
+        animated: Bool,
+        margin: CGFloat = 8
+    ) {
+        let screen = screen ?? screenUnderMouse() ?? panel.screen ?? NSScreen.main
+        guard let screen else { return }
+
         let vf = screen.visibleFrame
-        // Center horizontally: midpoint minus half width
-        let x = vf.origin.x + (vf.width / 2) - (size.width / 2)
-        let y = vf.minY + margin
-        let origin = NSPoint(x: x, y: y)
-        let target = NSRect(origin: origin, size: size)
-        
-        NSLog("[PillPanel] Centering: screen.visibleFrame=\(vf), size=\(size), target=\(target)")
-        
-        if animated {
+        let x  = vf.origin.x + (vf.width  - size.width)  / 2
+        let y  = vf.minY + margin
+        let target = NSRect(x: x, y: y, width: size.width, height: size.height)
+
+        // (optional) if you added pixel snapping:
+        // target = pixelAlign(target, on: screen)
+
+        let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let shouldAnimate = animated && !reducedMotion
+
+        if shouldAnimate {
             NSAnimationContext.runAnimationGroup { ctx in
                 ctx.duration = 0.18
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -128,6 +143,7 @@ final class PillPanelController {
             panel.setFrame(target, display: true)
         }
     }
+
 }
 
 

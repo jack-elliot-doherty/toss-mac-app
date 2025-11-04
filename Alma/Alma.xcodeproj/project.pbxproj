@@ -9,22 +9,17 @@
 /* Begin PBXBuildFile section */
 		DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234B2EB23FCE000207F0 /* PillViewModel.swift */; };
 		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
-		DA3623682EB23FCE000207F0 /* MicPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623482EB23FCE000207F0 /* MicPillView.swift */; };
 		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
-		DA36236B2EB23FCE000207F0 /* AgentPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623472EB23FCE000207F0 /* AgentPanelController.swift */; };
 		DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623402EB23FCE000207F0 /* AudioEngine.swift */; };
 		DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623412EB23FCE000207F0 /* AudioRecorder.swift */; };
 		DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623612EB23FCE000207F0 /* ContentView.swift */; };
-		DA3623702EB23FCE000207F0 /* SpeechTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */; };
 		DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623532EB23FCE000207F0 /* HistoryRepository.swift */; };
 		DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */; };
-		DA3623732EB23FCE000207F0 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623642EB23FCE000207F0 /* MenuBarController.swift */; };
 		DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623492EB23FCE000207F0 /* PillPanelController.swift */; };
 		DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623582EB23FCE000207F0 /* PasteManager.swift */; };
 		DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */; };
 		DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */; };
 		DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235E2EB23FCE000207F0 /* AppDelegate.swift */; };
-		DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */; };
 		DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623552EB23FCE000207F0 /* Accessibility.swift */; };
 		DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235D2EB23FCE000207F0 /* AlmaApp.swift */; };
 		DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234A2EB23FCE000207F0 /* PillView.swift */; };
@@ -35,6 +30,10 @@
 		DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623832EB3FF10000207F0 /* PillStateMachine.swift */; };
 		DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623602EB23FCE000207F0 /* AuthManager.swift */; };
 		DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */; };
+		DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36238A2EB95D2E000207F0 /* AgentPanelController.swift */; };
+		DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36238B2EB95D2E000207F0 /* AgentView.swift */; };
+		DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */; };
+		DA3623912EB95D39000207F0 /* AgentAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623902EB95D39000207F0 /* AgentAPI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,14 +57,10 @@
 		DA3623402EB23FCE000207F0 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		DA3623412EB23FCE000207F0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
-		DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTranscriber.swift; sourceTree = "<group>"; };
 		DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
-		DA3623472EB23FCE000207F0 /* AgentPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelController.swift; sourceTree = "<group>"; };
-		DA3623482EB23FCE000207F0 /* MicPillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPillView.swift; sourceTree = "<group>"; };
 		DA3623492EB23FCE000207F0 /* PillPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillPanelController.swift; sourceTree = "<group>"; };
 		DA36234A2EB23FCE000207F0 /* PillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillView.swift; sourceTree = "<group>"; };
 		DA36234B2EB23FCE000207F0 /* PillViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillViewModel.swift; sourceTree = "<group>"; };
-		DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
 		DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastPanelController.swift; sourceTree = "<group>"; };
 		DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
@@ -82,10 +77,13 @@
 		DA3623612EB23FCE000207F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		DA3623622EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
 		DA3623632EB23FCE000207F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		DA3623642EB23FCE000207F0 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		DA3623822EB3FF10000207F0 /* PillController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillController.swift; sourceTree = "<group>"; };
 		DA3623832EB3FF10000207F0 /* PillStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillStateMachine.swift; sourceTree = "<group>"; };
 		DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillPreviewModel.swift; sourceTree = "<group>"; };
+		DA36238A2EB95D2E000207F0 /* AgentPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPanelController.swift; sourceTree = "<group>"; };
+		DA36238B2EB95D2E000207F0 /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
+		DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
+		DA3623902EB95D39000207F0 /* AgentAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAPI.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -135,7 +133,6 @@
 				DA3623402EB23FCE000207F0 /* AudioEngine.swift */,
 				DA3623412EB23FCE000207F0 /* AudioRecorder.swift */,
 				DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */,
-				DA3623432EB23FCE000207F0 /* SpeechTranscriber.swift */,
 			);
 			path = Input;
 			sourceTree = "<group>";
@@ -143,6 +140,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DA3623902EB95D39000207F0 /* AgentAPI.swift */,
 				DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */,
 			);
 			path = Networking;
@@ -151,13 +149,13 @@
 		DA36234E2EB23FCE000207F0 /* Overlay */ = {
 			isa = PBXGroup;
 			children = (
-				DA3623472EB23FCE000207F0 /* AgentPanelController.swift */,
-				DA3623482EB23FCE000207F0 /* MicPillView.swift */,
+				DA36238A2EB95D2E000207F0 /* AgentPanelController.swift */,
+				DA36238B2EB95D2E000207F0 /* AgentView.swift */,
+				DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */,
 				DA3623492EB23FCE000207F0 /* PillPanelController.swift */,
 				DA36234A2EB23FCE000207F0 /* PillView.swift */,
 				DA3623882EB56CD1000207F0 /* PillPreviewModel.swift */,
 				DA36234B2EB23FCE000207F0 /* PillViewModel.swift */,
-				DA36234C2EB23FCE000207F0 /* QuoteBubbleView.swift */,
 				DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */,
 			);
 			path = Overlay;
@@ -225,7 +223,6 @@
 				DA3623612EB23FCE000207F0 /* ContentView.swift */,
 				DA3623622EB23FCE000207F0 /* HistoryRepository.swift */,
 				DA3623632EB23FCE000207F0 /* Info.plist */,
-				DA3623642EB23FCE000207F0 /* MenuBarController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -405,28 +402,27 @@
 			files = (
 				DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */,
 				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
+				DA3623912EB95D39000207F0 /* AgentAPI.swift in Sources */,
 				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
-				DA3623682EB23FCE000207F0 /* MicPillView.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
-				DA36236B2EB23FCE000207F0 /* AgentPanelController.swift in Sources */,
 				DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
 				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
-				DA3623702EB23FCE000207F0 /* SpeechTranscriber.swift in Sources */,
 				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
-				DA3623732EB23FCE000207F0 /* MenuBarController.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
-				DA36237A2EB23FCE000207F0 /* QuoteBubbleView.swift in Sources */,
 				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */,
+				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
+				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
+				DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

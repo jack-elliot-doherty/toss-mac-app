@@ -18,8 +18,9 @@ final class PillController {
     private let pillPanel: PillPanelController
     private let toast: ToastPanelController
     private let viewModel: PillViewModel
-//    private let history: InMemoryHistoryRepository
+    //    private let history: InMemoryHistoryRepository
     private let auth: AuthManager
+    private let agentPanel: AgentPanelController
 
     init(
         audio: AudioRecorder,
@@ -28,8 +29,9 @@ final class PillController {
         pillPanel: PillPanelController,
         toast: ToastPanelController,
         viewModel: PillViewModel,
-//        history: HistoryRepository,
-        auth: AuthManager
+        //        history: HistoryRepository,
+        auth: AuthManager,
+        agentPanel: AgentPanelController
     ) {
         self.audio = audio
         self.transcriber = transcriber
@@ -37,8 +39,9 @@ final class PillController {
         self.pillPanel = pillPanel
         self.toast = toast
         self.viewModel = viewModel
-//        self.history = history
+        //        self.history = history
         self.auth = auth
+        self.agentPanel = agentPanel
     }
 
     private func log(_ s: String) { print("[PillController] \(s)") }
@@ -94,7 +97,7 @@ final class PillController {
 
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
-                
+
             case .showToast(let message):
                 toast.show(message: message, duration: 1.8)
 
@@ -112,17 +115,17 @@ final class PillController {
         // Start audio engine; provide level callback to update the waveform
         audio.start()
         audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
-        
+
         isRecording = true
 
     }
 
     private func handleStopAudio() {
         guard isRecording else { return }
-        
+
         // Stop audio and keep the file URL for transcription
         lastRecordingURL = audio.stop()
-        
+
         isRecording = false
     }
 
@@ -139,46 +142,70 @@ final class PillController {
 
         // Call your Hono/Wispr API and map completion back into the machine
         transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
-           Task { @MainActor in
-             self?.isTranscribing = false
-             switch result {
-               case .success(let text): self?.send(.transcriptionSucceeded(text: text))
-               case .failure(let err):  self?.send(.transcriptionFailed(text: err.localizedDescription))
-             }
-           }
-         }
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                self.isTranscribing = false
+
+                switch result {
+                case .success(let text):
+                    self.send(.transcriptionSucceeded(text: text))
+
+                case .failure(let error):
+                    let nsError = error as NSError
+                    var displayMessage = error.localizedDescription
+
+                    // Handle specific error cases
+                    if nsError.code == 401 {
+                        // Unauthorized - show sign in prompt
+                        displayMessage = "Please sign in to use transcription"
+                        self.toast.show(message: displayMessage, duration: 3.0)
+
+                        // Optionally: Open app to sign in screen
+                        // NotificationCenter.default.post(name: .showSignInRequired, object: nil)
+                    } else {
+                        // Other errors
+                        self.toast.show(
+                            message: "Transcription failed: \(displayMessage)", duration: 3.0)
+                    }
+
+                    self.send(.transcriptionFailed(text: displayMessage))
+                }
+            }
+        }
     }
 
     private func handlePasteOrCopy(_ text: String) {
-        
+
         // Decide based on AX focus and trust; then use your PasteManager
-        
-         let hasFocus = AXFocusHelper.hasFocusedTextInput()
-        let axTrusted = AccessibilityAuth.ensureAccess(prompt: true) 
-         paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) { result in
-           switch result {
-             case .pasted:
-               self.toast.show(message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
-             case .copiedNoFocus:
-               self.toast.show(message: "No input detected — text copied to clipboard", duration: 2.0)
-             case .error(let e):
-               self.toast.show(message: "Paste error: \(e)", duration: 2.0)
-           }
-           // Cache to local history regardless
-           self.cacheTranscript(text)
-         }
+
+        let hasFocus = AXFocusHelper.hasFocusedTextInput()
+        let axTrusted = AccessibilityAuth.ensureAccess(prompt: true)
+        paste.pasteOrCopy(text: text, hasFocus: hasFocus, axTrusted: axTrusted, delay: 0.1) {
+            result in
+            switch result {
+            case .pasted:
+                self.toast.show(
+                    message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
+            case .copiedNoFocus:
+                self.toast.show(
+                    message: "No input detected — text copied to clipboard", duration: 2.0)
+            case .error(let e):
+                self.toast.show(message: "Paste error: \(e)", duration: 2.0)
+            }
+            // Cache to local history regardless
+            self.cacheTranscript(text)
+        }
     }
 
     private func handleCopy(_ text: String) {
-//        paste.copy(text); toast.show("Copied", …); cacheTranscript(text)
+        //        paste.copy(text); toast.show("Copied", …); cacheTranscript(text)
     }
 
     private func handleSendToAgent(_ text: String) {
-        // Cache locally, then open/expand agent panel and kick off agent request (later)
-        // TODO:
-        // let thread = history.upsertThread(title: "Quick Dictations")
-        // history.appendMessage(threadId: thread.id, role: .user, content: text, status: .final)
-        // agentPanel.show(for: thread)   // if you inject it; or send a notification the agent listens to
+        log("Sending to agent: \(text)")
+        // TODO: Cache the transcript locally
+        agentPanel.show(with: text)
     }
 
     private func cacheTranscript(_ text: String) {
@@ -188,7 +215,7 @@ final class PillController {
 
     // MARK: - Logging helpers
 
-    private func machineStateDebug() -> String {    
+    private func machineStateDebug() -> String {
         // Helpful when reading logs
         return "\(machine)"
     }
