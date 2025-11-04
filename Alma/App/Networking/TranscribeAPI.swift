@@ -5,20 +5,18 @@ final class TranscribeAPI {
 
     private let session: URLSession
     private let baseURL: URL
-    private let apiKey: String?
 
     init(
         session: URLSession = .shared,
-        baseURL: URL = URL(string: "http://127.0.0.1:8787")!,
-        apiKey: String? = ProcessInfo.processInfo.environment["ALMA_API_KEY"]
+        baseURL: URL = URL(string: "http://127.0.0.1:8787")!
     ) {
         self.session = session
         self.baseURL = baseURL
-        self.apiKey = apiKey
     }
 
     func transcribe(
-        fileURL: URL, token: String? = nil, completion: @escaping (Result<String, Error>) -> Void
+        fileURL: URL, token: String? = nil, retryCount: Int = 0,
+        completion: @escaping (Result<String, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/transcribe")
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
@@ -26,8 +24,6 @@ final class TranscribeAPI {
         request.httpMethod = "POST"
         if let token, !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        } else if let apiKey = apiKey, !apiKey.isEmpty {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         }
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue(

@@ -16,6 +16,8 @@ final class AuthManager: ObservableObject {
     private let tokenAccount = "access_token"
     private let refreshAccount = "refresh_token"
     private var pendingAuthState: String?
+    
+    private var refreshTimer: Timer?
 
     private init() {
         accessToken = try? readToken()
@@ -25,10 +27,29 @@ final class AuthManager: ObservableObject {
                 _ = await self.refreshAccessToken()
             }
             _ = await self.refreshProfile()
+
+            startAutoRefresh()
         }
     }
 
     var isAuthenticated: Bool { accessToken?.isEmpty == false }
+
+    func startAutoRefresh() {
+        // Refresh the access token every 10 minutes
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in 
+                guard let self = self else { return }
+                if self.accessToken != nil {
+                    NSLog("[AuthManager] Auto-refreshing access token")
+                    let success = await self.refreshAccessToken()
+                    if !success {
+                        NSLog("[AuthManager] Auto-refresh failed, signing out")
+                        self.signOut()
+                    }
+                }
+                
+            }}}
 
     func beginBrowserLogin() {
         let redirect = "alma://auth/callback"
@@ -109,6 +130,9 @@ final class AuthManager: ObservableObject {
     }
 
     func signOut() {
+
+        refreshTimer?.invalidate()
+        refreshTimer = nil
         try? deleteToken()
         try? deleteRefresh()
         DispatchQueue.main.async { [weak self] in
