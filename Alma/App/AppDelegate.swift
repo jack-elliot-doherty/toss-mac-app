@@ -29,7 +29,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem = statusItem
 
         // Pill panel idle and visible (non-activating)
-        pillPanel.setState(.idle)
+        // Small delay to ensure window system is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.pillPanel.setState(.idle)
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.pillPanel.recenter()
+            }
+        }
         // No need to call show() separately - setState already positions and shows
 
         pillController = PillController(

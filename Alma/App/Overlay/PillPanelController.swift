@@ -10,15 +10,17 @@ final class PillPanelController {
     // SINGLE SOURCE OF TRUTH for idle pill size
     // To change idle size: edit ONLY this value, SwiftUI content will auto-adjust
     private static let idleSize = NSSize(width: 64, height: 16)
-    
+
     init(viewModel: PillViewModel) {
         self.viewModel = viewModel
         // Start with idle size centered
-        let contentRect = NSRect(x: 0, y: 0, width: Self.idleSize.width, height: Self.idleSize.height)
-        self.panel = NSPanel(contentRect: contentRect,
-                              styleMask: [.nonactivatingPanel, .borderless],
-                              backing: .buffered,
-                              defer: false)
+        let contentRect = NSRect(
+            x: 0, y: 0, width: Self.idleSize.width, height: Self.idleSize.height)
+        self.panel = NSPanel(
+            contentRect: contentRect,
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false)
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -35,23 +37,36 @@ final class PillPanelController {
     }
 
     private func intrinsicPillSize(for state: PillVisualState) -> NSSize {
-        // Ask SwiftUI to recompute its size for the current visualState
+        // For idle state, use exact hardcoded size to avoid SwiftUI layout quirks
+        if case .idle = state {
+            // The idle ring is 32px wide (idleWidth - 8), plus we need to account
+            // for the capsule stroke and any container padding
+            // Match exactly what PillStyle defines
+            return NSSize(width: 32, height: 8)  // Using PillStyle.idleWidth and idleHeight directly
+        }
+
+        // For other states, compute from SwiftUI
         hostingView.invalidateIntrinsicContentSize()
         hostingView.layoutSubtreeIfNeeded()
 
+        // Give SwiftUI a moment to compute layout
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+
         var size = hostingView.fittingSize
+
         // Optional: make transcribing a hair wider for the dots
         if case .transcribing = state {
             size.width += 6
         }
 
-        // Pixel-align and fall back to idle if SwiftUI hasn't laid out yet
-        size.width  = ceil(max(size.width,  Self.idleSize.width))
+        // Round to whole pixels
+        size.width = ceil(max(size.width, Self.idleSize.width))
         size.height = ceil(max(size.height, Self.idleSize.height))
+
+        NSLog("[PillPanel] Computed size for \(state): \(size)")
+
         return size
     }
-
-    
     var frame: NSRect { panel.frame }
 
     func show(at origin: NSPoint? = nil) {
@@ -102,17 +117,22 @@ final class PillPanelController {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
+    func recenter() {
+        // Force recenter the pill at current size
+        let currentSize = panel.frame.size
+        setSizeAndCenter(to: currentSize, animated: false)
+    }
+
     private func sizeForState(_ state: PillVisualState) -> NSSize {
         intrinsicPillSize(for: state)
     }
 
     private func screenUnderMouse() -> NSScreen? {
-        let mouse = NSEvent.mouseLocation // global coords
+        let mouse = NSEvent.mouseLocation  // global coords
         // Use .frame (not .visibleFrame) for containment checks
         return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
     }
 
-    
     private func setSizeAndCenter(
         to size: NSSize,
         on screen: NSScreen? = nil,
@@ -123,12 +143,15 @@ final class PillPanelController {
         guard let screen else { return }
 
         let vf = screen.visibleFrame
-        let x  = vf.origin.x + (vf.width  - size.width)  / 2
-        let y  = vf.minY + margin
+
+        // Calculate center position with explicit rounding to prevent sub-pixel offsets
+        let centerX = vf.origin.x + (vf.width / 2)
+        let x = round(centerX - (size.width / 2))
+        let y = vf.minY + margin
+
         let target = NSRect(x: x, y: y, width: size.width, height: size.height)
 
-        // (optional) if you added pixel snapping:
-        // target = pixelAlign(target, on: screen)
+        NSLog("[PillPanel] Centering at x=\(x), screen center=\(centerX), width=\(size.width)")
 
         let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let shouldAnimate = animated && !reducedMotion
@@ -145,5 +168,3 @@ final class PillPanelController {
     }
 
 }
-
-
