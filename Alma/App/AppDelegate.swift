@@ -9,7 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let recorder = AudioRecorder()
     private var didPaste: Bool = false
     private let pasteManager = PasteManager()
-    private let historyRepo: InMemoryHistoryRepository = InMemoryHistoryRepository()
+    private let historyRepo: InMemoryHistoryRepository = History.shared
     private let pillViewModel = PillViewModel()
     private lazy var pillPanel = PillPanelController(viewModel: pillViewModel)
     private lazy var toastPanel = ToastPanelController(anchorFrameProvider: { [weak self] in
@@ -46,6 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             pillPanel: pillPanel,
             toast: toastPanel,
             viewModel: pillViewModel,
+            history: History.shared,
             auth: AuthManager.shared,
             agentPanel: agentPanel
 

@@ -18,7 +18,7 @@ final class PillController {
     private let pillPanel: PillPanelController
     private let toast: ToastPanelController
     private let viewModel: PillViewModel
-    //    private let history: InMemoryHistoryRepository
+    private let history: InMemoryHistoryRepository
     private let auth: AuthManager
     private let agentPanel: AgentPanelController
 
@@ -29,7 +29,7 @@ final class PillController {
         pillPanel: PillPanelController,
         toast: ToastPanelController,
         viewModel: PillViewModel,
-        //        history: HistoryRepository,
+        history: InMemoryHistoryRepository,
         auth: AuthManager,
         agentPanel: AgentPanelController
     ) {
@@ -39,7 +39,7 @@ final class PillController {
         self.pillPanel = pillPanel
         self.toast = toast
         self.viewModel = viewModel
-        //        self.history = history
+        self.history = history
         self.auth = auth
         self.agentPanel = agentPanel
     }

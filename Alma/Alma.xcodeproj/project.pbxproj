@@ -35,6 +35,11 @@
 		DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */; };
 		DA3623912EB95D39000207F0 /* AgentAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623902EB95D39000207F0 /* AgentAPI.swift */; };
 		DA3623932EBB4616000207F0 /* SoundFeedbacl.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623922EBB4616000207F0 /* SoundFeedbacl.swift */; };
+		DA3623982EBB77B8000207F0 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623962EBB77B8000207F0 /* OnboardingView.swift */; };
+		DA3623992EBB77B8000207F0 /* OnboardingGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623942EBB77B8000207F0 /* OnboardingGate.swift */; };
+		DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623952EBB77B8000207F0 /* OnboardingManager.swift */; };
+		DA36239C2EBB77CB000207F0 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36239B2EBB77CB000207F0 /* HistoryView.swift */; };
+		DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +91,11 @@
 		DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
 		DA3623902EB95D39000207F0 /* AgentAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAPI.swift; sourceTree = "<group>"; };
 		DA3623922EBB4616000207F0 /* SoundFeedbacl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundFeedbacl.swift; sourceTree = "<group>"; };
+		DA3623942EBB77B8000207F0 /* OnboardingGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGate.swift; sourceTree = "<group>"; };
+		DA3623952EBB77B8000207F0 /* OnboardingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingManager.swift; sourceTree = "<group>"; };
+		DA3623962EBB77B8000207F0 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		DA36239B2EBB77CB000207F0 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsModalView.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Alma.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Alma.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* AlmaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* AlmaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AlmaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -182,6 +192,7 @@
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				DA36239B2EBB77CB000207F0 /* HistoryView.swift */,
 				DA3623532EB23FCE000207F0 /* HistoryRepository.swift */,
 			);
 			path = Sections;
@@ -208,6 +219,8 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA36239E2EBB7BC7000207F0 /* Settings */,
+				DA3623972EBB77B8000207F0 /* Onboarding */,
 				DA3623842EB3FF10000207F0 /* Pill */,
 				DA3623442EB23FCE000207F0 /* Input */,
 				DA3623462EB23FCE000207F0 /* Networking */,
@@ -237,6 +250,24 @@
 				DA3623832EB3FF10000207F0 /* PillStateMachine.swift */,
 			);
 			path = Pill;
+			sourceTree = "<group>";
+		};
+		DA3623972EBB77B8000207F0 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				DA3623942EBB77B8000207F0 /* OnboardingGate.swift */,
+				DA3623952EBB77B8000207F0 /* OnboardingManager.swift */,
+				DA3623962EBB77B8000207F0 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		DA36239E2EBB7BC7000207F0 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		DAA0F08F2EAABCD3002CA0FA = {
@@ -406,7 +437,11 @@
 				DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */,
 				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
 				DA3623912EB95D39000207F0 /* AgentAPI.swift in Sources */,
+				DA36239C2EBB77CB000207F0 /* HistoryView.swift in Sources */,
 				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
+				DA3623982EBB77B8000207F0 /* OnboardingView.swift in Sources */,
+				DA3623992EBB77B8000207F0 /* OnboardingGate.swift in Sources */,
+				DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
 				DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
@@ -426,6 +461,7 @@
 				DA36237C2EB23FCE000207F0 /* AlmaApp.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
 				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
+				DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */,
 				DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 			);

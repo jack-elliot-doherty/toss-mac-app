@@ -23,7 +23,8 @@ struct MessageModel: Identifiable, Equatable {
 
 protocol HistoryRepositoryProtocol {
     func upsertThread(title: String) -> ThreadModel
-    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus) -> MessageModel
+    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus)
+        -> MessageModel
     func listThreads() -> [ThreadModel]
     func listMessages(threadId: UUID) -> [MessageModel]
 }
@@ -41,21 +42,30 @@ final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
             }
             let now = Date()
             let id = UUID()
-            let thread = ThreadModel(id: id, title: title, lastMessageAt: now, createdAt: now, updatedAt: now)
+            let thread = ThreadModel(
+                id: id, title: title, lastMessageAt: now, createdAt: now, updatedAt: now)
             threads[id] = thread
             defaultThreadId = id
             return thread
         }
     }
 
-    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus) -> MessageModel {
+    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus)
+        -> MessageModel
+    {
         return queue.sync {
             let now = Date()
-            var thread = threads[threadId] ?? ThreadModel(id: threadId, title: "Quick Dictations", lastMessageAt: now, createdAt: now, updatedAt: now)
+            var thread =
+                threads[threadId]
+                ?? ThreadModel(
+                    id: threadId, title: "Quick Dictations", lastMessageAt: now, createdAt: now,
+                    updatedAt: now)
             thread.lastMessageAt = now
             thread.updatedAt = now
             threads[threadId] = thread
-            let msg = MessageModel(id: UUID(), threadId: threadId, role: role, content: content, status: status, createdAt: now, updatedAt: now)
+            let msg = MessageModel(
+                id: UUID(), threadId: threadId, role: role, content: content, status: status,
+                createdAt: now, updatedAt: now)
             var arr = messages[threadId] ?? []
             arr.append(msg)
             messages[threadId] = arr
@@ -72,4 +82,6 @@ final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
     }
 }
 
-
+enum History {
+    static let shared = InMemoryHistoryRepository()
+}
