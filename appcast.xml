@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Alma Updates</title>
+        <description>Updates for Alma</description>
+        <language>en</language>
+        
+        <item>
+            <title>Version 1.0.0</title>
+            <description><![CDATA[
+                <h2>What's New</h2>
+                <ul>
+                    <li>Initial release</li>
+                    <li>Universal dictation with Fn key</li>
+                    <li>History view with copy support</li>
+                </ul>
+            ]]></description>
+            <pubDate>Tue, 05 Nov 2024 12:00:00 +0000</pubDate>
+            <sparkle:version>1.0.0</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure 
+                url="https://github.com/jack-elliot-doherty/alma-mac-app/releases/download/v1.0.0/Alma-1.0.0.dmg"
+                sparkle:edSignature="REPLACE_WITH_SIGNATURE"
+                length="12345678"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>

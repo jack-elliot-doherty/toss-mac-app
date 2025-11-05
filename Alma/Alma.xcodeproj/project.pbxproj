@@ -40,6 +40,7 @@
 		DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623952EBB77B8000207F0 /* OnboardingManager.swift */; };
 		DA36239C2EBB77CB000207F0 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36239B2EBB77CB000207F0 /* HistoryView.swift */; };
 		DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */; };
+		DA3623A22EBBDAC1000207F0 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DA3623A12EBBDAC1000207F0 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -119,6 +120,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA3623A22EBBDAC1000207F0 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,6 +309,7 @@
 			);
 			name = Alma;
 			packageProductDependencies = (
+				DA3623A12EBBDAC1000207F0 /* Sparkle */,
 			);
 			productName = Alma;
 			productReference = DAA0F0982EAABCD3002CA0FA /* Alma.app */;
@@ -390,6 +393,9 @@
 			);
 			mainGroup = DAA0F08F2EAABCD3002CA0FA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAA0F0992EAABCD3002CA0FA /* Products */;
 			projectDirPath = "";
@@ -777,6 +783,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DA3623A12EBBDAC1000207F0 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DAA0F0902EAABCD3002CA0FA /* Project object */;
 }

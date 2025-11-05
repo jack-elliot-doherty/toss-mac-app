@@ -2,7 +2,7 @@ import SwiftUI
 
 @MainActor
 struct HistoryView: View {
-    private let repo = InMemoryHistoryRepository()
+    private let repo = PersistentHistoryRepository()
 
     @State private var threads: [ThreadModel] = []
     @State private var messages: [MessageModel] = []

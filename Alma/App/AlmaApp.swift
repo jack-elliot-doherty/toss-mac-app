@@ -9,7 +9,21 @@ struct AlmaApp: App {
             ContentView()
         }
         .defaultSize(width: 820, height: 520)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: appDelegate.updaterController.updater)
+            }
+        }
 
         Settings { EmptyView() }
+    }
+}
+
+struct CheckForUpdatesView: View {
+    @ObservedObject var updater = SPUUpdater
+    var body: some View {
+        Button("Check for Updates") {
+            updater.checkForUpdates()
+        }.disabled(!updater.canCheckForUpdates)
     }
 }

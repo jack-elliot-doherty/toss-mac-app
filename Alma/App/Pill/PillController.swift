@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // ORchestrates inputs, feed them to state machine and carries out side effects
 
@@ -18,7 +19,7 @@ final class PillController {
     private let pillPanel: PillPanelController
     private let toast: ToastPanelController
     private let viewModel: PillViewModel
-    private let history: InMemoryHistoryRepository
+    private let history: PersistentHistoryRepository
     private let auth: AuthManager
     private let agentPanel: AgentPanelController
 
@@ -29,7 +30,7 @@ final class PillController {
         pillPanel: PillPanelController,
         toast: ToastPanelController,
         viewModel: PillViewModel,
-        history: InMemoryHistoryRepository,
+        history: PersistentHistoryRepository,
         auth: AuthManager,
         agentPanel: AgentPanelController
     ) {
@@ -199,8 +200,12 @@ final class PillController {
                 self.toast.show(
                     message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
             case .copiedNoFocus:
-                self.toast.show(
-                    message: "No input detected — text copied to clipboard", duration: 2.0)
+                self.toast.showRich(
+                    icon: Image(systemName: "doc.on.clipboard"),
+                    title: "No input detected",
+                    subtitle: "Text copied to clipboard. Open Alma to view your dictation history.",
+                    duration: 3.5
+                )
             case .error(let e):
                 self.toast.show(message: "Paste error: \(e)", duration: 2.0)
             }
@@ -220,8 +225,9 @@ final class PillController {
     }
 
     private func cacheTranscript(_ text: String) {
-        // TODO: let thread = history.upsertThread(title: "Quick Dictations")
-        //       history.appendMessage(threadId: thread.id, role: .user, content: text, status: .final)
+        let thread = History.shared.upsertThread(title: "Quick Dictations")
+        _ = History.shared.appendMessage(
+            threadId: thread.id, role: .user, content: text, status: .final)
     }
 
     // MARK: - Logging helpers

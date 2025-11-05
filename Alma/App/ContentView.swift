@@ -122,22 +122,146 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Placeholder Views
+@MainActor
 struct HomeView: View {
+    @ObservedObject private var auth = AuthManager.shared
+    @State private var dictations: [MessageModel] = []
+    @State private var refreshTimer: Timer?
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text("Welcome back")
-                .font(.system(size: 24, weight: .semibold))
-            Text("Hold down the hotkey to dictate in any app.")
-                .foregroundColor(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Welcome back, \(auth.userName ?? "there")")
+                            .font(.system(size: 28, weight: .semibold))
+                        Text(
+                            "\(dictations.count) dictation\(dictations.count == 1 ? "" : "s") today"
+                        )
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        loadHistory()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                // Today section
+                if dictations.isEmpty {
+                    EmptyState()
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Recent").font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 2)
+
+                        VStack(spacing: 12) {
+                            ForEach(dictations.prefix(50)) { m in
+                                DictationRow(message: m)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 0.96, green: 0.96, blue: 1.0),
-                    Color(red: 0.90, green: 0.94, blue: 1.0),
-                ]), startPoint: .top, endPoint: .bottom))
+                    Color(red: 0.98, green: 0.98, blue: 1.0),
+                    Color(red: 0.94, green: 0.96, blue: 1.0),
+                ]), startPoint: .top, endPoint: .bottom)
+        )
+        .onAppear {
+            loadHistory()
+            // Refresh every 2 seconds to catch new dictations
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+                loadHistory()
+            }
+        }
+        .onDisappear {
+            refreshTimer?.invalidate()
+        }
+    }
+
+    private func loadHistory() {
+        let t = History.shared.upsertThread(title: "Quick Dictations")
+        dictations = History.shared.listMessages(threadId: t.id).reversed()  // newest first
+    }
+
+    private struct EmptyState: View {
+        var body: some View {
+            VStack(spacing: 10) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 32, weight: .regular))
+                    .foregroundColor(.secondary)
+                Text("No dictations yet")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Hold your hotkey and speak to create your first dictation.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 60)
+        }
+    }
+
+    private struct DictationRow: View {
+        let message: MessageModel
+        @State private var showCopied = false
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(message.createdAt, style: .time)
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 11, weight: .medium))
+                    Text(message.createdAt, style: .date)
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 10))
+                }
+                .frame(width: 68, alignment: .leading)
+
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(NSColor.windowBackgroundColor))
+                    .overlay(
+                        HStack(alignment: .top, spacing: 12) {
+                            Text(message.content)
+                                .font(.system(size: 14))
+                                .foregroundColor(.primary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(message.content, forType: .string)
+                                showCopied = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                    showCopied = false
+                                }
+                            } label: {
+                                Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(showCopied ? .green : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Copy to clipboard")
+                        }
+                        .padding(14)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12).stroke(
+                            Color.black.opacity(0.06), lineWidth: 1)
+                    )
+            }
+        }
     }
 }
 

@@ -50,7 +50,10 @@ final class PillPanelController {
         hostingView.layoutSubtreeIfNeeded()
 
         // Give SwiftUI a moment to compute layout
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+        // RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.01))
+
+        hostingView.invalidateIntrinsicContentSize()
+        hostingView.layoutSubtreeIfNeeded()
 
         var size = hostingView.fittingSize
 
@@ -98,9 +101,13 @@ final class PillPanelController {
 
     func setState(_ state: PillVisualState) {
         viewModel.visualState = state
-        // Resize heuristics for main states and center in one atomic frame update
-        let size = sizeForState(state)
-        setSizeAndCenter(to: size, animated: true)
+        // Wait a tick for Swiftui to being its layout pass
+        DispatchQueue.main.async {
+            // Resize heuristics for main states and center in one atomic frame update
+            let size = self.sizeForState(state)
+            self.setSizeAndCenter(to: size, animated: false)
+        }
+
         // Ensure panel is visible
         if !panel.isVisible {
             panel.orderFrontRegardless()

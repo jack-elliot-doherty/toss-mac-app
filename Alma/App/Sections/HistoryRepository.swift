@@ -1,6 +1,6 @@
 import Foundation
 
-struct ThreadModel: Identifiable, Equatable {
+struct ThreadModel: Identifiable, Equatable, Codable {
     let id: UUID
     var title: String
     var lastMessageAt: Date
@@ -8,10 +8,10 @@ struct ThreadModel: Identifiable, Equatable {
     var updatedAt: Date
 }
 
-enum MessageRole: String { case user, assistant, system, tool, action }
-enum MessageStatus: String { case draft, streaming, final, error }
+enum MessageRole: String, Codable { case user, assistant, system, tool, action }
+enum MessageStatus: String, Codable { case draft, streaming, final, error }
 
-struct MessageModel: Identifiable, Equatable {
+struct MessageModel: Identifiable, Equatable, Codable {
     let id: UUID
     let threadId: UUID
     let role: MessageRole
@@ -27,13 +27,60 @@ protocol HistoryRepositoryProtocol {
         -> MessageModel
     func listThreads() -> [ThreadModel]
     func listMessages(threadId: UUID) -> [MessageModel]
+    func clear()
 }
 
-final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
+final class PersistentHistoryRepository: HistoryRepositoryProtocol {
     private var threads: [UUID: ThreadModel] = [:]
     private var messages: [UUID: [MessageModel]] = [:]
     private let queue = DispatchQueue(label: "history.repo.queue", qos: .userInitiated)
     private var defaultThreadId: UUID?
+
+    private let fileURL: URL
+
+    init() {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first!
+        let almaDir = appSupport.appendingPathComponent("ai.alma.mac", isDirectory: true)
+        try? FileManager.default.createDirectory(at: almaDir, withIntermediateDirectories: true)
+        self.fileURL = almaDir.appendingPathComponent("history.json")
+        load()
+    }
+
+    private func load() {
+        queue.sync {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+            do {
+                let data = try Data(contentsOf: fileURL)
+                let decoded = try JSONDecoder().decode(StorageFormat.self, from: data)
+                self.threads = Dictionary(uniqueKeysWithValues: decoded.threads.map { ($0.id, $0) })
+                self.messages = decoded.messages
+                self.defaultThreadId = decoded.defaultThreadId
+                NSLog(
+                    "[History] Loaded \(threads.count) threads, \(messages.values.flatMap { $0 }.count) messages"
+                )
+            } catch {
+                NSLog("[History] Load error: \(error)")
+            }
+        }
+    }
+
+    private func save() {
+        queue.async {
+            do {
+                let storage = StorageFormat(
+                    threads: Array(self.threads.values),
+                    messages: self.messages,
+                    defaultThreadId: self.defaultThreadId
+                )
+                let data = try JSONEncoder().encode(storage)
+                try data.write(to: self.fileURL, options: .atomic)
+            } catch {
+                NSLog("[History] Save error: \(error)")
+            }
+        }
+    }
 
     func upsertThread(title: String) -> ThreadModel {
         return queue.sync {
@@ -46,6 +93,7 @@ final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
                 id: id, title: title, lastMessageAt: now, createdAt: now, updatedAt: now)
             threads[id] = thread
             defaultThreadId = id
+            save()
             return thread
         }
     }
@@ -69,6 +117,7 @@ final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
             var arr = messages[threadId] ?? []
             arr.append(msg)
             messages[threadId] = arr
+            save()
             return msg
         }
     }
@@ -80,8 +129,24 @@ final class InMemoryHistoryRepository: HistoryRepositoryProtocol {
     func listMessages(threadId: UUID) -> [MessageModel] {
         return queue.sync { messages[threadId] ?? [] }
     }
+
+    func clear() {
+        queue.sync {
+            threads.removeAll()
+            messages.removeAll()
+            defaultThreadId = nil
+            try? FileManager.default.removeItem(at: fileURL)
+            NSLog("[History] Cleared all data")
+        }
+    }
+
+    private struct StorageFormat: Codable {
+        let threads: [ThreadModel]
+        let messages: [UUID: [MessageModel]]
+        let defaultThreadId: UUID?
+    }
 }
 
 enum History {
-    static let shared = InMemoryHistoryRepository()
+    static let shared = PersistentHistoryRepository()
 }

@@ -1,6 +1,6 @@
+import AppKit
 import Foundation
 import Security
-import AppKit
 
 @MainActor
 final class AuthManager: ObservableObject {
@@ -16,18 +16,18 @@ final class AuthManager: ObservableObject {
     private let tokenAccount = "access_token"
     private let refreshAccount = "refresh_token"
     private var pendingAuthState: String?
-    
+
     private var refreshTimer: Timer?
 
     private init() {
         accessToken = try? readToken()
         refreshToken = try? readRefresh()
         Task {
-            if accessToken == nil, let _ = refreshToken {
+            // Always refresh on launch if we have a refresh token
+            if refreshToken != nil {
                 _ = await self.refreshAccessToken()
             }
             _ = await self.refreshProfile()
-
             startAutoRefresh()
         }
     }
@@ -37,8 +37,9 @@ final class AuthManager: ObservableObject {
     func startAutoRefresh() {
         // Refresh the access token every 10 minutes
         refreshTimer?.invalidate()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in 
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in
                 guard let self = self else { return }
                 if self.accessToken != nil {
                     NSLog("[AuthManager] Auto-refreshing access token")
@@ -48,8 +49,10 @@ final class AuthManager: ObservableObject {
                         self.signOut()
                     }
                 }
-                
-            }}}
+
+            }
+        }
+    }
 
     func beginBrowserLogin() {
         let redirect = "alma://auth/callback"
@@ -58,7 +61,7 @@ final class AuthManager: ObservableObject {
         var comps = URLComponents(string: "http://127.0.0.1:8787/auth/start")
         comps?.queryItems = [
             URLQueryItem(name: "redirect", value: redirect),
-            URLQueryItem(name: "state", value: state)
+            URLQueryItem(name: "state", value: state),
         ]
         if let url = comps?.url { NSWorkspace.shared.open(url) }
     }
@@ -70,7 +73,7 @@ final class AuthManager: ObservableObject {
         var comps = URLComponents(string: "http://127.0.0.1:8787/auth/google/start")
         comps?.queryItems = [
             URLQueryItem(name: "redirect", value: redirect),
-            URLQueryItem(name: "state", value: state)
+            URLQueryItem(name: "state", value: state),
         ]
         if let url = comps?.url { NSWorkspace.shared.open(url) }
     }
@@ -82,14 +85,16 @@ final class AuthManager: ObservableObject {
         var comps = URLComponents(string: "http://127.0.0.1:8787/auth/apple/start")
         comps?.queryItems = [
             URLQueryItem(name: "redirect", value: redirect),
-            URLQueryItem(name: "state", value: state)
+            URLQueryItem(name: "state", value: state),
         ]
         if let url = comps?.url { NSWorkspace.shared.open(url) }
     }
 
     func handleDeepLink(url: URL) -> Bool {
         // alma://auth/callback?state=...
-        guard url.scheme == "alma", url.host == "auth", url.path == "/callback" else { return false }
+        guard url.scheme == "alma", url.host == "auth", url.path == "/callback" else {
+            return false
+        }
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         // Back-compat: accept token params if present (older servers)
         let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value
@@ -115,7 +120,8 @@ final class AuthManager: ObservableObject {
     func signInDevToken() {
         let alert = NSAlert()
         alert.messageText = "Enter developer token"
-        alert.informativeText = "Paste a temporary API token from the server to authenticate this device."
+        alert.informativeText =
+            "Paste a temporary API token from the server to authenticate this device."
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
@@ -135,6 +141,7 @@ final class AuthManager: ObservableObject {
         refreshTimer = nil
         try? deleteToken()
         try? deleteRefresh()
+        History.shared.clear()
         DispatchQueue.main.async { [weak self] in
             self?.accessToken = nil
             self?.refreshToken = nil
@@ -182,7 +189,7 @@ final class AuthManager: ObservableObject {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: tokenAccount
+            kSecAttrAccount as String: tokenAccount,
         ]
         SecItemDelete(query as CFDictionary)
         var attrs = query
@@ -190,7 +197,9 @@ final class AuthManager: ObservableObject {
         attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         attrs[kSecAttrSynchronizable as String] = kCFBooleanFalse as Any
         let status = SecItemAdd(attrs as CFDictionary, nil)
-        guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
+        guard status == errSecSuccess else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
     }
 
     private func writeRefresh(_ token: String) throws {
@@ -198,7 +207,7 @@ final class AuthManager: ObservableObject {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: refreshAccount
+            kSecAttrAccount as String: refreshAccount,
         ]
         SecItemDelete(query as CFDictionary)
         var attrs = query
@@ -206,7 +215,9 @@ final class AuthManager: ObservableObject {
         attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         attrs[kSecAttrSynchronizable as String] = kCFBooleanFalse as Any
         let status = SecItemAdd(attrs as CFDictionary, nil)
-        guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
+        guard status == errSecSuccess else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
     }
 
     private func readToken() throws -> String? {
@@ -214,7 +225,7 @@ final class AuthManager: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: tokenAccount,
-            kSecReturnData as String: true
+            kSecReturnData as String: true,
         ]
         var out: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &out)
@@ -228,7 +239,7 @@ final class AuthManager: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: refreshAccount,
-            kSecReturnData as String: true
+            kSecReturnData as String: true,
         ]
         var out: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &out)
@@ -241,7 +252,7 @@ final class AuthManager: ObservableObject {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: tokenAccount
+            kSecAttrAccount as String: tokenAccount,
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -250,7 +261,7 @@ final class AuthManager: ObservableObject {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: refreshAccount
+            kSecAttrAccount as String: refreshAccount,
         ]
         SecItemDelete(query as CFDictionary)
     }
@@ -259,12 +270,16 @@ final class AuthManager: ObservableObject {
     private func generateState() -> String {
         var bytes = [UInt8](repeating: 0, count: 16)
         let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        if status != errSecSuccess { return UUID().uuidString.replacingOccurrences(of: "-", with: "") }
+        if status != errSecSuccess {
+            return UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        }
         return Data(bytes).map { String(format: "%02x", $0) }.joined()
     }
 
     private func exchangeState(state: String) async {
-        guard let url = URL(string: "http://127.0.0.1:8787/auth/exchange?state=\(state)") else { return }
+        guard let url = URL(string: "http://127.0.0.1:8787/auth/exchange?state=\(state)") else {
+            return
+        }
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         do {

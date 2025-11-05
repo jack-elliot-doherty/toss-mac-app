@@ -140,6 +140,97 @@ final class HotkeyEventTap {
         {
             monitors.append(flagsMonitor)
         }
+
+        // Local monitor for when app is active
+        if let localMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .flagsChanged,
+            handler: { [weak self] event in
+                guard let self = self else { return event }
+
+                let flags = event.modifierFlags
+                let now = Date()
+
+                let fnWasDown = previousFlags.contains(.function)
+                let fnIsDown = flags.contains(.function)
+                let cmdWasDown = previousFlags.contains(.command)
+                let cmdIsDown = flags.contains(.command)
+
+                print("[Hotkey] (Local) Flags:")
+                print(flags)
+
+                // --- Fn edges ---
+                if !fnWasDown && fnIsDown {
+                    print("[Hotkey] (Local) Fn DOWN")
+                    var isDouble = false
+                    if let last = self.lastFnDownAt,
+                        now.timeIntervalSince(last) <= self.doubleTapWindow,
+                        self.cooldownUntil.map { now >= $0 } ?? true
+                    {
+                        isDouble = true
+                    }
+
+                    if isDouble {
+                        print("[Hotkey] (Local) Fn double tap")
+                        self.onDoubleTapFn?()
+                        cooldownUntil = now.addingTimeInterval(0.35)
+                        self.swallowFnDownAfterDoubleTap = true
+                        self.swallowNextFnUp = true
+                        self.pendingFnUpTimer?.invalidate()
+                        self.pendingFnUpTimer = nil
+                        self.lastFnDownAt = nil
+                        self.previousFlags = flags
+                        return event
+                    }
+
+                    pendingFnUpTimer?.invalidate()
+                    pendingFnUpTimer = nil
+                    lastFnDownAt = now
+                    onFnDown?()
+                }
+
+                if fnWasDown && !fnIsDown {
+                    if self.swallowNextFnUp {
+                        self.swallowNextFnUp = false
+                        self.swallowFnDownAfterDoubleTap = false
+                        print("[Hotkey] (Local) swallowed Fn UP after double-tap")
+                        self.previousFlags = flags
+                        return event
+                    }
+
+                    print("[Hotkey] (Local) Fn UP")
+                    let held = now.timeIntervalSince(lastFnDownAt ?? now)
+                    if held >= minFnHold {
+                        onFnUp?()
+                    } else {
+                        let delay = max(0, minFnHold - held)
+                        pendingFnUpTimer?.invalidate()
+                        pendingFnUpTimer = Timer.scheduledTimer(
+                            withTimeInterval: delay, repeats: false
+                        ) { [weak self] _ in
+                            self?.onFnUp?()
+                            self?.pendingFnUpTimer = nil
+                        }
+                        RunLoop.main.add(pendingFnUpTimer!, forMode: .common)
+                    }
+                }
+
+                // --- Cmd edges ---
+                if !cmdWasDown && cmdIsDown {
+                    print("[Hotkey] (Local) Cmd DOWN")
+                    onCmdDown?()
+                }
+                if cmdWasDown && !cmdIsDown {
+                    print("[Hotkey] (Local) Cmd UP")
+                    onCmdUp?()
+                }
+
+                previousFlags = flags
+                return event
+            })
+        {
+            monitors.append(localMonitor)
+        }
+
     }
 
     func stop() {

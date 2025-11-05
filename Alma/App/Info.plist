@@ -13,6 +13,12 @@
             </array>
         </dict>
     </array>
+    <key>SUFeedURL</key>
+<string>https://yourdomain.com/appcast.xml</string>
+ <key>SUPublicEDKey</key>
+    <string>q6OHq6jS+2hYxcwPDw+bjgJ7k++fj3sxUt3ecwWTKNU=</string>
+<key>SUEnableAutomaticChecks</key>
+<true/>
 </dict>
 </plist>
 

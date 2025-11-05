@@ -1,15 +1,19 @@
 import Cocoa
 import Foundation
+import Sparkle
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+
+    private let updaterController: SPUStandardUpdaterController
+
     private var pillController: PillController!
     private var statusItem: NSStatusItem?
     private let hotkey = HotkeyEventTap()
     private let recorder = AudioRecorder()
     private var didPaste: Bool = false
     private let pasteManager = PasteManager()
-    private let historyRepo: InMemoryHistoryRepository = History.shared
+    private let historyRepo: PersistentHistoryRepository = History.shared
     private let pillViewModel = PillViewModel()
     private lazy var pillPanel = PillPanelController(viewModel: pillViewModel)
     private lazy var toastPanel = ToastPanelController(anchorFrameProvider: { [weak self] in
@@ -22,6 +26,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillPanel.frame
         })
     private var lastTapAt: Date?
+
+    override init() {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
