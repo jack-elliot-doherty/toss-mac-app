@@ -35,10 +35,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 self?.pillPanel.recenter()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                    self?.toastPanel.showRich(
-                        title: "Hello, how are you?", subtitle: "This is a test subtitle")
-                }
             }
         }
         // No need to call show() separately - setState already positions and shows

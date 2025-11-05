@@ -28,14 +28,17 @@ final class ToastPanelController {
 
     // Simple text toast (kept for existing calls)
     func show(message: String, duration: TimeInterval = 2.0, onTap: (() -> Void)? = nil) {
-        showRich(
-            icon: Image(systemName: "checkmark.circle.fill"),
-            title: message,
-            subtitle: nil,
-            primary: nil,
-            secondary: nil,
-            duration: duration
-        )
+        func show(message: String, duration: TimeInterval = 2.0, onTap: (() -> Void)? = nil) {
+            showRich(
+                icon: Image(systemName: "exclamationmark.circle.fill"),
+                title: message,
+                subtitle: nil,
+                primary: nil,
+                secondary: nil,
+                duration: duration,
+                offsetAboveAnchor: 72  // higher by default so it clears the pill
+            )
+        }
     }
 
     struct ToastAction {
@@ -51,7 +54,7 @@ final class ToastPanelController {
         primary: ToastAction? = nil,
         secondary: ToastAction? = nil,
         duration: TimeInterval = 3.0,
-        offsetAboveAnchor: CGFloat = 36
+        offsetAboveAnchor: CGFloat = 30
     ) {
         let root = RichToastView(
             icon: icon,
@@ -110,7 +113,6 @@ final class ToastPanelController {
         }
     }
 }
-
 private struct CapsuleButton: View {
     let title: String
     let action: () -> Void
@@ -118,17 +120,13 @@ private struct CapsuleButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .background(Capsule().fill(Color.white.opacity(0.14)))
+                .overlay(Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .foregroundColor(.white)
-        .background(
-            Capsule().fill(Color.white.opacity(0.14))
-        )
-        .overlay(
-            Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-        )
     }
 }
 
@@ -141,64 +139,58 @@ private struct RichToastView: View {
     let onClose: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Card background with blur + subtle border
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let icon = icon {
+                    icon
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.red)
+                        .symbolRenderingMode(.hierarchical)
+                }
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(8)
+                        .background(Circle().fill(Color.white.opacity(0.14)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            if let subtitle = subtitle {
+                Text(subtitle)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.88))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 12) {
+                if let primary = primary {
+                    CapsuleButton(title: primary.title, action: primary.action)
+                }
+                if let secondary = secondary {
+                    CapsuleButton(title: secondary.title, action: secondary.action)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading)
+        .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)  // blurred dark/light
+                .fill(Color.black.opacity(0.82))  // consistent dark card
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .stroke(Color.white.opacity(0.10), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
-
-            // Close button
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white.opacity(0.9))
-                    .padding(8)
-            }
-            .buttonStyle(.plain)
-            .background(Circle().fill(Color.white.opacity(0.12)))
-            .padding(10)
-        }
-        .overlay(
-            // Content
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 10) {
-                    if let icon = icon {
-                        icon
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.red)
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    Text(title)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                }
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.85))
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HStack(spacing: 14) {
-                    if let primary = primary {
-                        CapsuleButton(title: primary.title, action: primary.action)
-                    }
-                    if let secondary = secondary {
-                        CapsuleButton(title: secondary.title, action: secondary.action)
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading),
-            alignment: .center
         )
         .fixedSize(horizontal: false, vertical: true)
     }
