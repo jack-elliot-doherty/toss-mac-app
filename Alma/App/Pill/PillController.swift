@@ -112,6 +112,8 @@ final class PillController {
         // Guard against re-entry
         guard !isRecording else { return }
 
+        SoundFeedback.shared.playStart()
+
         // Start audio engine; provide level callback to update the waveform
         audio.start()
         audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
@@ -124,6 +126,9 @@ final class PillController {
 
     private func handleStopAudio() {
         guard isRecording else { return }
+
+        SoundFeedback.shared.playStop()
+
         stopTime = Date()
         print("Stop time: \(stopTime!.timeIntervalSince1970)")
 

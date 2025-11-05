@@ -87,7 +87,7 @@ final class PillPanelController {
         frame.size = size
         if animated {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.18
+                ctx.duration = 0.08
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 panel.animator().setFrame(frame, display: true)
             }
