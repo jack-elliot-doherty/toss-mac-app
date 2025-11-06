@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>ai.toss.mac</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>toss</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Toss needs to send keystrokes to paste your dictated text into other apps.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Toss uses your microphone to transcribe your voice when you hold the hotkey.</string>
+</dict>
+</plist>
