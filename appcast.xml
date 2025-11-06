@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
-        <title>Alma Updates</title>
-        <description>Updates for Alma</description>
+        <title>Toss Updates</title>
+        <description>Updates for Toss</description>
         <language>en</language>
         
         <item>
@@ -20,7 +20,7 @@
             <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <enclosure 
-                url="https://github.com/jack-elliot-doherty/alma-mac-app/releases/download/v1.0.0/Alma-1.0.0.dmg"
+                url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.0.0/Toss-1.0.0.dmg"
                 sparkle:edSignature="REPLACE_WITH_SIGNATURE"
                 length="12345678"
                 type="application/octet-stream" />
