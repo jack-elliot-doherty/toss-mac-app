@@ -12,6 +12,10 @@ final class PillController {
     private var isTranscribing = false
     private var lastRecordingURL: URL?
 
+    private var activeMeetingId: UUID?
+    private var meetingRecorder: MeetingRecorder?  // create this on demand as we dont need it until we start a meeting
+    private let meetingRepo = PersistentMeetingRepository()
+
     // dependencies injected from AppDelegate
     private let audio: AudioRecorder
     private let transcriber: TranscribeAPI
@@ -99,15 +103,49 @@ final class PillController {
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
 
+            case .startMeetingRecording(let meetingId):
+                handleStartMeetingRecording(meetingId)
+
+            case .stopMeetingRecording:
+                handleStopMeetingRecording()
+
+            case .uploadMeetingChunk(let meetingId, let url, let index):
+                handleUploadMeetingChunk(meetingId: meetingId, url: url, index: index)
+
+            case .setVisualStateMeetingRecording(let meetingId):
+                viewModel.meetingRecording(meetingId)
+                pillPanel.setState(.meetingRecording(meetingId))
+
+            case .scheduleMeetingDetectionTimeout(let timeout):
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    self.send(.meetingDetectionExpired)
+                }
             case .showToast(
-                let icon, let title, let subtitle, let primary, let secondary, let duration):
+                let icon, let title, let subtitle, let primary, let secondary, let duration,
+                let offsetAboveAnchor):
+
+                let iconImage = icon != nil ? Image(systemName: icon!) : nil
+
+                let primaryAction =
+                    primary != nil
+                    ? ToastAction(
+                        title: primary!.title, eventToSend: primary!.eventToSend,
+                        variant: primary!.variant) : nil
+                let secondaryAction =
+                    secondary != nil
+                    ? ToastAction(
+                        title: secondary!.title, eventToSend: secondary!.eventToSend,
+                        variant: secondary!.variant) : nil
+
                 toast.show(
-                    icon: icon,
+                    icon: iconImage,
                     title: title,
                     subtitle: subtitle,
-                    primary: primary,
-                    secondary: secondary,
-                    duration: duration
+                    primary: primaryAction,
+                    secondary: secondaryAction,
+                    duration: duration ?? 3.0,
+                    offsetAboveAnchor: offsetAboveAnchor ?? 30
                 )
 
             }
@@ -157,10 +195,7 @@ final class PillController {
 
         print("⏱️ UPLOAD START: +\(Date().timeIntervalSince(stopTime!))s")
 
-        // Get auth token (however you manage it)
         let token = auth.accessToken
-
-        // Call your Hono/Wispr API and map completion back into the machine
         transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
@@ -236,6 +271,103 @@ final class PillController {
         let thread = History.shared.upsertThread(title: "Quick Dictations")
         _ = History.shared.appendMessage(
             threadId: thread.id, role: .user, content: text, status: .final)
+    }
+
+    // MARK: - Meeting recording handlers
+
+    private func handleStartMeetingRecording(_ meetingId: UUID) {
+        guard meetingRecorder == nil else { return }
+
+        activeMeetingId = meetingId
+
+        let meeting = meetingRepo.createMeeting(
+            id: meetingId,
+            title: "Meeting \(Date().formatted(date: .abbreviated, time: .shortened))"
+        )
+
+        // create the meeting recorder on demand
+        let recorder = MeetingRecorder()
+        recorder.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
+
+        recorder.onChunkReady = { [weak self] url, index in
+            guard let self = self, self.activeMeetingId != nil else { return }
+            // Now we know which meeting this chunk belongs to!
+            self.send(.meetingChunkReady(url, index))
+        }
+        recorder.onError = { error in
+            NSLog("[PillController] Meeting recorder error: \(error)")
+        }
+
+        recorder.start()
+        meetingRecorder = recorder
+
+        SoundFeedback.shared.playStart()
+        NSLog("[PillController] Meeting recording started for meeting \(meeting.id)")
+    }
+
+    private func handleStopMeetingRecording() {
+        guard let meetingRecorder = meetingRecorder, let meetingId = activeMeetingId else { return }
+
+        let finalChunkIndex = meetingRecorder.chunkIndex
+
+        // Stop recorder and upload the final chunk
+        if let finalChunkURL = meetingRecorder.stop() {
+            handleUploadMeetingChunk(
+                meetingId: meetingId, url: finalChunkURL, index: finalChunkIndex)
+        }
+
+        self.meetingRecorder = nil  // reset the recorder
+
+        meetingRepo.endMeeting(id: meetingId)
+
+        activeMeetingId = nil
+
+        SoundFeedback.shared.playStop()
+        NSLog("[PillController] Meeting recording stopped for meeting \(meetingId)")
+    }
+
+    private func handleUploadMeetingChunk(meetingId: UUID, url: URL, index: Int) {
+        // // Upload the meeting chunk to the server
+        guard let token = auth.accessToken else {
+            NSLog("[PillController] No auth token for chunk upload")
+            return
+        }
+
+        NSLog("[PillController] Uploading chunk #\(index)...")
+
+        transcriber.transcribeMeetingChunk(
+            meetingId: meetingId,
+            chunkIndex: index,
+            fileURL: url,
+            token: token
+        ) { [weak self] result in
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                switch result {
+                case .success(let text):
+                    // Save chunk transcript to repository
+                    _ = self.meetingRepo.appendChunk(
+                        meetingId: meetingId,
+                        index: index,
+                        transcript: text
+                    )
+                    NSLog("[PillController] Chunk #\(index) transcribed: \(text.prefix(40))...")
+
+                case .failure(let error):
+                    NSLog("[PillController] Chunk upload error: \(error)")
+                }
+
+                // Clean up temp file
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+
+    }
+
+    private func handleMeetingChunkReady(meetingId: UUID, url: URL, index: Int) {
+        // // Handle the meeting chunk ready event
+        // send(.meetingChunkReady(meetingId, url, index))
     }
 
     // MARK: - Logging helpers

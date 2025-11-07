@@ -8,7 +8,7 @@ final class MeetingRecorder {
     private var currentChunkFile: AVAudioFile?
     private var currentChunkURL: URL?
     private var chunkTimer: Timer?
-    private(set) var chunkIndex: Int = 0
+    private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
 
     var onError: ((Error) -> Void)?

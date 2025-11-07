@@ -18,7 +18,7 @@ struct MeetingChunkModel: Identifiable, Equatable, Codable {
 }
 
 protocol MeetingRepositoryProtocol {
-    func createMeeting(title: String) -> MeetingModel
+    func createMeeting(id: UUID, title: String) -> MeetingModel
     func endMeeting(id: UUID)
     func getMeeting(id: UUID) -> MeetingModel?
     func appendChunk(meetingId: UUID, index: Int, transcript: String) -> MeetingChunkModel
@@ -76,11 +76,11 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol {
         }
     }
 
-    func createMeeting(title: String) -> MeetingModel {
+    func createMeeting(id: UUID, title: String) -> MeetingModel {
         return queue.sync {
             let now = Date()
             let meeting = MeetingModel(
-                id: UUID(), title: title, startTime: now, endTime: nil, createdAt: now,
+                id: id, title: title, startTime: now, endTime: nil, createdAt: now,
                 updatedAt: now)
             meetings[meeting.id] = meeting
             chunks[meeting.id] = []

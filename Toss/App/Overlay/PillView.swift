@@ -4,22 +4,22 @@ import SwiftUI
 
 private enum PillStyle {
     static let corner: CGFloat = 16
-    static let fill      = Color.black.opacity(0.92)     // deeper black
-    static let stroke    = Color.white.opacity(0.28)     // crisp white outline
-    static let hairline  = 1.0
-    
+    static let fill = Color.black.opacity(0.92)  // deeper black
+    static let stroke = Color.white.opacity(0.28)  // crisp white outline
+    static let hairline = 1.0
+
     // Idle silhouette (very small)
-      static let idleWidth: CGFloat  = 40
-      static let idleHeight: CGFloat = 10
-      static let padXIdle: CGFloat   = 6
-      static let padYIdle: CGFloat   = 3
+    static let idleWidth: CGFloat = 40
+    static let idleHeight: CGFloat = 10
+    static let padXIdle: CGFloat = 6
+    static let padYIdle: CGFloat = 3
 
-      // Active states
-      static let padXActive: CGFloat   = 8
-      static let padYActive: CGFloat   = 4
-      static let spacing: CGFloat      = 4
+    // Active states
+    static let padXActive: CGFloat = 8
+    static let padYActive: CGFloat = 4
+    static let spacing: CGFloat = 4
 
-    static let waveformWidth: CGFloat = 64    // compact
+    static let waveformWidth: CGFloat = 64  // compact
     static let waveformHeight: CGFloat = 14
 }
 
@@ -37,115 +37,130 @@ struct PillView: View {
                 listening(mode: mode)
             case .transcribing(let mode):
                 transcribing(mode: mode)
+            case .meetingRecording(let meetingId):
+                meetingRecording(meetingId: meetingId)
             }
         }
         .padding(.horizontal, 0)
-              .padding(.vertical, 0)
-              .background(
-                  Capsule(style: .continuous)
-                      .fill(PillStyle.fill)
-              )
-              .overlay(
-                  Capsule(style: .continuous)
-                      .inset(by: 0.5) // makes a crisp 1px stroke on retina
-                      .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
-              )
-              .contentShape(Capsule())
-              .fixedSize(horizontal: true, vertical: true) // hug content; no stretching
-              .animation(.easeInOut(duration: 0.18), value: viewModel.visualState)
+        .padding(.vertical, 0)
+        .background(
+            Capsule(style: .continuous)
+                .fill(PillStyle.fill)
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .inset(by: 0.5)  // makes a crisp 1px stroke on retina
+                .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
+        )
+        .contentShape(Capsule())
+        .fixedSize(horizontal: true, vertical: true)  // hug content; no stretching
+        .animation(.easeInOut(duration: 0.18), value: viewModel.visualState)
     }
 
     // MARK: Idle — tiny pill
 
     // IDLE (narrower & shorter)
     private var idle: some View {
-               // Thin ring
-               Capsule()
-                   .stroke(Color.white.opacity(0.36), lineWidth: 1)
-                   .frame(
-                       width:  PillStyle.idleWidth - 8,
-                       height: PillStyle.idleHeight - 2
-                   )
-                   .blendMode(.plusLighter)
-           
-       }
+        // Thin ring
+        Capsule()
+            .stroke(Color.white.opacity(0.36), lineWidth: 1)
+            .frame(
+                width: PillStyle.idleWidth - 8,
+                height: PillStyle.idleHeight - 2
+            )
+            .blendMode(.plusLighter)
+
+    }
 
     // MARK: Listening
 
     private func listening(mode: PillMode) -> some View {
-           HStack(spacing: PillStyle.spacing) {
-               if viewModel.isAlwaysOn {
-                   // Always-on: buttons flank the waveform
-                   Button {
-                       viewModel.onRequestCancel?()
-                   } label: {
-                       Image(systemName: "xmark")
-                           .font(.system(size: 11, weight: .bold))
-                           .foregroundStyle(.white.opacity(0.9))
-                   }
-                   .buttonStyle(.plain)
-               }
+        HStack(spacing: PillStyle.spacing) {
+            if viewModel.isAlwaysOn {
+                // Always-on: buttons flank the waveform
+                Button {
+                    viewModel.onRequestCancel?()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                .buttonStyle(.plain)
+            }
 
-               DotWaveformView(level: viewModel.levelRMS)
-                   .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
+            DotWaveformView(level: viewModel.levelRMS)
+                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
 
-               if viewModel.isAlwaysOn {
-                   Button {
-                       viewModel.onRequestStop?()
-                   } label: {
-                       Image(systemName: "stop.fill")
-                           .font(.system(size: 12, weight: .heavy))
-                           .foregroundStyle(.red)
-                   }
-                   .buttonStyle(.plain)
-               } else if mode == .command {
-                   // Temp-hold agent affordance (no toggle)
-                   AgentChip()
-                       .transition(.asymmetric(
-                           insertion: .move(edge: .trailing).combined(with: .opacity),
-                           removal: .opacity
-                       ))
-               }
-           }
-           .padding(.horizontal, PillStyle.padXActive)
-           .padding(.vertical,   PillStyle.padYActive)
-       }
+            if viewModel.isAlwaysOn {
+                Button {
+                    viewModel.onRequestStop?()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            } else if mode == .command {
+                // Temp-hold agent affordance (no toggle)
+                AgentChip()
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+            }
+        }
+        .padding(.horizontal, PillStyle.padXActive)
+        .padding(.vertical, PillStyle.padYActive)
+    }
 
     // MARK: Transcribing — widen a touch and show typing dots
 
     private func transcribing(mode: PillMode) -> some View {
-           HStack(spacing: PillStyle.spacing) {
-               DotWaveformView(level: 0.22) // subtle steady center while uploading
-                   .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
+        HStack(spacing: PillStyle.spacing) {
+            DotWaveformView(level: 0.22)  // subtle steady center while uploading
+                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
 
-               TypingDots()
-                   .frame(height: PillStyle.waveformHeight)
+            TypingDots()
+                .frame(height: PillStyle.waveformHeight)
 
-               if viewModel.isAlwaysOn {
-                   Button {
-                       viewModel.onRequestCancel?()
-                   } label: {
-                       Image(systemName: "xmark")
-                           .font(.system(size: 11, weight: .bold))
-                           .foregroundStyle(.white.opacity(0.9))
-                   }
-                   .buttonStyle(.plain)
+            if viewModel.isAlwaysOn {
+                Button {
+                    viewModel.onRequestCancel?()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.9))
+                }
+                .buttonStyle(.plain)
 
-                   Button {
-                       viewModel.onRequestStop?()
-                   } label: {
-                       Image(systemName: "stop.fill")
-                           .font(.system(size: 12, weight: .heavy))
-                           .foregroundStyle(.red)
-                   }
-                   .buttonStyle(.plain)
-               } else if mode == .command {
-                   AgentChip()
-               }
-           }
-           .padding(.horizontal, PillStyle.padXActive + 2) // tiny widen vs listening
-           .padding(.vertical,   PillStyle.padYActive)
-       }
+                Button {
+                    viewModel.onRequestStop?()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            } else if mode == .command {
+                AgentChip()
+            }
+        }
+        .padding(.horizontal, PillStyle.padXActive + 2)  // tiny widen vs listening
+        .padding(.vertical, PillStyle.padYActive)
+    }
+
+    // MARK: Meeting Recording
+
+    private func meetingRecording(meetingId: UUID) -> some View {
+        HStack(spacing: PillStyle.spacing) {
+            DotWaveformView(level: viewModel.levelRMS)
+                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
+        }
+        .padding(.horizontal, PillStyle.padXActive)
+        .padding(.vertical, PillStyle.padYActive)
+    }
+
 }
 
 // MARK: - Subviews
@@ -176,7 +191,7 @@ private struct AgentChip: View {
 
 /// Dot-style waveform (center grows tallest — similar to your screenshots)
 private struct DotWaveformView: View {
-    let level: Float // 0..1
+    let level: Float  // 0..1
 
     var body: some View {
         let clamped = max(0.0, min(1.0, level))

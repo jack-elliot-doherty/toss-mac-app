@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // Were going to use this to manage the state that the pill should be in based on the users actions and the shortcuts they are holding
 
@@ -65,12 +66,13 @@ enum PillEffect: Equatable {
 
     // UI
     case showToast(
-        icon: String?,
-        title: String,
-        subtitle: String?,
-        primary: ToastAction?,
-        secondary: ToastAction?,
-        duration: TimeInterval = 3.0
+        _: String?,
+        _: String,
+        _: String?,
+        _: ToastAction?,
+        _: ToastAction?,
+        _: TimeInterval?,
+        _: CGFloat?
     )
     case setVisualStateListening
     case setVisualStateTranscribing
@@ -78,6 +80,7 @@ enum PillEffect: Equatable {
     case setAlwaysOn(Bool)
 
     // meetings
+    case scheduleMeetingDetectionTimeout(TimeInterval)
     case startMeetingRecording(UUID)
     case stopMeetingRecording
     case uploadMeetingChunk(UUID, URL, Int)
@@ -85,10 +88,38 @@ enum PillEffect: Equatable {
 
 }
 
+extension PillEffect {
+    static func showToast(
+        icon: String? = nil,
+        title: String,
+        subtitle: String? = nil,
+        primary: ToastAction? = nil,
+        secondary: ToastAction? = nil,
+        duration: TimeInterval? = nil,
+        offsetAboveAnchor: CGFloat? = nil
+    ) -> PillEffect {
+        return .showToast(
+            icon,
+            title,
+            subtitle,
+            primary,
+            secondary,
+            duration,
+            offsetAboveAnchor
+        )
+    }
+}
+
 struct ToastAction: Equatable {
     let title: String
     let eventToSend: PillEvent
     let variant: ToastActionVariant
+
+    init(title: String, eventToSend: PillEvent, variant: ToastActionVariant) {
+        self.title = title
+        self.eventToSend = eventToSend
+        self.variant = variant
+    }
 }
 
 enum ToastActionVariant: Equatable {
@@ -138,15 +169,52 @@ struct PillStateMachine {
             ctx.isAlwaysOn.toggle()
             effects += [
                 .setAlwaysOn(ctx.isAlwaysOn),
-                .showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
+                .showToast(
+                    title: ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
             ]
+
+        case (.idle, .meetingDetected):
+            ctx.meetingDetected = true
+            effects += [
+                .showToast(
+                    icon: "mic.fill",
+                    title: "Meeting detected",
+                    subtitle: "Press fn to start recording"
+                ),
+                .scheduleMeetingDetectionTimeout(10),
+            ]
+
+        // IDLE + Fn down + meeting detected → START MEETING
+        case (.idle, .fnDown) where ctx.meetingDetected:
+            ctx.meetingDetected = false
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId)
+            effects += [
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId),
+                .showToast(title: "Recording meeting"),
+            ]
+
+        // IDLE + detection expired (timeout)
+        case (.idle, .meetingDetectionExpired):
+            ctx.meetingDetected = false
+        // Silently clear the flag
+
+        // IDLE + user dismisses detection
+        case (.idle, .escapePressed) where ctx.meetingDetected:
+            ctx.meetingDetected = false
+            effects += [.showToast(title: "Cancelled")]
+
+        case (.idle, .dismissMeetingDetection):
+            ctx.meetingDetected = false
+            effects += [.showToast(title: "Dismissed")]
 
         case (.idle, .startMeetingRecording):
             let meetingId = UUID()
             state = .meetingRecording(meetingId)
             effects += [
                 .startMeetingRecording(meetingId), .setVisualStateMeetingRecording(meetingId),
-                .showToast("Meeting recording started"),
+                .showToast(title: "Meeting recording started"),
             ]
 
         // - LISTENING
@@ -182,7 +250,7 @@ struct PillStateMachine {
             ctx.isCmdHeld = false
             effects += [
                 .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
-                .showToast("Cancelled"),
+                .showToast(title: "Cancelled"),
             ]
 
         case (.listening, .cancelButton):
@@ -190,7 +258,7 @@ struct PillStateMachine {
             state = .idle
             effects += [
                 .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
-                .showToast("Cancelled"),
+                .showToast(title: "Cancelled"),
             ]
 
         case (.listening(let mode), .cmdDown):
@@ -212,7 +280,8 @@ struct PillStateMachine {
                 // Enter Always-On, keep listening
                 ctx.isAlwaysOn = true
                 effects += [
-                    .setAlwaysOn(true), .showToast("Always-On enabled"), .setVisualStateListening,
+                    .setAlwaysOn(true), .showToast(title: "Always-On enabled"),
+                    .setVisualStateListening,
                 ]
                 // state remains .listening(mode)
             } else {
@@ -237,11 +306,14 @@ struct PillStateMachine {
                 effects += [.pasteText(text)]
             case .command:
                 effects += [.sendToAgent(text)]
+            case .meeting:
+                // Do nothing since we handle meeting recording in a different state
+                effects += []
             }
 
         case (.transcribing, .transcriptionFailed(let error)):
             state = .idle
-            effects += [.setVisualStateIdle, .showToast("Transcription Failed: \(error)")]
+            effects += [.setVisualStateIdle, .showToast(title: "Transcription Failed: \(error)")]
 
         // - MEETING RECORDING
         case (.meetingRecording, .stopMeetingRecording):
@@ -249,7 +321,7 @@ struct PillStateMachine {
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
-                .showToast("Meeting recording stopped"),
+                .showToast(title: "Meeting recording stopped"),
             ]
 
         case (.meetingRecording(let meetingId), .meetingChunkReady(let url, let index)):
@@ -262,7 +334,7 @@ struct PillStateMachine {
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
-                .showToast("Meeting cancelled"),
+                .showToast(title: "Meeting cancelled"),
             ]
 
         case (.meetingRecording, .cancelButton):
@@ -270,7 +342,7 @@ struct PillStateMachine {
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
-                .showToast("Meeting cancelled"),
+                .showToast(title: "Meeting cancelled"),
             ]
 
         default:

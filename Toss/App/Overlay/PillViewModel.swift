@@ -11,6 +11,7 @@ enum PillVisualState: Equatable {
     case idle
     case listening(PillMode)
     case transcribing(PillMode)
+    case meetingRecording(UUID)
 }
 
 @MainActor
@@ -25,28 +26,29 @@ final class PillViewModel: ObservableObject {
     var onToggleAgentMode: ((Bool) -> Void)?
 
     var agentModeEnabled: Bool {
-        if case .listening(.command) = visualState {return true}
+        if case .listening(.command) = visualState { return true }
         return false
     }
-    
-    
-    func listening(_ mode:PillMode) {
+
+    func listening(_ mode: PillMode) {
         visualState = .listening(mode)
     }
-    
-    func transcribing(_ mode:PillMode) {
+
+    func transcribing(_ mode: PillMode) {
         visualState = .transcribing(mode)
     }
     
-    func idle(){
+    func meetingRecording(_ meetingId: UUID) {
+        visualState = .meetingRecording(meetingId)
+    }
+
+    func idle() {
         visualState = .idle
     }
-    
+
     func updateLevelRMS(_ value: Float) {
         // Clamp and publish; UI can animate from this
         let clamped = max(0, min(1, value))
         levelRMS = clamped
     }
 }
-
-

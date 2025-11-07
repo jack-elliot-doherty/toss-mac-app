@@ -7,6 +7,8 @@ final class ToastPanelController {
     private var dismissTask: Task<Void, Never>?
     private let anchorFrameProvider: () -> NSRect?
 
+    var onToastAction: ((PillEvent) -> Void)?
+
     init(anchorFrameProvider: @escaping () -> NSRect?) {
         self.anchorFrameProvider = anchorFrameProvider
         let contentRect = NSRect(x: 0, y: 40, width: 480, height: 140)
@@ -27,21 +29,22 @@ final class ToastPanelController {
     }
 
     func show(
-        icon: String?,
+        icon: Image? = nil,
         title: String,
-        subtitle: String?,
-        primary: ToastAction?,
-        secondary: ToastAction?,
+        subtitle: String? = nil,
+        primary: ToastAction? = nil,
+        secondary: ToastAction? = nil,
         duration: TimeInterval = 3.0,
         offsetAboveAnchor: CGFloat = 30
     ) {
         let root = RichToastView(
-            icon: icon.map { Image(systemName: $0) },
+            icon: icon,
             title: title,
             subtitle: subtitle,
             primary: primary,
             secondary: secondary,
-            onClose: { [weak self] in self?.panel.orderOut(nil) }
+            onClose: { [weak self] in self?.panel.orderOut(nil) },
+            onAction: { [weak self] event in self?.onToastAction?(event) }
         )
         let hosting = NSHostingView(rootView: AnyView(root))
         panel.contentView = hosting
@@ -95,10 +98,10 @@ final class ToastPanelController {
 
 private struct CapsuleButton: View {
     let title: String
-    let eventToSend: PillEvent
     let variant: ToastActionVariant
+    let action: () -> Void
     var body: some View {
-        Button(action: { action(event) }) {
+        Button(action: action) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white)
@@ -118,7 +121,7 @@ private struct RichToastView: View {
     let primary: ToastAction?
     let secondary: ToastAction?
     let onClose: () -> Void
-
+    let onAction: (PillEvent) -> Void
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -154,11 +157,12 @@ private struct RichToastView: View {
 
             HStack(spacing: 12) {
                 if let primary = primary {
-                    CapsuleButton(title: primary.title, action: { primary.eventToSend.send() })  // TODO: implement sending the event
+                    CapsuleButton(title: primary.title,
+                    variant: primary.variant,
+                    action: { onAction(primary.eventToSend) })
                 }
                 if let secondary = secondary {
-                    CapsuleButton(title: secondary.title, action: { secondary.eventToSend.send() })
-                    // TODO: implement sending the event
+                    CapsuleButton(title: secondary.title, variant: secondary.variant, action: { onAction(secondary.eventToSend) })
                 }
             }
         }

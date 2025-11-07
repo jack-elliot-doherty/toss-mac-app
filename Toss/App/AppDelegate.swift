@@ -7,6 +7,7 @@ import Foundation
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     // let updaterController: SPUStandardUpdaterController
+    private let meetingDetector = MeetingDetector()
 
     private var pillController: PillController!
     private var statusItem: NSStatusItem?
@@ -95,6 +96,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(runPlannerDemo),
             name: Notification.Name("plannerDemoRequested"), object: nil)
+
+        // Setup meeting detection
+        meetingDetector.onMeetingDetected = { [weak self] in
+            self?.pillController.send(.meetingDetected)
+        }
+        meetingDetector.start()
+
+        NSLog("[AppDelegate] Meeting detection enabled")
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
@@ -123,6 +132,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         hotkey.stop()
         _ = recorder.stop()
+        meetingDetector.stop()
+        NSLog("[AppDelegate] Meeting detection disabled")
     }
 
     @objc private func runPlannerDemo() {}
