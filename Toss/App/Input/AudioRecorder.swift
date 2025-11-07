@@ -45,7 +45,7 @@ final class AudioRecorder {
 
         mixer.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) {
             [weak self] buffer, _ in
-            guard let self = self, let file = self.audioFile else { return }
+            guard let self = self, let _ = self.audioFile else { return }
 
             self.ioQueue.async {
                 try? self.audioFile?.write(from: buffer)

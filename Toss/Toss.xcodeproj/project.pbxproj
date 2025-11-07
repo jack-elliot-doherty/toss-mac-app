@@ -657,6 +657,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Toss;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Toss needs microphone access for hold‑to‑talk.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Toss transcribes speech to text to paste into apps.";
@@ -692,6 +693,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Toss;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Toss needs microphone access for hold‑to‑talk.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Toss transcribes speech to text to paste into apps.";
