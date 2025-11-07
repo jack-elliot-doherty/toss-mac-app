@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import SwiftUI
 
 @MainActor
@@ -8,10 +9,35 @@ final class OnboardingManager: ObservableObject {
     @Published var axGranted: Bool = AccessibilityAuth.isTrusted()
     @Published var micStatus: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(
         for: .audio)
-    @Published var isSignedIn: Bool = AuthManager.shared.isAuthenticated
+    @Published var isSignedIn: Bool = false
+
+    private var cancellables = Set<AnyCancellable>()
 
     var micGranted: Bool { micStatus == .authorized }
     var needsOnboarding: Bool { !isSignedIn || !axGranted || !micGranted }
+
+    private init() {  // Initial state
+        isSignedIn = AuthManager.shared.isAuthenticated
+
+        // Observe AuthManager changes
+        AuthManager.shared.$accessToken
+            .map { $0?.isEmpty == false }
+            .assign(to: &$isSignedIn)
+
+        // Listen for app activation to check AX permission
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                self?.checkAXPermission()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func checkAXPermission() {
+        let newAx = AccessibilityAuth.isTrusted()
+        if newAx != axGranted {
+            axGranted = newAx
+        }
+    }
 
     func refresh() {
         axGranted = AccessibilityAuth.isTrusted()
