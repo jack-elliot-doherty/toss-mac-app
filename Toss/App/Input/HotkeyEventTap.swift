@@ -8,6 +8,7 @@ final class HotkeyEventTap {
     var onCmdUp: (() -> Void)?
 
     var onDoubleTapFn: (() -> Void)?
+    var onEscapePressed: (() -> Void)?
 
     private var monitors: [Any] = []
     private var isHoldingFn: Bool = false
@@ -21,6 +22,7 @@ final class HotkeyEventTap {
 
     private var swallowFnDownAfterDoubleTap = false
     private var swallowNextFnUp = false
+    private var swallowFnUpAfterEscape = false
 
     private(set) var isStarted: Bool = false
 
@@ -92,6 +94,13 @@ final class HotkeyEventTap {
                     onFnDown?()
                 }
                 if fnWasDown && !fnIsDown {
+
+                    if self.swallowFnUpAfterEscape {
+                        self.swallowFnUpAfterEscape = false
+                        print("[Hotkey] (swallowed Fn UP after escape)")
+                        self.previousFlags = flags
+                        return
+                    }
 
                     // If we just decided to swallow the post-double-tap UP, eat it and reset the flag
                     if self.swallowNextFnUp {
@@ -189,6 +198,13 @@ final class HotkeyEventTap {
                 }
 
                 if fnWasDown && !fnIsDown {
+                    if self.swallowFnUpAfterEscape {
+                        self.swallowFnUpAfterEscape = false
+                        print("[Hotkey] (Local) swallowed Fn UP after escape")
+                        self.previousFlags = flags
+                        return event
+                    }
+
                     if self.swallowNextFnUp {
                         self.swallowNextFnUp = false
                         self.swallowFnDownAfterDoubleTap = false
@@ -231,6 +247,51 @@ final class HotkeyEventTap {
             monitors.append(localMonitor)
         }
 
+        if let escapeMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .keyDown,
+            handler: { [weak self] event in
+                guard let self = self else { return }
+                // Escape key code is 53
+                if event.keyCode == 53 {
+                    print("[Hotkey] Escape pressed")
+                    // If Fn is currently held, swallow the next Fn up
+                    if self.previousFlags.contains(.function) {
+                        self.swallowFnUpAfterEscape = true
+                        // Cancel any pending delayed Fn up
+                        self.pendingFnUpTimer?.invalidate()
+                        self.pendingFnUpTimer = nil
+                    }
+                    self.onEscapePressed?()
+                }
+            })
+        {
+            monitors.append(escapeMonitor)
+        }
+
+        // Local monitor for Escape when app is active
+        if let localEscapeMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .keyDown,
+            handler: { [weak self] event in
+                guard let self = self else { return event }
+                // Escape key code is 53
+                if event.keyCode == 53 {
+                    print("[Hotkey] (Local) Escape pressed")
+                    // If Fn is currently held, swallow the next Fn up
+                    if self.previousFlags.contains(.function) {
+                        self.swallowFnUpAfterEscape = true
+                        // Cancel any pending delayed Fn up
+                        self.pendingFnUpTimer?.invalidate()
+                        self.pendingFnUpTimer = nil
+                    }
+                    self.onEscapePressed?()
+                    return nil  // Consume the event
+                }
+                return event
+            })
+        {
+            monitors.append(localEscapeMonitor)
+        }
+
     }
 
     func stop() {
@@ -246,6 +307,7 @@ final class HotkeyEventTap {
         // clear swallow flags
         swallowFnDownAfterDoubleTap = false
         swallowNextFnUp = false
+        swallowFnUpAfterEscape = false
 
         // If Fn was logically down, synthesize an up so the app isn't stuck
         if previousFlags.contains(.function) { onFnUp?() }

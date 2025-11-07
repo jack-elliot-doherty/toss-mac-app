@@ -28,6 +28,7 @@ enum PillEvent: Equatable {
     case doubleTapFn
     case stopButton
     case cancelButton
+    case escapePressed
 
     // async results
     case transcriptionSucceeded(text: String)
@@ -87,7 +88,7 @@ struct PillStateMachine {
 
         case (.idle, .cmdDown):
             ctx.isCmdHeld = true
-            // Noop until fn down starts a session
+        // Noop until fn down starts a session
 
         case (.idle, .cmdUp):
             ctx.isCmdHeld = false
@@ -96,7 +97,8 @@ struct PillStateMachine {
             ctx.isAlwaysOn.toggle()
             effects += [
                 .setAlwaysOn(ctx.isAlwaysOn),
-                .showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled")]
+                .showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
+            ]
 
         // - LISTENING
         case (.listening(let mode), .fnUp):
@@ -112,21 +114,37 @@ struct PillStateMachine {
         case (.listening, .fnDown) where ctx.isAlwaysOn:
             ctx.isAlwaysOn = false
             state = .transcribing(currentMode)
-            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
+            effects += [
+                .setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing,
+                .startTranscription,
+            ]
 
-            
         case (.listening, .stopButton):
             ctx.isAlwaysOn = false
             state = .transcribing(currentMode)
-            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
+            effects += [
+                .setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing,
+                .startTranscription,
+            ]
+
+        case (.listening, .escapePressed):
+            ctx.isAlwaysOn = false
+            state = .idle
+            effects += [
+                .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
+                .showToast("Cancelled"),
+            ]
 
         case (.listening, .cancelButton):
             ctx.isAlwaysOn = false
             state = .idle
-            effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle, .showToast("Cancelled")]
+            effects += [
+                .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
+                .showToast("Cancelled"),
+            ]
 
         case (.listening(let mode), .cmdDown):
-            guard !ctx.isAlwaysOn else {break} // ignore cmd in always as its only for dictation
+            guard !ctx.isAlwaysOn else { break }  // ignore cmd in always as its only for dictation
             ctx.isCmdHeld = true
             if mode != .command {
                 state = .listening(.command)
@@ -143,18 +161,23 @@ struct PillStateMachine {
 
         // handle double-tap while already listening
         case (.listening(let mode), .doubleTapFn):
-          if ctx.isAlwaysOn == false {
-              // Enter Always-On, keep listening
-              ctx.isAlwaysOn = true
-              effects += [.setAlwaysOn(true), .showToast("Always-On enabled"), .setVisualStateListening]
-              // state remains .listening(mode)
-          } else {
-          // Already Always-On → treat as Done
-              ctx.isAlwaysOn = false
-              state = .transcribing(mode)
-              effects += [.setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
-          }
-            
+            if ctx.isAlwaysOn == false {
+                // Enter Always-On, keep listening
+                ctx.isAlwaysOn = true
+                effects += [
+                    .setAlwaysOn(true), .showToast("Always-On enabled"), .setVisualStateListening,
+                ]
+                // state remains .listening(mode)
+            } else {
+                // Already Always-On → treat as Done
+                ctx.isAlwaysOn = false
+                state = .transcribing(mode)
+                effects += [
+                    .setAlwaysOn(false), .stopAudioCapture, .setVisualStateTranscribing,
+                    .startTranscription,
+                ]
+            }
+
         // - TRANSCRIBING
         case (.transcribing, .transcriptionSucceeded(let text)):
             let mode = currentMode

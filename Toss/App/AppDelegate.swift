@@ -82,6 +82,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.onDoubleTapFn = { [weak self] in
             self?.pillController.send(.doubleTapFn)
         }
+        hotkey.onEscapePressed = { [weak self] in
+            self?.pillController.send(.escapePressed)
+        }
         hotkey.start()
 
         // Expose UI intents from pill
