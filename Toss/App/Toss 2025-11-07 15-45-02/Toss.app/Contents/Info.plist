@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BuildMachineOSBuild</key>
+	<string>24A348</string>
+	<key>CFBundleIdentifier</key>
+	<string>ai.jack.Toss</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>ai.toss.mac</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>toss</string>
+			</array>
+		</dict>
+	</array>
+	<key>DTCompiler</key>
+	<string>com.apple.compilers.llvm.clang.1_0</string>
+	<key>DTPlatformBuild</key>
+	<string>24C94</string>
+	<key>DTPlatformName</key>
+	<string>macosx</string>
+	<key>DTPlatformVersion</key>
+	<string>15.2</string>
+	<key>DTSDKBuild</key>
+	<string>24C94</string>
+	<key>DTSDKName</key>
+	<string>macosx15.2</string>
+	<key>DTXcode</key>
+	<string>1620</string>
+	<key>DTXcodeBuild</key>
+	<string>16C5032a</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Toss needs to send keystrokes to paste your dictated text into other apps.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Toss uses your microphone to transcribe your voice when you hold the hotkey.</string>
+</dict>
+</plist>

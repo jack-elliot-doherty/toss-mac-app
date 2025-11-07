@@ -1,0 +1,423 @@
+2025-11-07 14:44:57 +0000  Initial pipeline context: <IDEDistributionProcessingPipelineContext: 0x33c193ba0; archive(resolved)="<IDEArchive: 0x600009971180>", distributionTask(resolved)="2", distributionDestination(resolved)="1", distributionMethod(resolved)="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team(resolved)="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	Chain (13, self inclusive):
+	<IDEDistributionProcessingPipelineContext: 0x33c193ba0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionProcessingPipelineContext: 0x33c1bbcf0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x337f6fca0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x33bb56fc0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x33bb15dd0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x10e614e40; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x1397084f0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x139716460; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x33c155d90; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="<IDEProvisioningDisambiguatableBasicTeam: 0x600006c48a40; teamID='BZZ744Q3KB', teamName='Jack Doherty', teamType='Individual', username='youcangetjack@gmail.com', isFreeProvisioningTeam='0'>">
+	<IDEDistributionContext: 0x33c1cfcb0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="(null)">
+	<IDEDistributionContext: 0x337fb14a0; archive = "<IDEArchive: 0x600009971180>", distributionMethod="<IDEDistributionMethodDeveloperID: 0x6000071dd040>", team="(null)">
+	<IDEDistributionContext: 0x16fd19f60; archive = "<IDEArchive: 0x600009971180>", distributionMethod="(null)", team="(null)">
+	<IDEDistributionContext: 0x337f43600; archive = "<IDEArchive: 0x600009971180>", distributionMethod="(null)", team="(null)">
+</IDEDistributionProcessingPipelineContext: 0x33c193ba0>
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionCreateDestRootStep
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionCopyItemStep
+2025-11-07 14:44:57 +0000  Running /usr/bin/ditto '-V' '/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app' '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app'
+2025-11-07 14:44:57 +0000  >>> Copying /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app 
+2025-11-07 14:44:57 +0000  copying file ./Contents/_CodeSignature/CodeResources ... 
+2025-11-07 14:44:57 +0000  2960 bytes for ./Contents/_CodeSignature/CodeResources
+2025-11-07 14:44:57 +0000  copying file ./Contents/MacOS/Toss ... 
+2025-11-07 14:44:57 +0000  1183600 bytes for ./Contents/MacOS/Toss
+2025-11-07 14:44:57 +0000  copying file ./Contents/Resources/digital-click-357350.mp3 ... 
+2025-11-07 14:44:57 +0000  28421 bytes for ./Contents/Resources/digital-click-357350.mp3
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/Resources ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/Resources
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/Versions/Current ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/Versions/Current
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/_CodeSignature/CodeResources ... 
+2025-11-07 14:44:57 +0000  17524 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/_CodeSignature/CodeResources
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/de.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  12162 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/de.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/he.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  10065 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/he.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ar.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  3554 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ar.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/el.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5934 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/el.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ja.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  9011 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ja.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fa.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5716 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fa.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/uk.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5842 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/uk.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_CN.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  4100 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_CN.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nb.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5539 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nb.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/es.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  7040 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/es.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/is.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  3954 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/is.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sl.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5646 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sl.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/da.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  4882 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/da.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/it.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  11514 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/it.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sk.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5675 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sk.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sv.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5160 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/sv.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ReleaseNotesColorStyle.css ... 
+2025-11-07 14:44:57 +0000  231 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ReleaseNotesColorStyle.css
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/cs.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  11220 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/cs.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ko.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  8103 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ko.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Base.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5799 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Base.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hu.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  4449 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hu.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_HK.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  6711 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_HK.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/tr.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  6183 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/tr.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pl.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5453 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pl.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_TW.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  6889 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/zh_TW.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-BR.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  10452 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-BR.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ru.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5784 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ru.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-110000.nib ... 
+2025-11-07 14:44:57 +0000  25365 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-110000.nib
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-101300.nib ... 
+2025-11-07 14:44:57 +0000  25388 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdatePermissionPrompt.nib/keyedobjects-101300.nib
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUStatus.nib ... 
+2025-11-07 14:44:57 +0000  13047 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUStatus.nib
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdateAlert.nib ... 
+2025-11-07 14:44:57 +0000  18461 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/SUUpdateAlert.nib
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fr.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  7855 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fr.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fi.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  3252 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/fi.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nl.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  9899 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nl.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/th.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5339 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/th.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nn.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5671 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/nn.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-PT.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  5984 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/pt-PT.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ro.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  6115 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ro.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Info.plist ... 
+2025-11-07 14:44:57 +0000  1339 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/Info.plist
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hr.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  6367 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/hr.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ca.lproj/Sparkle.strings ... 
+2025-11-07 14:44:57 +0000  3501 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Resources/ca.lproj/Sparkle.strings
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate ... 
+2025-11-07 14:44:57 +0000  694928 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/_CodeSignature/CodeResources ... 
+2025-11-07 14:44:57 +0000  2446 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/_CodeSignature/CodeResources
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater ... 
+2025-11-07 14:44:57 +0000  274752 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Resources/SUStatus.nib ... 
+2025-11-07 14:44:57 +0000  13047 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Resources/SUStatus.nib
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Info.plist ... 
+2025-11-07 14:44:57 +0000  2376 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/Info.plist
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/PkgInfo ... 
+2025-11-07 14:44:57 +0000  8 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/PkgInfo
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/_CodeSignature/CodeResources ... 
+2025-11-07 14:44:57 +0000  2200 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/_CodeSignature/CodeResources
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader ... 
+2025-11-07 14:44:57 +0000  172192 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/Info.plist ... 
+2025-11-07 14:44:57 +0000  1715 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/Info.plist
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/_CodeSignature/CodeResources ... 
+2025-11-07 14:44:57 +0000  2200 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/_CodeSignature/CodeResources
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer ... 
+2025-11-07 14:44:57 +0000  223936 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/Info.plist ... 
+2025-11-07 14:44:57 +0000  1603 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/Info.plist
+2025-11-07 14:44:57 +0000  copying file ./Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle ... 
+2025-11-07 14:44:57 +0000  862896 bytes for ./Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/Autoupdate ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/Autoupdate
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/Updater.app ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/Updater.app
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/XPCServices ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/XPCServices
+2025-11-07 14:44:57 +0000  copying symlink ./Contents/Frameworks/Sparkle.framework/Sparkle ... 
+2025-11-07 14:44:57 +0000  linked ./Contents/Frameworks/Sparkle.framework/Sparkle
+2025-11-07 14:44:57 +0000  copying file ./Contents/Info.plist ... 
+2025-11-07 14:44:57 +0000  1415 bytes for ./Contents/Info.plist
+2025-11-07 14:44:57 +0000  copying file ./Contents/PkgInfo ... 
+2025-11-07 14:44:57 +0000  8 bytes for ./Contents/PkgInfo
+2025-11-07 14:44:57 +0000  /usr/bin/ditto exited with 0
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionEmbedProfileStep
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d64d9e0; bundleID='org.sparkle-project.DownloaderService', path='<DVTFilePath:0x60000d682f40:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca1c0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.DownloaderService', executablePath='<DVTFilePath:0x60000d6819e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d62ed60; bundleID='org.sparkle-project.InstallerLauncher', path='<DVTFilePath:0x60000d682d00:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111236b0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.InstallerLauncher', executablePath='<DVTFilePath:0x60000d6feb20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d64e2e0; bundleID='(null)', path='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c8e10; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}', teamID='(null)', identifier='Autoupdate-5555494459251b2ebc0232c783a3e31c4a4e4056', executablePath='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d62d320; bundleID='org.sparkle-project.Sparkle.Updater', path='<DVTFilePath:0x60000d6820a0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x600011123610; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.Sparkle.Updater', executablePath='<DVTFilePath:0x60000d683d20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d66eb80; bundleID='org.sparkle-project.Sparkle', path='<DVTFilePath:0x60000d6f7420:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca0d0; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047aef40; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='(null)', teamID='BZZ744Q3KB', identifier='org.sparkle-project.Sparkle', executablePath='<DVTFilePath:0x60000d6828e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Skipping profile for item: <IDEDistributionItem: 0x60000d64e820; bundleID='ai.jack.Toss', path='<DVTFilePath:0x60000d70eac0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c9950; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047af540; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='{
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}', teamID='BZZ744Q3KB', identifier='ai.jack.Toss', executablePath='<DVTFilePath:0x60000d6c1bc0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/MacOS/Toss'>', hardenedRuntime='1'>'>
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionInfoPlistStep
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionInfoPlistStep because it said so
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionAppThinningPlistStep
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionSymbolsStep
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionSymbolsStep because it said so
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionAppThinningStep
+2025-11-07 14:44:57 +0000  Skipping step: IDEDistributionAppThinningStep because it said so
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionArchThinningStep
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Downloader" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Installer" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Autoupdate" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Updater" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Sparkle" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app doesn't have the entitlement com.apple.developer.web-browser-engine.host enabled, returning ["arm64e"]
+2025-11-07 14:44:57 +0000  Archs to thin for item /Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app are ["arm64e"]
+2025-11-07 14:44:57 +0000  Running /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo '/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/MacOS/Toss' '-verify_arch' 'arm64e'
+2025-11-07 14:44:57 +0000  /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/lipo exited with 1
+2025-11-07 14:44:57 +0000  Skipping architecture thinning for item "Toss" because arch "arm64e" wasn't found
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionODRStep
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionStripXattrsStep
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Skipping stripping extended attributes because the codesign step will strip them.
+2025-11-07 14:44:57 +0000  Processing step: IDEDistributionCodesignStep
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d64d9e0; bundleID='org.sparkle-project.DownloaderService', path='<DVTFilePath:0x60000d682f40:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca1c0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.DownloaderService', executablePath='<DVTFilePath:0x60000d6819e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader'>', hardenedRuntime='1'>'>: {
+}
+2025-11-07 14:44:57 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d64d9e0; bundleID='org.sparkle-project.DownloaderService', path='<DVTFilePath:0x60000d682f40:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca1c0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.DownloaderService', executablePath='<DVTFilePath:0x60000d6819e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader'>', hardenedRuntime='1'>'> are: {
+}
+2025-11-07 14:44:57 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d64d9e0; bundleID='org.sparkle-project.DownloaderService', path='<DVTFilePath:0x60000d682f40:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca1c0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.DownloaderService', executablePath='<DVTFilePath:0x60000d6819e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/MacOS/Downloader'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~IaSsXt
+2025-11-07 14:44:57 +0000  invoking codesign: <NSConcreteTask: 0x6000111da5d0; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~IaSsXt",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc"
+)'>
+2025-11-07 14:44:57 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc: signed bundle with Mach-O universal (x86_64 arm64) [org.sparkle-project.DownloaderService]
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d62ed60; bundleID='org.sparkle-project.InstallerLauncher', path='<DVTFilePath:0x60000d682d00:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111236b0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.InstallerLauncher', executablePath='<DVTFilePath:0x60000d6feb20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer'>', hardenedRuntime='1'>'>: {
+}
+2025-11-07 14:44:57 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d62ed60; bundleID='org.sparkle-project.InstallerLauncher', path='<DVTFilePath:0x60000d682d00:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111236b0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.InstallerLauncher', executablePath='<DVTFilePath:0x60000d6feb20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer'>', hardenedRuntime='1'>'> are: {
+}
+2025-11-07 14:44:57 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d62ed60; bundleID='org.sparkle-project.InstallerLauncher', path='<DVTFilePath:0x60000d682d00:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111236b0; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.InstallerLauncher', executablePath='<DVTFilePath:0x60000d6feb20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/MacOS/Installer'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~ElZDac
+2025-11-07 14:44:57 +0000  invoking codesign: <NSConcreteTask: 0x6000111db250; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~ElZDac",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
+)'>
+2025-11-07 14:44:57 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc: signed bundle with Mach-O universal (x86_64 arm64) [org.sparkle-project.InstallerLauncher]
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d64e2e0; bundleID='(null)', path='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c8e10; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}', teamID='(null)', identifier='Autoupdate-5555494459251b2ebc0232c783a3e31c4a4e4056', executablePath='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', hardenedRuntime='1'>'>: {
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}
+2025-11-07 14:44:57 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:57 +0000  Entitlements for <IDEDistributionItem: 0x60000d64e2e0; bundleID='(null)', path='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c8e10; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}', teamID='(null)', identifier='Autoupdate-5555494459251b2ebc0232c783a3e31c4a4e4056', executablePath='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', hardenedRuntime='1'>'> are: {
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}
+2025-11-07 14:44:57 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d64e2e0; bundleID='(null)', path='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c8e10; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+    "com.apple.application-identifier" = "org.sparkle-project.Sparkle.Autoupdate";
+}', teamID='(null)', identifier='Autoupdate-5555494459251b2ebc0232c783a3e31c4a4e4056', executablePath='<DVTFilePath:0x60000d6f74e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~yjCxfb
+2025-11-07 14:44:57 +0000  invoking codesign: <NSConcreteTask: 0x6000111daf80; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~yjCxfb",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
+)'>
+2025-11-07 14:44:58 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate: signed Mach-O universal (x86_64 arm64) [Autoupdate-5555494459251b2ebc0232c783a3e31c4a4e4056]
+2025-11-07 14:44:58 +0000  Entitlements for <IDEDistributionItem: 0x60000d62d320; bundleID='org.sparkle-project.Sparkle.Updater', path='<DVTFilePath:0x60000d6820a0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x600011123610; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.Sparkle.Updater', executablePath='<DVTFilePath:0x60000d683d20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater'>', hardenedRuntime='1'>'>: {
+}
+2025-11-07 14:44:58 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:58 +0000  Entitlements for <IDEDistributionItem: 0x60000d62d320; bundleID='org.sparkle-project.Sparkle.Updater', path='<DVTFilePath:0x60000d6820a0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x600011123610; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.Sparkle.Updater', executablePath='<DVTFilePath:0x60000d683d20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater'>', hardenedRuntime='1'>'> are: {
+}
+2025-11-07 14:44:58 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d62d320; bundleID='org.sparkle-project.Sparkle.Updater', path='<DVTFilePath:0x60000d6820a0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x600011123610; isSigned='1', isAdHocSigned='1', signingCertificate='(null)', entitlements='{
+}', teamID='(null)', identifier='org.sparkle-project.Sparkle.Updater', executablePath='<DVTFilePath:0x60000d683d20:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/MacOS/Updater'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~OaRraD
+2025-11-07 14:44:58 +0000  invoking codesign: <NSConcreteTask: 0x6000111daf80; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~OaRraD",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app"
+)'>
+2025-11-07 14:44:58 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app: signed app bundle with Mach-O universal (x86_64 arm64) [org.sparkle-project.Sparkle.Updater]
+2025-11-07 14:44:58 +0000  Entitlements for <IDEDistributionItem: 0x60000d66eb80; bundleID='org.sparkle-project.Sparkle', path='<DVTFilePath:0x60000d6f7420:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca0d0; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047af3c0; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='(null)', teamID='BZZ744Q3KB', identifier='org.sparkle-project.Sparkle', executablePath='<DVTFilePath:0x60000d6828e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle'>', hardenedRuntime='1'>'>: {
+}
+2025-11-07 14:44:58 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:58 +0000  Entitlements for <IDEDistributionItem: 0x60000d66eb80; bundleID='org.sparkle-project.Sparkle', path='<DVTFilePath:0x60000d6f7420:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca0d0; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x60000479e640; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='(null)', teamID='BZZ744Q3KB', identifier='org.sparkle-project.Sparkle', executablePath='<DVTFilePath:0x60000d6828e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle'>', hardenedRuntime='1'>'> are: {
+}
+2025-11-07 14:44:58 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d66eb80; bundleID='org.sparkle-project.Sparkle', path='<DVTFilePath:0x60000d6f7420:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111ca0d0; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x60000479f600; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='(null)', teamID='BZZ744Q3KB', identifier='org.sparkle-project.Sparkle', executablePath='<DVTFilePath:0x60000d6828e0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~bSKlVt
+2025-11-07 14:44:58 +0000  invoking codesign: <NSConcreteTask: 0x6000111ce3f0; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~bSKlVt",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B"
+)'>
+2025-11-07 14:44:59 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B: signed bundle with Mach-O universal (x86_64 arm64) [org.sparkle-project.Sparkle]
+2025-11-07 14:44:59 +0000  Entitlements for <IDEDistributionItem: 0x60000d64e820; bundleID='ai.jack.Toss', path='<DVTFilePath:0x60000d70eac0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c9950; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047afd80; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='{
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}', teamID='BZZ744Q3KB', identifier='ai.jack.Toss', executablePath='<DVTFilePath:0x60000d6c1bc0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/MacOS/Toss'>', hardenedRuntime='1'>'>: {
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}
+2025-11-07 14:44:59 +0000  Associated App Clip Identifiers Filter: Skipping because "com.apple.developer.associated-appclip-app-identifiers" is not present
+2025-11-07 14:44:59 +0000  Entitlements for <IDEDistributionItem: 0x60000d64e820; bundleID='ai.jack.Toss', path='<DVTFilePath:0x60000d70eac0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c9950; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047af780; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='{
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}', teamID='BZZ744Q3KB', identifier='ai.jack.Toss', executablePath='<DVTFilePath:0x60000d6c1bc0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/MacOS/Toss'>', hardenedRuntime='1'>'> are: {
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}
+2025-11-07 14:44:59 +0000  Writing entitlements for <IDEDistributionItem: 0x60000d64e820; bundleID='ai.jack.Toss', path='<DVTFilePath:0x60000d70eac0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app'>', codeSigningInfo='<_DVTCodeSigningInformation_Path: 0x6000111c9950; isSigned='1', isAdHocSigned='0', signingCertificate='<DVTSigningCertificate: 0x6000047ade00; name='Developer ID Application: Jack Doherty (BZZ744Q3KB)', hash='2F39108836C7D68B9317DDB755A96B77A99E6D47', serialNumber='445B247FF36BF205', certificateKinds='(
+    "1.2.840.113635.100.6.1.13"
+), issueDate='2025-11-06 11:41:29 +0000''>', entitlements='{
+    "com.apple.security.cs.disable-library-validation" = 1;
+    "com.apple.security.device.audio-input" = 1;
+}', teamID='BZZ744Q3KB', identifier='ai.jack.Toss', executablePath='<DVTFilePath:0x60000d6c1bc0:'/Users/jackdoherty/Library/Developer/Xcode/Archives/2025-11-07/Toss 07-11-2025, 15.44.xcarchive/Products/Applications/Toss.app/Contents/MacOS/Toss'>', hardenedRuntime='1'>'> to: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~q7IplF
+2025-11-07 14:44:59 +0000  invoking codesign: <NSConcreteTask: 0x6000111da120; launchPath='/usr/bin/codesign', arguments='(
+    "-f",
+    "-s",
+    2F39108836C7D68B9317DDB755A96B77A99E6D47,
+    "--entitlements",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/entitlements~~~q7IplF",
+    "--requirements",
+    "=designated => anchor apple generic  and identifier \"$self.identifier\" and ((cert leaf[field.1.2.840.113635.100.6.1.9] exists) or ( certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists  and certificate leaf[subject.OU] = \"BZZ744Q3KB\" ))",
+    "--preserve-metadata=identifier,flags,runtime",
+    "--generate-entitlement-der",
+    "--strip-disallowed-xattrs",
+    "-vvv",
+    "/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app"
+)'>
+2025-11-07 14:44:59 +0000  codesign output: /var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app: replacing existing signature
+/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app: signed bundle with Mach-O universal (x86_64 arm64) [ai.jack.Toss]
+2025-11-07 14:44:59 +0000  Processing step: IDEDistributionZipODRItemStep
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionZipODRItemStep because it said so
+2025-11-07 14:44:59 +0000  Processing step: IDEDistributionSkipPackagingStep
+2025-11-07 14:44:59 +0000  Processing step: IDEDistributionAppStoreInformationStep
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionAppStoreInformationStep because it said so
+2025-11-07 14:44:59 +0000  Processing step: IDEDistributionGenerateProcessedDistributionItems
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d62f900:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>
+2025-11-07 14:44:59 +0000  [OPTIONAL] Didn't find embedded provisioning profile for <DVTFilePath:0x60000d62f900:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc'>: Error Domain=NSCocoaErrorDomain Code=4 "No file at <DVTFilePath:0x600009928380:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/embedded.provisionprofile'>" UserInfo={NSLocalizedDescription=No file at <DVTFilePath:0x600009928380:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc/Contents/embedded.provisionprofile'>}
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d62f8a0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>
+2025-11-07 14:44:59 +0000  [OPTIONAL] Didn't find embedded provisioning profile for <DVTFilePath:0x60000d62f8a0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc'>: Error Domain=NSCocoaErrorDomain Code=4 "No file at <DVTFilePath:0x60000992b560:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/embedded.provisionprofile'>" UserInfo={NSLocalizedDescription=No file at <DVTFilePath:0x60000992b560:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc/Contents/embedded.provisionprofile'>}
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d63c660:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>
+2025-11-07 14:44:59 +0000  [OPTIONAL] Didn't find embedded provisioning profile for <DVTFilePath:0x60000d63c660:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app'>: Error Domain=NSCocoaErrorDomain Code=4 "No file at <DVTFilePath:0x6000099c8f50:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/embedded.provisionprofile'>" UserInfo={NSLocalizedDescription=No file at <DVTFilePath:0x6000099c8f50:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app/Contents/embedded.provisionprofile'>}
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d62c600:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>
+2025-11-07 14:44:59 +0000  [OPTIONAL] Didn't find info dictionary for <DVTFilePath:0x60000d62c600:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>: Error Domain=DVTFoundationNSBundleAdditionsErrorDomain Code=1 "Couldn't load Info dictionary for <DVTFilePath:0x60000d62c600:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>" UserInfo={NSLocalizedDescription=Couldn't load Info dictionary for <DVTFilePath:0x60000d62c600:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>}
+2025-11-07 14:44:59 +0000  [OPTIONAL] Can't have a profile, not a bundle at <DVTFilePath:0x60000d62c600:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate'>
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d62c3c0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/Frameworks/Sparkle.framework/Versions/B'>
+2025-11-07 14:44:59 +0000  IDEDistributionItem init <DVTFilePath:0x60000d62dda0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app'>
+2025-11-07 14:44:59 +0000  [OPTIONAL] Didn't find embedded provisioning profile for <DVTFilePath:0x60000d62dda0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app'>: Error Domain=NSCocoaErrorDomain Code=4 "No file at <DVTFilePath:0x60000992afb0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/embedded.provisionprofile'>" UserInfo={NSLocalizedDescription=No file at <DVTFilePath:0x60000992afb0:'/var/folders/mk/ggx9bm41797703wdfmql86pr0000gn/T/XcodeDistPipeline.~~~q00ZEA/Root/Applications/Toss.app/Contents/embedded.provisionprofile'>}
+2025-11-07 14:44:59 +0000  Processing step: IDEDistributionCreateManifestStep
+2025-11-07 14:44:59 +0000  Skipping step: IDEDistributionCreateManifestStep because it said so

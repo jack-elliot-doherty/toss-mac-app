@@ -19,6 +19,22 @@ final class AudioRecorder {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
 
+        // Optimal format for Whisper transcription
+        guard
+            let outputFormat = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: 16000,
+                channels: 1,
+                interleaved: false
+            )
+        else {
+            onError?(
+                NSError(
+                    domain: "AudioRecorder", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to create output format"]))
+            return
+        }
+
         NSLog("[AudioRecorder] recording at 16kHz mono (engine-native conversion)")
 
         // Attach mixer if not already attached
@@ -29,13 +45,18 @@ final class AudioRecorder {
         // Connect: input -> mixer (at input format)
         engine.connect(inputNode, to: mixer, format: inputFormat)
 
+        NSLog(
+            "[AudioRecorder] Input: %.0fHz %dch -> Output: %.0fHz %dch",
+            inputFormat.sampleRate, inputFormat.channelCount,
+            outputFormat.sampleRate, outputFormat.channelCount)
+
         // Create file for 16kHz Float32
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("toss_\(UUID().uuidString).wav")
 
         do {
             // Write mic input format directly; WAV supports linear PCM (incl. float)
-            let file = try AVAudioFile(forWriting: tmp, settings: inputFormat.settings)
+            let file = try AVAudioFile(forWriting: tmp, settings: outputFormat.settings)
             tempFileURL = tmp
             audioFile = file
         } catch {
@@ -43,28 +64,57 @@ final class AudioRecorder {
             return
         }
 
+        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else {
+            onError?(
+                NSError(
+                    domain: "AudioRecorder", code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Failed to create converter"]))
+            return
+        }
+
         mixer.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) {
             [weak self] buffer, _ in
-            guard let self = self, let _ = self.audioFile else { return }
+            guard let self = self, self.audioFile != nil else { return }
 
-            self.ioQueue.async {
-                try? self.audioFile?.write(from: buffer)
+            // Convert manually using the converter
+            let frameCapacity = AVAudioFrameCount(
+                Double(buffer.frameLength) * outputFormat.sampleRate / inputFormat.sampleRate)
+            guard
+                let convertedBuffer = AVAudioPCMBuffer(
+                    pcmFormat: outputFormat, frameCapacity: frameCapacity)
+            else {
+                return
             }
-            // Compute RMS level for UI waveform (mono aggregation)
-            if let ch0 = buffer.floatChannelData?[0] {
-                let frameCount = Int(buffer.frameLength)
-                var sum: Float = 0
-                var i = 0
-                while i < frameCount {
-                    let s = ch0[i]
-                    sum += s * s
-                    i += 1
+
+            var error: NSError?
+            let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
+                outStatus.pointee = .haveData
+                return buffer
+            }
+
+            converter.convert(to: convertedBuffer, error: &error, withInputFrom: inputBlock)
+
+            if error == nil {
+
+                self.ioQueue.async {
+                    try? self.audioFile?.write(from: convertedBuffer)
                 }
-                let mean = sum / max(1, Float(frameCount))
-                var rms = sqrtf(mean)
-                // Simple normalization for visual use
-                rms = min(1.0, max(0.0, rms * 4.0))
-                DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
+                // Compute RMS level for UI waveform (mono aggregation)
+                if let ch0 = buffer.floatChannelData?[0] {
+                    let frameCount = Int(buffer.frameLength)
+                    var sum: Float = 0
+                    var i = 0
+                    while i < frameCount {
+                        let s = ch0[i]
+                        sum += s * s
+                        i += 1
+                    }
+                    let mean = sum / max(1, Float(frameCount))
+                    var rms = sqrtf(mean)
+                    // Simple normalization for visual use
+                    rms = min(1.0, max(0.0, rms * 4.0))
+                    DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
+                }
             }
         }
 

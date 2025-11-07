@@ -10,7 +10,6 @@
 		DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234B2EB23FCE000207F0 /* PillViewModel.swift */; };
 		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
 		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
-		DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623402EB23FCE000207F0 /* AudioEngine.swift */; };
 		DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623412EB23FCE000207F0 /* AudioRecorder.swift */; };
 		DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623612EB23FCE000207F0 /* ContentView.swift */; };
 		DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623532EB23FCE000207F0 /* HistoryRepository.swift */; };
@@ -68,7 +67,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DA3623402EB23FCE000207F0 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		DA3623412EB23FCE000207F0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
 		DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
@@ -142,7 +140,6 @@
 		DA3623442EB23FCE000207F0 /* Input */ = {
 			isa = PBXGroup;
 			children = (
-				DA3623402EB23FCE000207F0 /* AudioEngine.swift */,
 				DA3623412EB23FCE000207F0 /* AudioRecorder.swift */,
 				DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */,
 			);
@@ -460,7 +457,6 @@
 				DA3623992EBB77B8000207F0 /* OnboardingGate.swift in Sources */,
 				DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
-				DA36236C2EB23FCE000207F0 /* AudioEngine.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
 				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
 				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
@@ -680,7 +676,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = App/Toss.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;

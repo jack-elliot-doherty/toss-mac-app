@@ -99,8 +99,16 @@ final class PillController {
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
 
-            case .showToast(let message):
-                toast.show(message: message, duration: 1.8)
+            case .showToast(
+                let icon, let title, let subtitle, let primary, let secondary, let duration):
+                toast.show(
+                    icon: icon,
+                    title: title,
+                    subtitle: subtitle,
+                    primary: primary,
+                    secondary: secondary,
+                    duration: duration
+                )
 
             }
         }
@@ -142,7 +150,7 @@ final class PillController {
     private func handleStartTranscription() {
         guard !isTranscribing else { return }
         guard let url = self.lastRecordingURL else {
-            toast.show(message: "No recording found", duration: 1.8)
+            toast.show(title: "No recording found", duration: 1.8)
             return
         }
         isTranscribing = true
@@ -171,14 +179,14 @@ final class PillController {
                     if nsError.code == 401 {
                         // Unauthorized - show sign in prompt
                         displayMessage = "Please sign in to use transcription"
-                        self.toast.show(message: displayMessage, duration: 3.0)
+                        self.toast.show(title: displayMessage, duration: 3.0)
 
                         // Optionally: Open app to sign in screen
                         // NotificationCenter.default.post(name: .showSignInRequired, object: nil)
                     } else {
                         // Other errors
                         self.toast.show(
-                            message: "Transcription failed: \(displayMessage)", duration: 3.0)
+                            title: "Transcription failed: \(displayMessage)", duration: 3.0)
                     }
 
                     self.send(.transcriptionFailed(text: displayMessage))
@@ -198,16 +206,16 @@ final class PillController {
             switch result {
             case .pasted:
                 self.toast.show(
-                    message: "Pasted • Undo", duration: 2.0, onTap: { self.paste.sendCmdZ() })
+                    title: "Pasted • Undo", duration: 2.0)
             case .copiedNoFocus:
-                self.toast.showRich(
+                self.toast.show(
                     icon: Image(systemName: "doc.on.clipboard"),
                     title: "No input detected",
                     subtitle: "Text copied to clipboard. Open Toss to view your dictation history.",
                     duration: 3.5
                 )
             case .error(let e):
-                self.toast.show(message: "Paste error: \(e)", duration: 2.0)
+                self.toast.show(title: "Paste error: \(e)", duration: 2.0)
             }
             // Cache to local history regardless
             self.cacheTranscript(text)

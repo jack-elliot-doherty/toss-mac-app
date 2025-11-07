@@ -1,3 +1,5 @@
+import Foundation
+
 // Were going to use this to manage the state that the pill should be in based on the users actions and the shortcuts they are holding
 
 // the user will be able to hold fn in order to start the listening mode, and release to stop capturing audio and start transcribing that audio that was captured
@@ -11,12 +13,14 @@
 enum PillMode: Equatable {
     case dictation  // paste to focused text field flow
     case command  // start a chat with the agent in order to instruct it to perform an action
+    case meeting  // recording a longer meeting with 2 streams of audio, one for the user and one for the system audio
 }
 
 enum PillState: Equatable {
     case idle
     case listening(PillMode)  // audio capture running, waveform shown
     case transcribing(PillMode)  // audio capture stopped, uploading/awaiting text transcription
+    case meetingRecording(UUID)
 }
 
 enum PillEvent: Equatable {
@@ -29,6 +33,16 @@ enum PillEvent: Equatable {
     case stopButton
     case cancelButton
     case escapePressed
+
+    // meetings
+    case startMeetingRecording
+    case stopMeetingRecording
+    case meetingChunkReady(URL, Int)  // audio chunk ready for transcription
+
+    // meeting detection events
+    case meetingDetected
+    case meetingDetectionExpired  // toast timeout
+    case dismissMeetingDetection
 
     // async results
     case transcriptionSucceeded(text: String)
@@ -50,16 +64,43 @@ enum PillEffect: Equatable {
     case sendToAgent(String)
 
     // UI
-    case showToast(String)
+    case showToast(
+        icon: String?,
+        title: String,
+        subtitle: String?,
+        primary: ToastAction?,
+        secondary: ToastAction?,
+        duration: TimeInterval = 3.0
+    )
     case setVisualStateListening
     case setVisualStateTranscribing
     case setVisualStateIdle
     case setAlwaysOn(Bool)
+
+    // meetings
+    case startMeetingRecording(UUID)
+    case stopMeetingRecording
+    case uploadMeetingChunk(UUID, URL, Int)
+    case setVisualStateMeetingRecording(UUID)
+
+}
+
+struct ToastAction: Equatable {
+    let title: String
+    let eventToSend: PillEvent
+    let variant: ToastActionVariant
+}
+
+enum ToastActionVariant: Equatable {
+    case primary
+    case secondary
+    case destructive
 }
 
 struct PillContext: Equatable {
     var isAlwaysOn = false
     var isCmdHeld = false
+    var meetingDetected = false  // changes fn behavior when true (makes hitting fn enter meeting recording mode)
 }
 
 struct PillStateMachine {
@@ -100,6 +141,14 @@ struct PillStateMachine {
                 .showToast(ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
             ]
 
+        case (.idle, .startMeetingRecording):
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId)
+            effects += [
+                .startMeetingRecording(meetingId), .setVisualStateMeetingRecording(meetingId),
+                .showToast("Meeting recording started"),
+            ]
+
         // - LISTENING
         case (.listening(let mode), .fnUp):
             if ctx.isAlwaysOn {
@@ -130,6 +179,7 @@ struct PillStateMachine {
         case (.listening, .escapePressed):
             ctx.isAlwaysOn = false
             state = .idle
+            ctx.isCmdHeld = false
             effects += [
                 .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
                 .showToast("Cancelled"),
@@ -145,6 +195,7 @@ struct PillStateMachine {
 
         case (.listening(let mode), .cmdDown):
             guard !ctx.isAlwaysOn else { break }  // ignore cmd in always as its only for dictation
+            // Cmd press toggles to command mode and stays there for the duration of the session
             ctx.isCmdHeld = true
             if mode != .command {
                 state = .listening(.command)
@@ -152,12 +203,8 @@ struct PillStateMachine {
             }
 
         case (.listening(let mode), .cmdUp):
-            guard !ctx.isAlwaysOn else { break }
-            ctx.isCmdHeld = false
-            if mode != .dictation {
-                state = .listening(.dictation)
-                effects += [.setVisualStateListening]
-            }
+            // Do nothing as command mode is sticky
+            break
 
         // handle double-tap while already listening
         case (.listening(let mode), .doubleTapFn):
@@ -195,6 +242,36 @@ struct PillStateMachine {
         case (.transcribing, .transcriptionFailed(let error)):
             state = .idle
             effects += [.setVisualStateIdle, .showToast("Transcription Failed: \(error)")]
+
+        // - MEETING RECORDING
+        case (.meetingRecording, .stopMeetingRecording):
+            state = .idle
+            effects += [
+                .stopMeetingRecording,
+                .setVisualStateIdle,
+                .showToast("Meeting recording stopped"),
+            ]
+
+        case (.meetingRecording(let meetingId), .meetingChunkReady(let url, let index)):
+            // just upload the chunk to the server and continue recording
+            effects += [.uploadMeetingChunk(meetingId, url, index)]
+
+        // - MEETING RECORDING → IDLE (escape/cancel)
+        case (.meetingRecording, .escapePressed):
+            state = .idle
+            effects += [
+                .stopMeetingRecording,
+                .setVisualStateIdle,
+                .showToast("Meeting cancelled"),
+            ]
+
+        case (.meetingRecording, .cancelButton):
+            state = .idle
+            effects += [
+                .stopMeetingRecording,
+                .setVisualStateIdle,
+                .showToast("Meeting cancelled"),
+            ]
 
         default:
             break

@@ -26,38 +26,17 @@ final class ToastPanelController {
         panel.ignoresMouseEvents = false
     }
 
-    // Simple text toast (kept for existing calls)
-    func show(message: String, duration: TimeInterval = 2.0, onTap: (() -> Void)? = nil) {
-        func show(message: String, duration: TimeInterval = 2.0, onTap: (() -> Void)? = nil) {
-            showRich(
-                icon: Image(systemName: "exclamationmark.circle.fill"),
-                title: message,
-                subtitle: nil,
-                primary: nil,
-                secondary: nil,
-                duration: duration,
-                offsetAboveAnchor: 72  // higher by default so it clears the pill
-            )
-        }
-    }
-
-    struct ToastAction {
-        let title: String
-        let action: () -> Void
-    }
-
-    // Wispr-style toast
-    func showRich(
-        icon: Image? = Image(systemName: "exclamationmark.circle.fill"),
+    func show(
+        icon: String?,
         title: String,
-        subtitle: String? = nil,
-        primary: ToastAction? = nil,
-        secondary: ToastAction? = nil,
+        subtitle: String?,
+        primary: ToastAction?,
+        secondary: ToastAction?,
         duration: TimeInterval = 3.0,
         offsetAboveAnchor: CGFloat = 30
     ) {
         let root = RichToastView(
-            icon: icon,
+            icon: icon.map { Image(systemName: $0) },
             title: title,
             subtitle: subtitle,
             primary: primary,
@@ -113,11 +92,13 @@ final class ToastPanelController {
         }
     }
 }
+
 private struct CapsuleButton: View {
     let title: String
-    let action: () -> Void
+    let eventToSend: PillEvent
+    let variant: ToastActionVariant
     var body: some View {
-        Button(action: action) {
+        Button(action: { action(event) }) {
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white)
@@ -134,8 +115,8 @@ private struct RichToastView: View {
     let icon: Image?
     let title: String
     let subtitle: String?
-    let primary: ToastPanelController.ToastAction?
-    let secondary: ToastPanelController.ToastAction?
+    let primary: ToastAction?
+    let secondary: ToastAction?
     let onClose: () -> Void
 
     var body: some View {
@@ -173,10 +154,11 @@ private struct RichToastView: View {
 
             HStack(spacing: 12) {
                 if let primary = primary {
-                    CapsuleButton(title: primary.title, action: primary.action)
+                    CapsuleButton(title: primary.title, action: { primary.eventToSend.send() })  // TODO: implement sending the event
                 }
                 if let secondary = secondary {
-                    CapsuleButton(title: secondary.title, action: secondary.action)
+                    CapsuleButton(title: secondary.title, action: { secondary.eventToSend.send() })
+                    // TODO: implement sending the event
                 }
             }
         }
