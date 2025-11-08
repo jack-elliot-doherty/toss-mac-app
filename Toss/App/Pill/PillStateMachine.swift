@@ -179,7 +179,8 @@ struct PillStateMachine {
                 .showToast(
                     icon: "mic.fill",
                     title: "Meeting detected",
-                    subtitle: "Press fn to start recording"
+                    subtitle: "Press fn to start recording",
+                    duration: 10
                 ),
                 .scheduleMeetingDetectionTimeout(10),
             ]

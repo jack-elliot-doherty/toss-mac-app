@@ -130,7 +130,12 @@ final class MeetingDetector {
             // Mic is active!
             if let appName = currentMeetingApp {
                 NSLog("[MeetingDetector] Mic active in \(appName) - triggering detection!")
-                onMeetingDetected?()
+
+                // Wait 4 seconds before showing toast (let user focus on joining)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+                    NSLog("[MeetingDetector] Showing meeting detection prompt")
+                    self?.onMeetingDetected?()
+                }
                 currentMeetingApp = nil  // Only trigger once per session
             }
         }

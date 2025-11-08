@@ -44,7 +44,9 @@ final class ToastPanelController {
             primary: primary,
             secondary: secondary,
             onClose: { [weak self] in self?.panel.orderOut(nil) },
-            onAction: { [weak self] event in self?.onToastAction?(event) }
+            onAction: { [weak self] event in self?.onToastAction?(event) },
+            duration: primary == nil && secondary == nil ? duration : nil  // Only show progress if auto-dismissing
+
         )
         let hosting = NSHostingView(rootView: AnyView(root))
         panel.contentView = hosting
@@ -59,7 +61,7 @@ final class ToastPanelController {
         if primary == nil && secondary == nil {
             dismissTask = Task { [weak self] in
                 guard let self = self else { return }
-                try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+                try? await Task.sleep(for: .seconds(duration))
                 if Task.isCancelled { return }
                 self.panel.orderOut(nil)
             }
@@ -122,62 +124,86 @@ private struct RichToastView: View {
     let secondary: ToastAction?
     let onClose: () -> Void
     let onAction: (PillEvent) -> Void
+    let duration: TimeInterval?
+
+    @State private var progress: Double = 0.0
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let icon = icon {
-                    icon
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    if let icon = icon {
+                        icon
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.red)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    Text(title)
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.red)
-                        .symbolRenderingMode(.hierarchical)
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white.opacity(0.9))
+                            .padding(8)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
+                    }
+                    .buttonStyle(.plain)
                 }
-                Text(title)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white.opacity(0.9))
-                        .padding(8)
-                        .background(Circle().fill(Color.white.opacity(0.14)))
-                }
-                .buttonStyle(.plain)
-            }
 
-            if let subtitle = subtitle {
-                Text(subtitle)
-                    .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.88))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+                if let subtitle = subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.88))
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
-            HStack(spacing: 12) {
-                if let primary = primary {
-                    CapsuleButton(title: primary.title,
-                    variant: primary.variant,
-                    action: { onAction(primary.eventToSend) })
-                }
-                if let secondary = secondary {
-                    CapsuleButton(title: secondary.title, variant: secondary.variant, action: { onAction(secondary.eventToSend) })
+                HStack(spacing: 12) {
+                    if let primary = primary {
+                        CapsuleButton(
+                            title: primary.title,
+                            variant: primary.variant,
+                            action: { onAction(primary.eventToSend) })
+                    }
+                    if let secondary = secondary {
+                        CapsuleButton(
+                            title: secondary.title, variant: secondary.variant,
+                            action: { onAction(secondary.eventToSend) })
+                    }
                 }
             }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.black.opacity(0.82))  // consistent dark card
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
-        )
-        .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            if let duration = duration, duration > 0 {
+                GeometryReader { geometry in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(Color.blue.opacity(0.6))
+                            .frame(width: geometry.size.width * progress, height: 3)
+                        Spacer(minLength: 0)
+                    }
+                }
+                .frame(height: 3)
+                .onAppear {
+                    withAnimation(.linear(duration: duration)) {
+                        progress = 1.0  // ← Animate from 0 to 1 (fill left to right)
+                    }
+                }
+            }
+        }.frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.black.opacity(0.82))  // consistent dark card
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
+            )
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
