@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 struct MeetingModel: Identifiable, Equatable, Codable {
@@ -23,12 +24,13 @@ protocol MeetingRepositoryProtocol {
     func getMeeting(id: UUID) -> MeetingModel?
     func appendChunk(meetingId: UUID, index: Int, transcript: String) -> MeetingChunkModel
     func listMeetings() -> [MeetingModel]
+    func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
 }
 
-final class PersistentMeetingRepository: MeetingRepositoryProtocol {
-    private var meetings: [UUID: MeetingModel] = [:]
-    private var chunks: [UUID: [MeetingChunkModel]] = [:]
+final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
+    @Published private var meetings: [UUID: MeetingModel] = [:]
+    @Published private var chunks: [UUID: [MeetingChunkModel]] = [:]
     private let queue = DispatchQueue(label: "meeting.repo.queue", qos: .userInitiated)
     private let fileURL: URL
 
@@ -64,12 +66,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol {
     }
 
     private func save() {
-        queue.async {
+        queue.async { [weak self] in
+            guard let self = self else { return }
             do {
                 let storage = StorageFormat(
                     meetings: Array(self.meetings.values), chunks: self.chunks)
                 let data = try JSONEncoder().encode(storage)
                 try data.write(to: self.fileURL, options: .atomic)
+
+                DispatchQueue.main.async {
+                    self.objectWillChange.send()
+                }
+
             } catch {
                 NSLog("[Meetings] Save error: \(error)")
             }
@@ -118,6 +126,13 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol {
 
     func listMeetings() -> [MeetingModel] {
         return queue.sync { Array(meetings.values).sorted { $0.startTime > $1.startTime } }
+    }
+
+    func getChunks(meetingId: UUID) -> [MeetingChunkModel] {  // ← ADD THIS METHOD
+        return queue.sync {
+            (chunks[meetingId] ?? [])
+                .sorted { $0.chunkIndex < $1.chunkIndex }
+        }
     }
 
     func getFullTranscript(meetingId: UUID) -> String {

@@ -129,55 +129,66 @@ private struct RichToastView: View {
     @State private var progress: Double = 0.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    if let icon = icon {
-                        icon
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.red)
-                            .symbolRenderingMode(.hierarchical)
-                    }
-                    Text(title)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let icon = icon {
+                    icon
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 8)
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white.opacity(0.9))
-                            .padding(8)
-                            .background(Circle().fill(Color.white.opacity(0.14)))
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundColor(.red)
+                        .symbolRenderingMode(.hierarchical)
                 }
-
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.88))
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(8)
+                        .background(Circle().fill(Color.white.opacity(0.14)))
                 }
+                .buttonStyle(.plain)
+            }
 
-                HStack(spacing: 12) {
-                    if let primary = primary {
-                        CapsuleButton(
-                            title: primary.title,
-                            variant: primary.variant,
-                            action: { onAction(primary.eventToSend) })
-                    }
-                    if let secondary = secondary {
-                        CapsuleButton(
-                            title: secondary.title, variant: secondary.variant,
-                            action: { onAction(secondary.eventToSend) })
-                    }
+            if let subtitle = subtitle {
+                Text(subtitle)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.88))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 12) {
+                if let primary = primary {
+                    CapsuleButton(
+                        title: primary.title,
+                        variant: primary.variant,
+                        action: { onAction(primary.eventToSend) })
+                }
+                if let secondary = secondary {
+                    CapsuleButton(
+                        title: secondary.title, variant: secondary.variant,
+                        action: { onAction(secondary.eventToSend) })
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
+        .frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.black.opacity(0.82))  // consistent dark card
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
+        )
+        .overlay(alignment: .bottom) {
+            // Progress bar as overlay at bottom
             if let duration = duration, duration > 0 {
                 GeometryReader { geometry in
                     HStack(spacing: 0) {
@@ -189,21 +200,15 @@ private struct RichToastView: View {
                 }
                 .frame(height: 3)
                 .onAppear {
-                    withAnimation(.linear(duration: duration)) {
-                        progress = 1.0  // ← Animate from 0 to 1 (fill left to right)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        withAnimation(.linear(duration: duration)) {
+                            progress = 1.0
+                        }
                     }
                 }
             }
-        }.frame(minWidth: 420, idealWidth: 520, maxWidth: 560, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.black.opacity(0.82))  // consistent dark card
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.white.opacity(0.10), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.35), radius: 24, x: 0, y: 12)
-            )
-            .fixedSize(horizontal: false, vertical: true)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

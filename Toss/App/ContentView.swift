@@ -3,6 +3,7 @@ import SwiftUI
 
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home
+    case meetings
     case settings
 
     var id: String { rawValue }
@@ -10,6 +11,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: return "Home"
+        case .meetings: return "Meetings"
         case .settings: return "Settings"
         }
     }
@@ -17,6 +19,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .home: return "house"
+        case .meetings: return "mic.fill"
         case .settings: return "gear"
         }
     }
@@ -27,6 +30,8 @@ struct ContentView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selection: SidebarItem? = .home
     @State private var showSettings = false
+
+    @StateObject private var meetingRepo = PersistentMeetingRepository()
 
     var body: some View {
         ZStack {
@@ -54,7 +59,14 @@ struct ContentView: View {
                         .overlay(Divider(), alignment: .top)
                 }
             } detail: {
-                OnboardingGate()
+                switch selection {
+                case .home:
+                    OnboardingGate()
+                case .meetings:
+                    MeetingsListView(repository: meetingRepo)
+                case .settings, .none:
+                    OnboardingGate()
+                }
             }
             .frame(minWidth: 820, minHeight: 520)
 

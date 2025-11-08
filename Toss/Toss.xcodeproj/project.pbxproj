@@ -42,6 +42,7 @@
 		DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827972EBE94720040ED92 /* MeetingRepository.swift */; };
 		DA7827A22EBE94CC0040ED92 /* meeting-recorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA78279F2EBE94CC0040ED92 /* meeting-recorder.swift */; };
 		DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */; };
+		DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */; };
 		DAD483E72EBCE56A001C5902 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD483E62EBCE56A001C5902 /* Config.swift */; };
 		DAEB72382EBD5739006A17C7 /* TossUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */; };
 		DAEB72392EBD5739006A17C7 /* TossTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72332EBD5739006A17C7 /* TossTests.swift */; };
@@ -107,6 +108,7 @@
 		DA7827972EBE94720040ED92 /* MeetingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRepository.swift; sourceTree = "<group>"; };
 		DA78279F2EBE94CC0040ED92 /* meeting-recorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "meeting-recorder.swift"; sourceTree = "<group>"; };
 		DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetector.swift; sourceTree = "<group>"; };
+		DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingView.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -224,6 +226,7 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */,
 				DA7827972EBE94720040ED92 /* MeetingRepository.swift */,
 				DAEB723E2EBD5E79006A17C7 /* TossApp.swift */,
 				DAD483E62EBCE56A001C5902 /* Config.swift */,
@@ -484,6 +487,7 @@
 				DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
+				DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */,
 				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
 				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,

@@ -152,6 +152,18 @@ struct PillStateMachine {
 
         switch (state, event) {
 
+        // IDLE + Fn down + meeting detected → START MEETING
+        case (.idle, .fnDown) where ctx.meetingDetected:
+            NSLog("[PillStateMachine] Entering meeting recording mode")
+            ctx.meetingDetected = false
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId)
+            effects += [
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId),
+                .showToast(title: "Recording meeting"),
+            ]
+
         // - IDLE
         case (.idle, .fnDown):
             let mode: PillMode = ctx.isCmdHeld ? .command : .dictation
@@ -183,17 +195,6 @@ struct PillStateMachine {
                     duration: 10
                 ),
                 .scheduleMeetingDetectionTimeout(10),
-            ]
-
-        // IDLE + Fn down + meeting detected → START MEETING
-        case (.idle, .fnDown) where ctx.meetingDetected:
-            ctx.meetingDetected = false
-            let meetingId = UUID()
-            state = .meetingRecording(meetingId)
-            effects += [
-                .startMeetingRecording(meetingId),
-                .setVisualStateMeetingRecording(meetingId),
-                .showToast(title: "Recording meeting"),
             ]
 
         // IDLE + detection expired (timeout)
@@ -299,6 +300,7 @@ struct PillStateMachine {
         case (.transcribing, .transcriptionSucceeded(let text)):
             let mode = currentMode
             state = .idle
+            ctx.isCmdHeld = false
             effects.append(.setVisualStateIdle)
             switch mode {
             case .dictation:
@@ -314,6 +316,7 @@ struct PillStateMachine {
 
         case (.transcribing, .transcriptionFailed(let error)):
             state = .idle
+            ctx.isCmdHeld = false
             effects += [.setVisualStateIdle, .showToast(title: "Transcription Failed: \(error)")]
 
         // - MEETING RECORDING

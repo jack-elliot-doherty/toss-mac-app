@@ -240,8 +240,8 @@ final class PillController {
             result in
             switch result {
             case .pasted:
-                self.toast.show(
-                    title: "Pasted • Undo", duration: 2.0)
+                // Do nothing, we might want to if they are a new user show something here but leave it for now
+                NSLog("[PillController] Pasted text: \(text)")
             case .copiedNoFocus:
                 self.toast.show(
                     icon: Image(systemName: "doc.on.clipboard"),
