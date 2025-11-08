@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 final class MeetingRecorder {
-    private let chunkDuration: TimeInterval = 30.0  // 30 second chunks
+    private let chunkDuration: TimeInterval = 15.0  // 15 second chunks
     private let engine = AVAudioEngine()
     private let mixer = AVAudioMixerNode()
     private var currentChunkFile: AVAudioFile?
@@ -13,7 +13,7 @@ final class MeetingRecorder {
 
     var onError: ((Error) -> Void)?
     var onLevelUpdate: ((Float) -> Void)?
-    var onChunkReady: ((URL, Int) -> Void)?  // Called every 30s with audio file + index
+    var onChunkReady: ((URL, Int) -> Void)?  // Called every 15s with audio file + index
 
     private(set) var isRunning = false
 
