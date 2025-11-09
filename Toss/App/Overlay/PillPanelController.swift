@@ -62,6 +62,11 @@ final class PillPanelController {
             size.width += 6
         }
 
+        if case .hovered = state {
+            size.width = ceil(max(size.width, 250))
+            size.height = ceil(max(size.height, 32))
+        }
+
         // Round to whole pixels
         size.width = ceil(max(size.width, Self.idleSize.width))
         size.height = ceil(max(size.height, Self.idleSize.height))
@@ -100,14 +105,39 @@ final class PillPanelController {
     }
 
     func setState(_ state: PillVisualState) {
-        viewModel.visualState = state
-        // Wait a tick for Swiftui to being its layout pass
-        DispatchQueue.main.async {
-            // Resize heuristics for main states and center in one atomic frame update
-            let size = self.sizeForState(state)
-            self.setSizeAndCenter(to: size, animated: false)
-        }
+        // For hovered state, we need extra layout time due to the complex button layout
+        if case .hovered = state {
+            // Temporarily set state to compute size, then revert
+            let previousState = viewModel.visualState
+            viewModel.visualState = state
 
+            // Force immediate layout to compute the size we'll need
+            hostingView.invalidateIntrinsicContentSize()
+            hostingView.layoutSubtreeIfNeeded()
+
+            // Compute the target size while in hovered state
+            let targetSize = sizeForState(state)
+
+            // Revert to previous state so the view doesn't transition yet
+            viewModel.visualState = previousState
+
+            // FIRST: Resize the panel to the target size (without animation)
+            // This happens before the visual transition
+            setSizeAndCenter(to: targetSize, animated: false)
+
+            // THEN: Set the visual state to trigger the SwiftUI transition
+            // The panel is already the right size, so the content just animates in place
+            viewModel.visualState = state
+
+        } else {
+            viewModel.visualState = state
+            // Wait a tick for SwiftUI to begin its layout pass
+            DispatchQueue.main.async {
+                // Resize heuristics for main states and center in one atomic frame update
+                let size = self.sizeForState(state)
+                self.setSizeAndCenter(to: size, animated: false)
+            }
+        }
         // Ensure panel is visible
         if !panel.isVisible {
             panel.orderFrontRegardless()

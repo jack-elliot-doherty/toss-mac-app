@@ -33,11 +33,7 @@ struct PillView: View {
         Group {
             switch viewModel.visualState {
             case .idle:
-                if isHovered {
-                    hoveredQuickActions
-                } else {
-                    idle
-                }
+                idle
             case .hovered:
                 hoveredQuickActions
             case .listening(let mode):

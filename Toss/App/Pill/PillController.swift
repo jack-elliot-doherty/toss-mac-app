@@ -71,7 +71,6 @@ final class PillController {
         for effect in effects {
             switch effect {
             case .setVisualStateHovered:
-                viewModel.hovered()
                 pillPanel.setState(.hovered)
 
             case .openMeetingView(let meetingId):
@@ -96,15 +95,12 @@ final class PillController {
                 handleSendToAgent(text)
 
             case .setVisualStateListening:
-                viewModel.listening(machine.currentMode)
                 pillPanel.setState(.listening(machine.currentMode))
 
             case .setVisualStateTranscribing:
-                viewModel.transcribing(machine.currentMode)
                 pillPanel.setState(.transcribing(machine.currentMode))
 
             case .setVisualStateIdle:
-                viewModel.idle()
                 pillPanel.setState(.idle)
 
             case .setAlwaysOn(let on):
