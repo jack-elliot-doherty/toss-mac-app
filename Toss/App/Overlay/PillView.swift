@@ -27,18 +27,29 @@ private enum PillStyle {
 
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
+    @State private var isHovered: Bool = false
 
     var body: some View {
         Group {
             switch viewModel.visualState {
             case .idle:
-                idle
+                if isHovered {
+                    hoveredQuickActions
+                } else {
+                    idle
+                }
+            case .hovered:
+                hoveredQuickActions
             case .listening(let mode):
                 listening(mode: mode)
             case .transcribing(let mode):
                 transcribing(mode: mode)
             case .meetingRecording(let meetingId):
-                meetingRecording(meetingId: meetingId)
+                if isHovered {
+                    meetingRecordingHovered(meetingId: meetingId)
+                } else {
+                    meetingRecording(meetingId: meetingId)
+                }
             }
         }
         .padding(.horizontal, 0)
@@ -55,6 +66,17 @@ struct PillView: View {
         .contentShape(Capsule())
         .fixedSize(horizontal: true, vertical: true)  // hug content; no stretching
         .animation(.easeInOut(duration: 0.18), value: viewModel.visualState)
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                viewModel.onHoverEnter?()
+            } else {
+                viewModel.onHoverExit?()
+            }
+        }
+        .onTapGesture {
+            viewModel.onPillClicked?()
+        }
     }
 
     // MARK: Idle — tiny pill
@@ -72,8 +94,59 @@ struct PillView: View {
 
     }
 
-    // MARK: Listening
+    // NEW: Hovered state with quick actions
+    private var hoveredQuickActions: some View {
+        HStack(spacing: 8) {
+            // Record Meeting button
+            Button {
+                viewModel.onQuickActionRecordMeeting?()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Record Meeting")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.red.opacity(0.8))
+                )
+            }
+            .buttonStyle(.plain)
 
+            // Divider
+            Rectangle()
+                .fill(Color.white.opacity(0.2))
+                .frame(width: 1, height: 16)
+
+            // Perma Dictation button
+            Button {
+                viewModel.onQuickActionDictation?()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Dictation")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.blue.opacity(0.8))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: Listening
     private func listening(mode: PillMode) -> some View {
         HStack(spacing: PillStyle.spacing) {
             if viewModel.isAlwaysOn {
@@ -159,6 +232,43 @@ struct PillView: View {
         }
         .padding(.horizontal, PillStyle.padXActive)
         .padding(.vertical, PillStyle.padYActive)
+    }
+
+    // NEW: Meeting recording hovered state (shows stop button)
+    private func meetingRecordingHovered(meetingId: UUID) -> some View {
+        HStack(spacing: 8) {
+            // Current recording indicator
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 6, height: 6)
+                Text("Recording")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white)
+            }
+
+            // Stop button
+            Button {
+                viewModel.onStopMeetingRecording?()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Stop")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(Color.red.opacity(0.9))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
     }
 
 }

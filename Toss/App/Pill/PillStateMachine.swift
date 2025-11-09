@@ -19,6 +19,7 @@ enum PillMode: Equatable {
 
 enum PillState: Equatable {
     case idle
+    case hovered
     case listening(PillMode)  // audio capture running, waveform shown
     case transcribing(PillMode)  // audio capture stopped, uploading/awaiting text transcription
     case meetingRecording(UUID)
@@ -44,6 +45,14 @@ enum PillEvent: Equatable {
     case meetingDetected
     case meetingDetectionExpired  // toast timeout
     case dismissMeetingDetection
+
+    // hover events
+    case pillHoverEnter
+    case pillHoverExit
+    case quickActionRecordMeeting  // clicking a button shown in the hover state to start a meeting recording
+    case quickActionDictation  // clicking a button shown in the hover state to start a dictation
+    // TODO we might need a button to start a command mode session but we havent added command mode yet so leave it for now
+    case pillClicked  // clicking during meeting state will open app
 
     // async results
     case transcriptionSucceeded(text: String)
@@ -77,6 +86,7 @@ enum PillEffect: Equatable {
     case setVisualStateListening
     case setVisualStateTranscribing
     case setVisualStateIdle
+    case setVisualStateHovered
     case setAlwaysOn(Bool)
 
     // meetings
@@ -85,6 +95,7 @@ enum PillEffect: Equatable {
     case stopMeetingRecording
     case uploadMeetingChunk(UUID, URL, Int)
     case setVisualStateMeetingRecording(UUID)
+    case openMeetingView(UUID)  // when the pill body is clicked during meeting state will open the meeting view for that meeting
 
 }
 
@@ -151,6 +162,40 @@ struct PillStateMachine {
         var effects: [PillEffect] = []
 
         switch (state, event) {
+
+        case (.idle, .pillHoverEnter):
+            state = .hovered
+            effects += [.setVisualStateHovered]
+
+        case (.hovered, .pillHoverExit):
+            state = .idle
+            effects += [.setVisualStateIdle]
+
+        case (.hovered, .quickActionRecordMeeting):
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId)
+            effects += [
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId),
+                .showToast(
+                    icon: "mic.fill",
+                    title: "Recording meeting",
+                    subtitle: nil,
+                    primary: nil,
+                    secondary: nil,
+                    duration: 2.0,
+                    offsetAboveAnchor: nil
+                ),
+            ]
+
+        case (.hovered, .quickActionDictation):
+            ctx.isAlwaysOn = true
+            state = .listening(.dictation)
+            effects += [
+                .startAudioCapture,
+                .setVisualStateListening,
+                .setAlwaysOn(true),
+            ]
 
         // IDLE + Fn down + meeting detected → START MEETING
         case (.idle, .fnDown) where ctx.meetingDetected:
@@ -327,6 +372,9 @@ struct PillStateMachine {
                 .setVisualStateIdle,
                 .showToast(title: "Meeting recording stopped"),
             ]
+
+        case (.meetingRecording(let meetingId), .pillClicked):
+            effects += [.openMeetingView(meetingId)]
 
         case (.meetingRecording(let meetingId), .meetingChunkReady(let url, let index)):
             // just upload the chunk to the server and continue recording

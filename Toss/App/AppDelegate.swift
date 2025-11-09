@@ -92,6 +92,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pillViewModel.onRequestStop = { [weak self] in self?.pillController.send(.stopButton) }
         pillViewModel.onRequestCancel = { [weak self] in self?.pillController.send(.cancelButton) }
 
+        pillViewModel.onHoverEnter = { [weak self] in self?.pillController.send(.pillHoverEnter) }
+        pillViewModel.onHoverExit = { [weak self] in self?.pillController.send(.pillHoverExit) }
+        pillViewModel.onPillClicked = { [weak self] in self?.pillController.send(.pillClicked) }
+        pillViewModel.onQuickActionRecordMeeting = { [weak self] in
+            self?.pillController.send(.quickActionRecordMeeting)
+        }
+        pillViewModel.onQuickActionDictation = { [weak self] in
+            self?.pillController.send(.quickActionDictation)
+        }
+        pillViewModel.onStopMeetingRecording = { [weak self] in
+            self?.pillController.send(.stopMeetingRecording)
+        }
+
         // Observe planner demo trigger
         NotificationCenter.default.addObserver(
             self, selector: #selector(runPlannerDemo),

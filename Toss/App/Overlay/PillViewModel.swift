@@ -9,6 +9,7 @@ enum PasteResult: Equatable {
 
 enum PillVisualState: Equatable {
     case idle
+    case hovered
     case listening(PillMode)
     case transcribing(PillMode)
     case meetingRecording(UUID)
@@ -23,7 +24,15 @@ final class PillViewModel: ObservableObject {
     // Callbacks the owner (AppDelegate) can observe to perform actions
     var onRequestStop: (() -> Void)?
     var onRequestCancel: (() -> Void)?
-    var onToggleAgentMode: ((Bool) -> Void)?
+    // var onToggleAgentMode: ((Bool) -> Void)?
+
+    // hover and click callbacks
+    var onHoverEnter: (() -> Void)?
+    var onHoverExit: (() -> Void)?
+    var onPillClicked: (() -> Void)?
+    var onQuickActionRecordMeeting: (() -> Void)?
+    var onQuickActionDictation: (() -> Void)?
+    var onStopMeetingRecording: (() -> Void)?
 
     var agentModeEnabled: Bool {
         if case .listening(.command) = visualState { return true }
@@ -37,13 +46,17 @@ final class PillViewModel: ObservableObject {
     func transcribing(_ mode: PillMode) {
         visualState = .transcribing(mode)
     }
-    
+
     func meetingRecording(_ meetingId: UUID) {
         visualState = .meetingRecording(meetingId)
     }
 
     func idle() {
         visualState = .idle
+    }
+
+    func hovered() {
+        visualState = .hovered
     }
 
     func updateLevelRMS(_ value: Float) {

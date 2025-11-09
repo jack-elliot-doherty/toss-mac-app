@@ -70,6 +70,13 @@ final class PillController {
 
         for effect in effects {
             switch effect {
+            case .setVisualStateHovered:
+                viewModel.hovered()
+                pillPanel.setState(.hovered)
+
+            case .openMeetingView(let meetingId):
+                handleOpenMeetingView(meetingId)
+
             case .startAudioCapture:
                 handleStartAudio()
 
@@ -368,6 +375,20 @@ final class PillController {
     private func handleMeetingChunkReady(meetingId: UUID, url: URL, index: Int) {
         // // Handle the meeting chunk ready event
         // send(.meetingChunkReady(meetingId, url, index))
+    }
+
+    private func handleOpenMeetingView(_ meetingId: UUID) {
+        NSLog("[PillController] Opening meeting view for \(meetingId)")
+
+        // Activate the app
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Post notification to navigate to meeting
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OpenMeetingView"),
+            object: nil,
+            userInfo: ["meetingId": meetingId]
+        )
     }
 
     // MARK: - Logging helpers
