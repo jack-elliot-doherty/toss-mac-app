@@ -17,7 +17,7 @@ private enum PillStyle {
     // Active states
     static let padXActive: CGFloat = 8
     static let padYActive: CGFloat = 4
-    static let spacing: CGFloat = 4
+    static let spacing: CGFloat = 8
 
     static let waveformWidth: CGFloat = 64  // compact
     static let waveformHeight: CGFloat = 14
@@ -190,8 +190,10 @@ struct PillView: View {
             DotWaveformView(level: 0.22)  // subtle steady center while uploading
                 .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
 
-            TypingDots()
-                .frame(height: PillStyle.waveformHeight)
+            ProgressView()
+                .scaleEffect(0.5)
+                .frame(width: 8, height: 8)
+                .colorInvert()
 
             if viewModel.isAlwaysOn {
                 Button {
@@ -312,26 +314,5 @@ private struct DotWaveformView: View {
             }
         }
         .animation(.linear(duration: 0.05), value: clamped)
-    }
-}
-
-/// Three bouncing dots for “transcribing…”
-private struct TypingDots: View {
-    @State private var t: CGFloat = 0
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3) { i in
-                Circle()
-                    .fill(.white)
-                    .frame(width: 4, height: 4)
-                    .opacity(0.7 + 0.3 * _math.sin(t + CGFloat(i) * 0.6))
-            }
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) {
-                t = .pi * 2
-            }
-        }
     }
 }

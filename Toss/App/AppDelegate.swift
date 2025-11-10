@@ -1,12 +1,11 @@
 import Cocoa
 import Foundation
-
-// import Sparkle
+import Sparkle
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    // let updaterController: SPUStandardUpdaterController
+    let updaterController: SPUStandardUpdaterController
     private let meetingDetector = MeetingDetector()
 
     private var pillController: PillController!
@@ -29,19 +28,74 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         })
     private var lastTapAt: Date?
 
-    // override init() {
-    // updaterController = SPUStandardUpdaterController(
-    //     startingUpdater: true,
-    //     updaterDelegate: nil,
-    //     userDriverDelegate: nil
-    // )
-    // super.init()
-    // }
+    override init() {
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem
+
+        if let button = statusItem.button {
+            let font = NSFont.systemFont(ofSize: 20, weight: .bold)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .baselineOffset: -3,
+            ]
+            let attributedTitle = NSAttributedString(string: "T", attributes: attributes)
+            button.attributedTitle = attributedTitle
+            button.image = nil
+        }
+        // Create the menu
+        let menu = NSMenu()
+
+        // Add "Open Toss" menu item
+        let openItem = NSMenuItem(
+            title: "Open Toss", action: #selector(openMainWindow), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add "Settings" menu item
+        let settingsItem = NSMenuItem(
+            title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add version info (non-clickable)
+        let versionString =
+            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let versionItem = NSMenuItem(
+            title: "Toss v\(versionString)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+
+        // Add "Check for updates" menu item
+        let updateItem = NSMenuItem(
+            title: "Check for updates", action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        menu.addItem(updateItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add "Quit Toss Completely" menu item
+        let quitItem = NSMenuItem(
+            title: "Quit Toss Completely", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        statusItem.menu = menu
 
         // Pill panel idle and visible (non-activating)
         // Small delay to ensure window system is ready
@@ -122,13 +176,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
         -> Bool
     {
+        // When user clicks dock icon, show the main window
         if !flag {
-            if let window = NSApp.windows.first(where: { $0.title == "Toss" }) {
+            // No visible windows, create/show the main window
+            if let window = NSApp.windows.first(where: {
+                $0.title == "Toss" || $0.identifier?.rawValue == "main"
+            }) {
                 NSApp.activate(ignoringOtherApps: true)
                 window.makeKeyAndOrderFront(nil)
+            } else {
+                // If window doesn't exist, activate app (SwiftUI will recreate it)
+                NSApp.activate(ignoringOtherApps: true)
             }
         }
         return true
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // we want to pill to always be persistent even if the main app screen is closed
+        return false
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -140,6 +206,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         _ = historyRepo.appendMessage(
             threadId: thread.id, role: .user, content: text, status: .final)
         return thread
+    }
+
+    @objc private func openMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = NSApp.windows.first(where: { $0.title == "Toss" }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    @objc private func openSettings() {
+        // Open the main window and show settings
+        openMainWindow()
+        // Post notification to show settings
+        NotificationCenter.default.post(name: NSNotification.Name("ShowSettings"), object: nil)
+    }
+
+    @objc private func checkForUpdates() {
+        NSLog("[AppDelegate] Check for updates")
+        updaterController.updater.checkForUpdates()
+    }
+
+    @objc private func quitApp() {
+        NSApplication.shared.terminate(nil)
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -8,6 +8,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var endTime: Date?
     var createdAt: Date
     var updatedAt: Date
+    var notes: String = ""
 }
 
 struct MeetingChunkModel: Identifiable, Equatable, Codable {
@@ -26,6 +27,8 @@ protocol MeetingRepositoryProtocol {
     func listMeetings() -> [MeetingModel]
     func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
+    func updateMeetingTitle(meetingId: UUID, title: String)
+    func updateMeetingNotes(meetingId: UUID, notes: String)
 }
 
 final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
@@ -141,6 +144,26 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 .sorted { $0.chunkIndex < $1.chunkIndex }
                 .map { $0.transcript }
                 .joined(separator: " ")
+        }
+    }
+
+    func updateMeetingTitle(meetingId: UUID, title: String) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.title = title
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+            save()
+        }
+    }
+
+    func updateMeetingNotes(meetingId: UUID, notes: String) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.notes = notes
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+            save()
         }
     }
 }

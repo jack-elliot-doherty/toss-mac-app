@@ -30,6 +30,7 @@ struct ContentView: View {
     @ObservedObject private var auth = AuthManager.shared
     @State private var selection: SidebarItem? = .home
     @State private var showSettings = false
+    @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
 
     @StateObject private var meetingRepo = PersistentMeetingRepository()
 
@@ -63,12 +64,24 @@ struct ContentView: View {
                 case .home:
                     OnboardingGate()
                 case .meetings:
-                    MeetingsListView(repository: meetingRepo)
+                    MeetingsListView(repository: meetingRepo, pendingMeetingId: $pendingMeetingId)
                 case .settings, .none:
                     OnboardingGate()
                 }
             }
             .frame(minWidth: 820, minHeight: 520)
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
+            ) { notification in
+                if let userInfo = notification.userInfo,
+                    let meetingId = userInfo["meetingId"] as? UUID
+                {
+                    // switch to the meetings tab
+                    selection = .meetings
+                    // Meeting id to open
+                    pendingMeetingId = meetingId
+                }
+            }
 
             if showSettings {
                 Color.black.opacity(0.28)
@@ -82,6 +95,11 @@ struct ContentView: View {
                     .zIndex(1)
             }
         }.animation(.easeInOut(duration: 0.2), value: showSettings)
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
+            ) { _ in
+                showSettings = true
+            }
 
     }
 

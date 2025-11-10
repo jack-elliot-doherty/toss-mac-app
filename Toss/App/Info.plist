@@ -21,5 +21,15 @@
 	<string>Toss needs to send keystrokes to paste your dictated text into other apps.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Toss uses your microphone to transcribe your voice when you hold the hotkey.</string>
+
+	<!-- Sparkle Configuration -->
+	<key>SUFeedURL</key>
+	<string>https://usetoss.com/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>YOUR_PUBLIC_KEY_HERE</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>
