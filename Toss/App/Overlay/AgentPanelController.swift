@@ -11,7 +11,7 @@ final class AgentPanelController {
         self.viewModel = viewModel
         self.anchorFrameProvider = anchorFrameProvider
 
-        let contentRect = NSRect(x: 0, y: 0, width: 400, height: 500)
+        let contentRect = NSRect(x: 0, y: 0, width: 400, height: 200)
         self.panel = NSPanel(
             contentRect: contentRect,
             styleMask: [.nonactivatingPanel, .borderless],
@@ -28,10 +28,21 @@ final class AgentPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
+        // Commented for dev to allow screenshots
+        // panel.sharingType = .none  // Exclude from screen recording and screenshots
 
         let root = AgentView(viewModel: viewModel)
         let hostingView = NSHostingView(rootView: root)
         panel.contentView = hostingView
+
+        // Add ESC key handling
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.keyCode == 53 {  // ESC key
+                self?.hide()
+                return nil  // Consume the event
+            }
+            return event
+        }
     }
 
     func show(with initialMessage: String) {

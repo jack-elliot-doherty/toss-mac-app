@@ -24,9 +24,13 @@ struct AgentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color.black.opacity(0.05))
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+                    .opacity(0.85))
 
             Divider()
+                .background(.white.opacity(0.1))
 
             // Messages
             ScrollViewReader { proxy in
@@ -35,6 +39,22 @@ struct AgentView: View {
                         ForEach(viewModel.messages) { msg in
                             MessageBubble(message: msg)
                                 .id(msg.id)
+                        }
+
+                        // Tool approval cards
+                        ForEach(viewModel.pendingToolCalls) { toolCall in
+                            ToolApprovalCard(
+                                toolCall: toolCall,
+                                onApprove: {
+                                    Task {
+                                        await viewModel.approveToolCall(toolCall)
+                                    }
+                                },
+                                onReject: {
+                                    viewModel.rejectToolCall(toolCall)
+                                }
+                            )
+                            .id(toolCall.id)
                         }
 
                         if viewModel.isProcessing {
@@ -60,15 +80,15 @@ struct AgentView: View {
                     .padding(12)
                 }
                 .onChange(of: viewModel.messages.count) { _ in
-                    if let lastMessage = viewModel.messages.last {
-                        withAnimation {
-                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                        }
-                    }
+                    scrollToBottom(proxy)
+                }
+                .onChange(of: viewModel.pendingToolCalls.count) { _ in
+                    scrollToBottom(proxy)
                 }
             }
 
             Divider()
+                .background(.white.opacity(0.1))
 
             // Input (optional - for follow-up messages)
             HStack(spacing: 8) {
@@ -91,11 +111,26 @@ struct AgentView: View {
                 .disabled(inputText.isEmpty || viewModel.isProcessing)
             }
             .padding(12)
-            .background(Color.black.opacity(0.02))
+            .background(.ultraThinMaterial.opacity(0.3))
         }
-        .frame(width: 400, height: 500)
-        .background(Color(NSColor.windowBackgroundColor))
+        .frame(width: 400)
+        .fixedSize(horizontal: false, vertical: true)  // Shrink to fit content
+        .frame(maxHeight: 500)  // But don't exceed 500px
+        .background(.ultraThinMaterial)
         .cornerRadius(12)
+        .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if let lastToolCall = viewModel.pendingToolCalls.last {
+            withAnimation {
+                proxy.scrollTo(lastToolCall.id, anchor: .bottom)
+            }
+        } else if let lastMessage = viewModel.messages.last {
+            withAnimation {
+                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+            }
+        }
     }
 }
 
@@ -115,9 +150,9 @@ private struct MessageBubble: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(message.role == .user ? Color.blue : Color.black.opacity(0.08))
+                            .fill(message.role == .user ? Color.blue : Color.white.opacity(0.08))
                     )
-                    .foregroundColor(message.role == .user ? .white : .primary)
+                    .foregroundColor(message.role == .user ? .white : .white)
 
                 Text(message.timestamp, style: .time)
                     .font(.system(size: 10))
@@ -128,5 +163,95 @@ private struct MessageBubble: View {
                 Spacer()
             }
         }
+    }
+}
+
+private struct ToolApprovalCard: View {
+    let toolCall: ToolCall
+    let onApprove: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        switch toolCall.name {
+        case "send_slack_message":
+            SlackMessageCard(
+                toolCall: toolCall,
+                onApprove: onApprove,
+                onReject: onReject
+            )
+        case "create_linear_issue":
+            // TODO: Create LinearIssueCard component
+            GenericToolCard(
+                toolCall: toolCall,
+                onApprove: onApprove,
+                onReject: onReject
+            )
+        default:
+            GenericToolCard(
+                toolCall: toolCall,
+                onApprove: onApprove,
+                onReject: onReject
+            )
+        }
+    }
+}
+
+// Generic fallback for tools without custom UI
+private struct GenericToolCard: View {
+    let toolCall: ToolCall
+    let onApprove: () -> Void
+    let onReject: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "wrench.and.screwdriver")
+                    .foregroundColor(.white)
+                Text(toolCall.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                Spacer()
+            }
+
+            Divider()
+                .background(.white.opacity(0.1))
+
+            // Show arguments
+            ForEach(Array(toolCall.arguments.keys.sorted()), id: \.self) { key in
+                if let value = toolCall.arguments[key] {
+                    HStack(alignment: .top) {
+                        Text(key)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 80, alignment: .leading)
+
+                        Text(String(describing: value.value))
+                            .font(.system(size: 13))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+
+            // Action buttons
+            if case .awaitingApproval = toolCall.status {
+                HStack(spacing: 8) {
+                    Button("Reject", action: onReject)
+                        .buttonStyle(.bordered)
+                        .tint(.gray)
+
+                    Spacer()
+
+                    Button("Approve", action: onApprove)
+                        .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+        .padding(16)
+        .background(.regularMaterial)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.white.opacity(0.15), lineWidth: 1)
+        )
     }
 }

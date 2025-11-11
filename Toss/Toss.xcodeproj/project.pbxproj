@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA3427532EC37F3A00F85DEB /* SlackMessageCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */; };
+		DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427522EC37F3A00F85DEB /* ToolCall.swift */; };
+		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
+		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
 		DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234B2EB23FCE000207F0 /* PillViewModel.swift */; };
 		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
 		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
@@ -71,6 +75,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamParser.swift; sourceTree = "<group>"; };
+		DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlackMessageCard.swift; sourceTree = "<group>"; };
+		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
+		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
 		DA3623412EB23FCE000207F0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
 		DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
@@ -168,6 +176,10 @@
 		DA36234E2EB23FCE000207F0 /* Overlay */ = {
 			isa = PBXGroup;
 			children = (
+				DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */,
+				DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */,
+				DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */,
+				DA3427522EC37F3A00F85DEB /* ToolCall.swift */,
 				DA36238A2EB95D2E000207F0 /* AgentPanelController.swift */,
 				DA36238B2EB95D2E000207F0 /* AgentView.swift */,
 				DA36238C2EB95D2E000207F0 /* AgentViewModel.swift */,
@@ -496,6 +508,7 @@
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DAEB723F2EBD5E79006A17C7 /* TossApp.swift in Sources */,
+				DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */,
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
@@ -504,6 +517,9 @@
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
+				DA3427532EC37F3A00F85DEB /* SlackMessageCard.swift in Sources */,
+				DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */,
+				DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */,
 				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
 				DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */,
 				DA7827A22EBE94CC0040ED92 /* meeting-recorder.swift in Sources */,
