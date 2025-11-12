@@ -63,7 +63,6 @@ struct AgentView: View {
                     scrollToBottom(proxy)
                 }
             }
-            }
             .padding(12)
             .background(.ultraThinMaterial.opacity(0.3))
         }
