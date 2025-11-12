@@ -172,10 +172,25 @@ jobs:
           # Write PEM key to file
           printf "%s\n" "$SPARKLE_PRIVATE_KEY" > ed25519_privkey.pem
 
-          # Download sign_update from the repository (not releases)
+          # Download sign_update by cloning the Sparkle repo (just the bin directory)
           if [ ! -x "sign_update" ]; then
-            # Download from the raw GitHub URL
-            curl -L -f https://raw.githubusercontent.com/sparkle-project/Sparkle/master/bin/sign_update -o sign_update
+            # Clone with sparse checkout to get just the bin directory
+            git clone --depth 1 --filter=blob:none --sparse https://github.com/sparkle-project/Sparkle.git sparkle-temp || {
+              # Fallback: full clone if sparse checkout fails
+              echo "Sparse checkout failed, trying full clone..."
+              rm -rf sparkle-temp
+              git clone --depth 1 https://github.com/sparkle-project/Sparkle.git sparkle-temp
+            }
+            
+            # Copy the sign_update script
+            if [ -f "sparkle-temp/bin/sign_update" ]; then
+              cp sparkle-temp/bin/sign_update ./sign_update
+            else
+              echo "Error: sign_update not found in Sparkle repository"
+              exit 1
+            fi
+            
+            rm -rf sparkle-temp
             
             # Verify download succeeded
             if [ ! -f "sign_update" ] || [ ! -s "sign_update" ]; then
