@@ -55,37 +55,14 @@ struct AgentView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .frame(maxHeight: 450)
-                layoutPriority(1)
-                    .onChange(of: viewModel.messages.count) { _ in
-                        scrollToBottom(proxy)
-                    }
-                    .onChange(of: viewModel.pendingToolCalls.count) { _ in
-                        scrollToBottom(proxy)
-                    }
-            }
-
-            Divider()
-                .background(.white.opacity(0.1))
-
-            // Input (optional - for follow-up messages)
-            HStack(spacing: 8) {
-                TextField("Send a message...", text: $inputText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .disabled(viewModel.isProcessing)
-
-                Button {
-                    if !inputText.isEmpty {
-                        viewModel.sendMessage(inputText)
-                        inputText = ""
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(inputText.isEmpty ? .orange : .blue)
+                .layoutPriority(1)
+                .onChange(of: viewModel.messages.count) { _ in
+                    scrollToBottom(proxy)
                 }
-                .buttonStyle(.plain)
-                .disabled(inputText.isEmpty || viewModel.isProcessing)
+                .onChange(of: viewModel.pendingToolCalls.count) { _ in
+                    scrollToBottom(proxy)
+                }
+            }
             }
             .padding(12)
             .background(.ultraThinMaterial.opacity(0.3))

@@ -24,9 +24,9 @@
 
 	<!-- Sparkle Configuration -->
 	<key>SUFeedURL</key>
-	<string>https://usetoss.com/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>YOUR_PUBLIC_KEY_HERE</string>
+	<string>https://raw.githubusercontent.com/jack-elliot-doherty/toss-mac-app/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>q6OHq6jS+2hYxcwPDw+bjgJ7k++fj3sxUt3ecwWTKNU=</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUScheduledCheckInterval</key>
