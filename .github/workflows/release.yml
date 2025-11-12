@@ -166,6 +166,7 @@ jobs:
 
       - name: Sign for Sparkle
         working-directory: Toss
+        continue-on-error: true
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -186,25 +187,39 @@ jobs:
             if [ -f "sparkle-temp/bin/sign_update" ]; then
               cp sparkle-temp/bin/sign_update ./sign_update
             else
-              echo "Error: sign_update not found in Sparkle repository"
-              exit 1
+              echo "Warning: sign_update not found in Sparkle repository, skipping Sparkle signing"
+              rm -rf sparkle-temp
+              rm -f ed25519_privkey.pem
+              exit 0
             fi
             
             rm -rf sparkle-temp
             
             # Verify download succeeded
             if [ ! -f "sign_update" ] || [ ! -s "sign_update" ]; then
-              echo "Error: Failed to download sign_update tool"
-              exit 1
+              echo "Warning: Failed to download sign_update tool, skipping Sparkle signing"
+              rm -f ed25519_privkey.pem
+              exit 0
             fi
             
             chmod +x sign_update
           fi
 
           # Sign and capture output
-          OUT=$(./sign_update "Toss-${{ steps.version.outputs.VERSION }}.dmg" -f ed25519_privkey.pem)
+          OUT=$(./sign_update "Toss-${{ steps.version.outputs.VERSION }}.dmg" -f ed25519_privkey.pem 2>&1) || {
+            echo "Warning: Sparkle signing failed, continuing without Sparkle signature"
+            rm -f ed25519_privkey.pem
+            exit 0
+          }
+
           SIG=$(echo "$OUT" | awk -F'"' '/sparkle:edSignature/{print $2}')
           LEN=$(stat -f%z "Toss-${{ steps.version.outputs.VERSION }}.dmg" 2>/dev/null || wc -c < "Toss-${{ steps.version.outputs.VERSION }}.dmg")
+
+          if [ -z "$SIG" ]; then
+            echo "Warning: Could not extract Sparkle signature, continuing without it"
+            rm -f ed25519_privkey.pem
+            exit 0
+          fi
 
           echo "SIGNATURE=$SIG" >> $GITHUB_ENV
           echo "DMG_LENGTH=$LEN" >> $GITHUB_ENV
@@ -221,6 +236,7 @@ jobs:
           fi
 
       - name: Update appcast.xml
+        continue-on-error: true
         run: |
           APPCAST="appcast.xml"
           VERSION="${{ steps.version.outputs.VERSION }}"
@@ -228,6 +244,13 @@ jobs:
           SIG="${{ env.SIGNATURE }}"
           LEN="${{ env.DMG_LENGTH }}"
           DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
+
+          # Skip appcast update if no signature (Sparkle signing failed)
+          if [ -z "$SIG" ]; then
+            echo "Warning: No Sparkle signature available, skipping appcast.xml update"
+            echo "The release will still be created, but automatic updates via Sparkle won't work until manually fixed"
+            exit 0
+          fi
 
           # Use Python to properly parse and update XML
           python3 << 'PYTHON'
@@ -304,12 +327,12 @@ jobs:
             - Add your release notes here
 
             ### Technical Details
-            - **Sparkle Signature:** `${{ env.SIGNATURE }}`
-            - **File Size:** `${{ env.DMG_LENGTH }}` bytes
+            - **Sparkle Signature:** ${{ env.SIGNATURE != '' && format('`{0}`', env.SIGNATURE) || 'Not available (Sparkle signing failed)' }}
+            - **File Size:** ${{ env.DMG_LENGTH != '' && format('{0} bytes', env.DMG_LENGTH) || 'Unknown' }}
             - **Minimum macOS:** 14.0 (Sonoma)
 
             ### Automatic Updates
-            If you have Toss installed, it will automatically notify you of this update.
+            ${{ env.SIGNATURE != '' && 'If you have Toss installed, it will automatically notify you of this update.' || '⚠️ Sparkle signing failed - automatic updates may not work. Manual update required.' }}
           draft: false
           prerelease: false
         env:
