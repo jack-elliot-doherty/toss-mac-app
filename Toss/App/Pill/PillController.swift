@@ -60,6 +60,22 @@ final class PillController {
     /// Public ingress: feed events into the machine, then perform returned effects.
     func send(_ event: PillEvent) {
         log("EVENT: \(event)")
+
+        // Intercept fnDown events to check auth before state machine processes them
+        if case .fnDown = event {
+            guard auth.isAuthenticated else {
+                toast.show(
+                    icon: Image(systemName: "person.crop.circle.badge.exclamationmark"),
+                    title: "Please sign in",
+                    subtitle: "Sign in to use dictation",
+                    duration: 3.0
+                )
+                // Reset visual state in case we're in a weird state
+                pillPanel.setState(.idle)
+                return
+            }
+        }
+
         let effects = machine.handle(event)
         log("STATE: \(machineStateDebug()) EFFECTS: \(effects)")
         perform(effects)
