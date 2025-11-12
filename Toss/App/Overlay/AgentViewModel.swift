@@ -52,7 +52,11 @@ final class AgentViewModel: ObservableObject {
         )
         messages.append(userMsg)
 
+        NotificationCenter.default.post(
+            name: NSNotification.Name("AgentMessagesChanged"), object: nil)
+
         sendToAgent(text)
+
     }
 
     private func sendToAgent(_ message: String) {
@@ -239,10 +243,13 @@ final class AgentViewModel: ObservableObject {
         case .done:
             NSLog("[AgentViewModel] Stream complete")
             finalizeCurrentMessage()
+            NotificationCenter.default.post(
+                name: NSNotification.Name("AgentMessagesChanged"), object: nil)
 
         case .error(let error):
             errorMessage = error
             NSLog("[AgentViewModel] Stream error: \(error)")
+
         }
     }
 

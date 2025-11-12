@@ -6,32 +6,6 @@ struct AgentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Agent")
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
-                Button {
-                    viewModel.clearConversation()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.85))
-
-            Divider()
-                .background(.white.opacity(0.1))
-
             // Messages
             ScrollViewReader { proxy in
                 ScrollView {
@@ -78,13 +52,16 @@ struct AgentView: View {
                         }
                     }
                     .padding(12)
+                    .frame(maxWidth: .infinity)
                 }
-                .onChange(of: viewModel.messages.count) { _ in
-                    scrollToBottom(proxy)
-                }
-                .onChange(of: viewModel.pendingToolCalls.count) { _ in
-                    scrollToBottom(proxy)
-                }
+                .frame(maxHeight: 450)
+                layoutPriority(1)
+                    .onChange(of: viewModel.messages.count) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: viewModel.pendingToolCalls.count) { _ in
+                        scrollToBottom(proxy)
+                    }
             }
 
             Divider()
@@ -114,8 +91,6 @@ struct AgentView: View {
             .background(.ultraThinMaterial.opacity(0.3))
         }
         .frame(width: 400)
-        .fixedSize(horizontal: false, vertical: true)  // Shrink to fit content
-        .frame(maxHeight: 500)  // But don't exceed 500px
         .background(.ultraThinMaterial)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
@@ -254,4 +229,5 @@ private struct GenericToolCard: View {
                 .stroke(.white.opacity(0.15), lineWidth: 1)
         )
     }
+
 }

@@ -6,6 +6,8 @@ final class AgentPanelController {
     private let panel: NSPanel
     private let viewModel: AgentViewModel
     private let anchorFrameProvider: () -> NSRect?
+    private let anchorOffset: CGFloat = 12
+    private let hostingView: NSHostingView<AgentView>
 
     init(viewModel: AgentViewModel, anchorFrameProvider: @escaping () -> NSRect?) {
         self.viewModel = viewModel
@@ -28,18 +30,30 @@ final class AgentPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
-        // Commented for dev to allow screenshots
         // panel.sharingType = .none  // Exclude from screen recording and screenshots
 
         let root = AgentView(viewModel: viewModel)
-        let hostingView = NSHostingView(rootView: root)
+        self.hostingView = NSHostingView(rootView: root)
+
+        // CRITICAL: Tell the hosting view to size itself based on SwiftUI content
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
         panel.contentView = hostingView
 
-        // Add ESC key handling
+        // Observe view model changes to trigger resize
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AgentMessagesChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.resizePanelToFitContent()
+        }
+
+        // ESC key handler
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 {  // ESC key
+            if event.keyCode == 53 {  // ESC
                 self?.hide()
-                return nil  // Consume the event
+                return nil
             }
             return event
         }
@@ -47,6 +61,9 @@ final class AgentPanelController {
 
     func show(with initialMessage: String) {
         viewModel.startConversation(with: initialMessage)
+
+        // Initial sizing
+        resizePanelToFitContent()
         positionAboveAnchor()
 
         // Fade in animation
@@ -56,6 +73,31 @@ final class AgentPanelController {
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.2
             panel.animator().alphaValue = 1.0
+        }
+    }
+
+    private func resizePanelToFitContent() {
+        let maxHeight: CGFloat = 500
+        let width: CGFloat = 400
+
+        // Ask the hosting view for its fitting size
+        let fittingSize = hostingView.fittingSize
+
+        // Cap at max height
+        let finalHeight = min(fittingSize.height, maxHeight)
+        let finalSize = NSSize(width: width, height: finalHeight)
+
+        if let anchor = anchorFrameProvider() {
+            let x = anchor.midX - width / 2
+            let y = anchor.maxY + anchorOffset
+            let newFrame = NSRect(x: x, y: y, width: finalSize.width, height: finalSize.height)
+            panel.setFrame(newFrame, display: true, animate: true)
+        } else if let screen = NSScreen.main {
+            let frame = screen.visibleFrame
+            let x = frame.midX - width / 2
+            let y = frame.minY + 80
+            let newFrame = NSRect(x: x, y: y, width: finalSize.width, height: finalSize.height)
+            panel.setFrame(newFrame, display: true, animate: true)
         }
     }
 
@@ -71,10 +113,10 @@ final class AgentPanelController {
             })
     }
 
-    private func positionAboveAnchor(offset: CGFloat = 12) {
+    private func positionAboveAnchor() {
         if let anchor = anchorFrameProvider() {
             let x = anchor.midX - panel.frame.width / 2
-            let y = anchor.maxY + offset
+            let y = anchor.maxY + anchorOffset
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         } else if let screen = NSScreen.main {
             let frame = screen.visibleFrame
