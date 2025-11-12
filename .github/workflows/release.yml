@@ -172,14 +172,10 @@ jobs:
           # Write PEM key to file
           printf "%s\n" "$SPARKLE_PRIVATE_KEY" > ed25519_privkey.pem
 
-          # Download sign_update if not present
+          # Download sign_update from the repository (not releases)
           if [ ! -x "sign_update" ]; then
-            # Try downloading from latest release
-            curl -L -f https://github.com/sparkle-project/Sparkle/releases/latest/download/sign_update -o sign_update || {
-              # Fallback: download from a specific known release (2.8.0)
-              echo "Failed to download from latest, trying specific release..."
-              curl -L -f https://github.com/sparkle-project/Sparkle/releases/download/2.8.0/sign_update -o sign_update
-            }
+            # Download from the raw GitHub URL
+            curl -L -f https://raw.githubusercontent.com/sparkle-project/Sparkle/master/bin/sign_update -o sign_update
             
             # Verify download succeeded
             if [ ! -f "sign_update" ] || [ ! -s "sign_update" ]; then
