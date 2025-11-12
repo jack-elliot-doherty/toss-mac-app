@@ -174,7 +174,19 @@ jobs:
 
           # Download sign_update if not present
           if [ ! -x "sign_update" ]; then
-            curl -L https://github.com/sparkle-project/Sparkle/releases/latest/download/sign_update -o sign_update
+            # Try downloading from latest release
+            curl -L -f https://github.com/sparkle-project/Sparkle/releases/latest/download/sign_update -o sign_update || {
+              # Fallback: download from a specific known release (2.8.0)
+              echo "Failed to download from latest, trying specific release..."
+              curl -L -f https://github.com/sparkle-project/Sparkle/releases/download/2.8.0/sign_update -o sign_update
+            }
+            
+            # Verify download succeeded
+            if [ ! -f "sign_update" ] || [ ! -s "sign_update" ]; then
+              echo "Error: Failed to download sign_update tool"
+              exit 1
+            fi
+            
             chmod +x sign_update
           fi
 
