@@ -61,8 +61,9 @@ final class PillController {
     func send(_ event: PillEvent) {
         log("EVENT: \(event)")
 
-        // Intercept fnDown events to check auth before state machine processes them
-        if case .fnDown = event {
+        // Intercept events that require auth before state machine processes them
+        switch event {
+        case .fnDown, .doubleTapFn, .quickActionDictation, .quickActionRecordMeeting:
             guard auth.isAuthenticated else {
                 toast.show(
                     icon: Image(systemName: "person.crop.circle.badge.exclamationmark"),
@@ -74,6 +75,8 @@ final class PillController {
                 pillPanel.setState(.idle)
                 return
             }
+        default:
+            break
         }
 
         let effects = machine.handle(event)
