@@ -62,6 +62,9 @@ final class PillViewModel: ObservableObject {
     func updateLevelRMS(_ value: Float) {
         // Clamp and publish; UI can animate from this
         let clamped = max(0, min(1, value))
+        if abs(clamped - levelRMS) > 0.01 {
+            NSLog("Updating level RMS from \(levelRMS) to \(clamped)")
+        }
         levelRMS = clamped
     }
 }

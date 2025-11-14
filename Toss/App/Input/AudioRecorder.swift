@@ -111,8 +111,11 @@ final class AudioRecorder {
                     }
                     let mean = sum / max(1, Float(frameCount))
                     var rms = sqrtf(mean)
-                    // Simple normalization for visual use
-                    rms = min(1.0, max(0.0, rms * 4.0))
+
+                    // Boost perceived loudness: gamma curve + higher gain
+                    rms = powf(rms, 0.6) * 6.0
+                    rms = min(1.0, max(0.0, rms))
+
                     DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
                 }
             }

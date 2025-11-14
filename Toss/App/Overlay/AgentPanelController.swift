@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import SwiftUI
 
 @MainActor
@@ -8,6 +9,7 @@ final class AgentPanelController {
     private let anchorFrameProvider: () -> NSRect?
     private let anchorOffset: CGFloat = 12
     private let hostingView: NSHostingView<AgentView>
+    private var cancellables = Set<AnyCancellable>()
 
     init(viewModel: AgentViewModel, anchorFrameProvider: @escaping () -> NSRect?) {
         self.viewModel = viewModel
@@ -30,7 +32,6 @@ final class AgentPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
-        // panel.sharingType = .none  // Exclude from screen recording and screenshots
 
         let root = AgentView(viewModel: viewModel)
         self.hostingView = NSHostingView(rootView: root)
@@ -39,6 +40,19 @@ final class AgentPanelController {
         hostingView.translatesAutoresizingMaskIntoConstraints = false
 
         panel.contentView = hostingView
+
+        // Keep panel size in sync with SwiftUI content
+        viewModel.$messages
+            .combineLatest(
+                viewModel.$pendingToolCalls,
+                viewModel.$isProcessing,
+                viewModel.$errorMessage
+            )
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.resizePanelToFitContent()
+            }
+            .store(in: &cancellables)
 
         // Observe view model changes to trigger resize
         NotificationCenter.default.addObserver(
@@ -78,26 +92,39 @@ final class AgentPanelController {
 
     private func resizePanelToFitContent() {
         let maxHeight: CGFloat = 500
-        let width: CGFloat = 400
+        let fixedWidth: CGFloat = 400
+        let verticalPadding: CGFloat = 24
 
-        // Ask the hosting view for its fitting size
+        hostingView.layoutSubtreeIfNeeded()
         let fittingSize = hostingView.fittingSize
+        let finalHeight = min(fittingSize.height + verticalPadding, maxHeight)
 
-        // Cap at max height
-        let finalHeight = min(fittingSize.height, maxHeight)
-        let finalSize = NSSize(width: width, height: finalHeight)
+        let targetSize = NSSize(width: fixedWidth, height: finalHeight)
 
+        let targetFrame: NSRect
         if let anchor = anchorFrameProvider() {
-            let x = anchor.midX - width / 2
+            let x = anchor.midX - fixedWidth / 2
             let y = anchor.maxY + anchorOffset
-            let newFrame = NSRect(x: x, y: y, width: finalSize.width, height: finalSize.height)
-            panel.setFrame(newFrame, display: true, animate: true)
+            targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
         } else if let screen = NSScreen.main {
             let frame = screen.visibleFrame
-            let x = frame.midX - width / 2
+            let x = frame.midX - fixedWidth / 2
             let y = frame.minY + 80
-            let newFrame = NSRect(x: x, y: y, width: finalSize.width, height: finalSize.height)
-            panel.setFrame(newFrame, display: true, animate: true)
+            targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
+        } else {
+            targetFrame = panel.frame
+        }
+
+        let delta = abs(panel.frame.height - targetFrame.height)
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if delta > 1 && !reduceMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().setFrame(targetFrame, display: true)
+            }
+        } else {
+            panel.setFrame(targetFrame, display: true)
         }
     }
 

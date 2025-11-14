@@ -2,74 +2,68 @@ import SwiftUI
 
 struct AgentView: View {
     @ObservedObject var viewModel: AgentViewModel
-    @State private var inputText: String = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Messages
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        ForEach(viewModel.messages) { msg in
-                            MessageBubble(message: msg)
-                                .id(msg.id)
-                        }
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(viewModel.messages) { MessageBubble(message: $0).id($0.id) }
 
-                        // Tool approval cards
-                        ForEach(viewModel.pendingToolCalls) { toolCall in
-                            ToolApprovalCard(
-                                toolCall: toolCall,
-                                onApprove: {
-                                    Task {
-                                        await viewModel.approveToolCall(toolCall)
-                                    }
-                                },
-                                onReject: {
-                                    viewModel.rejectToolCall(toolCall)
+                    // Tool approval cards
+                    ForEach(viewModel.pendingToolCalls) { toolCall in
+                        ToolApprovalCard(
+                            toolCall: toolCall,
+                            onApprove: {
+                                Task {
+                                    await viewModel.approveToolCall(toolCall)
                                 }
-                            )
-                            .id(toolCall.id)
-                        }
-
-                        if viewModel.isProcessing {
-                            HStack {
-                                ProgressView()
-                                    .scaleEffect(0.7)
-                                Text("Thinking...")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
+                            },
+                            onReject: {
+                                viewModel.rejectToolCall(toolCall)
                             }
-                            .padding(.leading, 12)
-                        }
-
-                        if let error = viewModel.errorMessage {
-                            Text("Error: \(error)")
-                                .font(.system(size: 12))
-                                .foregroundColor(.red)
-                                .padding(8)
-                                .background(Color.red.opacity(0.1))
-                                .cornerRadius(8)
-                        }
+                        )
+                        .id(toolCall.id)
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity)
+
+                    if viewModel.isProcessing {
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Thinking...")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.leading, 12)
+                    }
+
+                    if let error = viewModel.errorMessage {
+                        Text("Error: \(error)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.red)
+                            .padding(8)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(8)
+                    }
                 }
-                .frame(maxHeight: 450)
-                .layoutPriority(1)
-                .onChange(of: viewModel.messages.count) { _ in
-                    scrollToBottom(proxy)
-                }
-                .onChange(of: viewModel.pendingToolCalls.count) { _ in
-                    scrollToBottom(proxy)
-                }
+                .padding(12)
+                .frame(maxWidth: .infinity)
             }
-            .padding(12)
-            .background(.ultraThinMaterial.opacity(0.3))
+            .frame(maxHeight: 450)
+            .layoutPriority(1)
+            .onChange(of: viewModel.messages.count) { _ in
+                scrollToBottom(proxy)
+            }
+            .onChange(of: viewModel.pendingToolCalls.count) { _ in
+                scrollToBottom(proxy)
+            }
+
         }
         .frame(width: 400)
+        .padding(12)
+        .background(.ultraThinMaterial.opacity(0.3))
         .background(.ultraThinMaterial)
-        .cornerRadius(12)
-        .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+        .cornerRadius(14)
+        .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {

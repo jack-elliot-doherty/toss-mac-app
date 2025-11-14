@@ -187,6 +187,12 @@ final class PillController {
         audio.start()
         audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
 
+        audio.onError = { error in
+            // On audio errors show a toast and set the pill back to idle
+            self.toast.show(title: "Audio error: \(error)", duration: 3.0)
+            self.pillPanel.setState(.idle)
+        }
+
         isRecording = true
 
     }

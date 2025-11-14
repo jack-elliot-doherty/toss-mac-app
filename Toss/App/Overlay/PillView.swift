@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 // MARK: - Style
@@ -157,7 +158,8 @@ struct PillView: View {
                 .buttonStyle(.plain)
             }
 
-            DotWaveformView(level: viewModel.levelRMS)
+            DotWaveformView(viewModel: viewModel)
+                .id("waveform")
                 .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
 
             if viewModel.isAlwaysOn {
@@ -187,7 +189,7 @@ struct PillView: View {
 
     private func transcribing(mode: PillMode) -> some View {
         HStack(spacing: PillStyle.spacing) {
-            DotWaveformView(level: 0.22)  // subtle steady center while uploading
+            DotWaveformView(viewModel: viewModel)  // subtle steady center while uploading
                 .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
 
             ProgressView()
@@ -225,7 +227,7 @@ struct PillView: View {
 
     private func meetingRecording(meetingId: UUID) -> some View {
         HStack(spacing: PillStyle.spacing) {
-            DotWaveformView(level: viewModel.levelRMS)
+            DotWaveformView(viewModel: viewModel)
                 .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
         }
         .padding(.horizontal, PillStyle.padXActive)
@@ -297,22 +299,49 @@ private struct AgentChip: View {
     }
 }
 
-/// Dot-style waveform (center grows tallest — similar to your screenshots)
 private struct DotWaveformView: View {
-    let level: Float  // 0..1
+    @ObservedObject var viewModel: PillViewModel
+    private let barCount = 12
+    private let minHeight: CGFloat = 4
+    private let maxHeight: CGFloat = 26
+    private let barWidth: CGFloat = 3
+    private let spacing: CGFloat = 3
 
     var body: some View {
-        let clamped = max(0.0, min(1.0, level))
-        let bars = 12
-        HStack(spacing: 3) {
-            ForEach(0..<bars, id: \.self) { idx in
-                let phase = Double(idx) / Double(bars - 1)
-                let height = 4.0 + 10.0 * Double(clamped) * sin(phase * .pi)
-                Circle()
+        let level = Double(max(0.0, min(1.0, viewModel.levelRMS)))
+        HStack(spacing: spacing) {
+            ForEach(0..<barCount, id: \.self) { index in
+                Capsule(style: .continuous)
                     .fill(.white.opacity(0.9))
-                    .frame(width: 3, height: max(2, height))
+                    .frame(
+                        width: barWidth,
+                        height: barHeight(at: index, level: level)
+                    )
             }
         }
-        .animation(.linear(duration: 0.05), value: clamped)
+        .animation(.spring(response: 0.12, dampingFraction: 0.65), value: viewModel.levelRMS)
+    }
+
+    private func barHeight(at index: Int, level: Double) -> CGFloat {
+        let center = Double(barCount - 1) / 2
+        let distance = abs(Double(index) - center)
+
+        // Gaussian envelope to bias the middle bars
+        let sigma: Double = Double(barCount) / 5.0
+        let envelope = exp(-pow(distance, 2) / (2 * pow(sigma, 2)))
+
+        // Slight per-bar variation so they aren't perfectly mirrored
+        let variation = 1 + 0.2 * sin(Double(index) * 1.25 + level * 6.0)
+
+        // Amplify perceived loudness (gamma curve keeps quiet speech visible)
+        let amplifiedLevel = pow(level, 0.65)
+
+        let height =
+            minHeight + envelope * variation * amplifiedLevel * Double(maxHeight - minHeight)
+        return CGFloat(clamp(height, min: Double(minHeight), max: Double(maxHeight)))
+    }
+
+    private func clamp(_ value: Double, min: Double, max: Double) -> Double {
+        Swift.max(min, Swift.min(max, value))
     }
 }

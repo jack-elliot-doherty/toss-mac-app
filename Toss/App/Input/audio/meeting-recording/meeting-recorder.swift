@@ -84,7 +84,9 @@ final class MeetingRecorder {
                         let s = ch0[i]
                         sum += s * s
                     }
-                    let rms = min(1.0, max(0.0, sqrtf(sum / max(1, Float(frameCount))) * 4.0))
+                    var rms = sqrtf(sum / max(1, Float(frameCount)))
+                    rms = powf(rms, 0.6) * 6.0
+                    rms = min(1.0, max(0.0, rms))
                     DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
                 }
             }
