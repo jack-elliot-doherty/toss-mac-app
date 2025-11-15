@@ -596,26 +596,37 @@ struct MeetingsListView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 28) {
-                    ForEach(meetingSections) { section in
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(section.title)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(AppTheme.secondaryText)
-                                .textCase(.uppercase)
+                VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Meetings")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(AppTheme.primaryText)
+                        Text("Your recent recordings")
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
 
-                            VStack(spacing: 12) {
-                                ForEach(section.meetings) { meeting in
-                                    NavigationLink(value: meeting.id) {
-                                        meetingCard(
-                                            meeting, isSelected: selectedMeeting == meeting.id)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .simultaneousGesture(
-                                        TapGesture().onEnded {
-                                            selectedMeeting = meeting.id
+                    LazyVStack(alignment: .leading, spacing: 28, pinnedViews: []) {
+                        ForEach(meetingSections) { section in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(section.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                    .textCase(.uppercase)
+
+                                VStack(spacing: 12) {
+                                    ForEach(section.meetings) { meeting in
+                                        NavigationLink(value: meeting.id) {
+                                            meetingCard(
+                                                meeting, isSelected: selectedMeeting == meeting.id)
                                         }
-                                    )
+                                        .buttonStyle(.plain)
+                                        .simultaneousGesture(
+                                            TapGesture().onEnded {
+                                                selectedMeeting = meeting.id
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
