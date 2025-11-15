@@ -140,30 +140,22 @@ struct ContentView: View {
                 selection = item
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: item.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.secondaryText)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        Circle()
-                            .fill(isSelected ? AppTheme.accent.opacity(0.15) : Color.clear)
-                    )
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
 
                 Text(item.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
 
                 Spacer()
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(
-                        isSelected
-                            ? AppTheme.pillBackground(highlighted: true) : Color.white.opacity(0.03)
-                    )
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0))
             )
         }
         .buttonStyle(.plain)
