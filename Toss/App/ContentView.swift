@@ -36,55 +36,30 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            AppTheme.windowBackground
+                .ignoresSafeArea()
 
             NavigationSplitView {
-                List(SidebarItem.allCases, id: \.self, selection: $selection) { item in
-                    Label(item.title, systemImage: item.systemImage).contentShape(Rectangle())
-                        .onTapGesture {
-                            if item == .settings {
-                                showSettings = true
-                            } else {
-                                selection = item
-                            }
-                        }
-                }
-                .toolbar {
-                    ToolbarItem(placement: .navigation) {
-                        Text("Toss").font(.system(size: 16, weight: .semibold))
-                    }
-                }
-                .safeAreaInset(edge: .bottom) {
-                    sidebarAuth
-                        .padding(12)
-                        .background(.bar)
-                        .overlay(Divider(), alignment: .top)
-                }
+                sidebar
             } detail: {
-                switch selection {
-                case .home:
-                    OnboardingGate()
-                case .meetings:
-                    MeetingsListView(repository: meetingRepo, pendingMeetingId: $pendingMeetingId)
-                case .settings, .none:
-                    OnboardingGate()
-                }
+                detailContent
+                    .background(AppTheme.windowBackground)
             }
-            .frame(minWidth: 820, minHeight: 520)
+            .navigationSplitViewColumnWidth(min: 260, ideal: 280, max: 320)
+            .frame(minWidth: 920, minHeight: 560)
             .onReceive(
                 NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
             ) { notification in
                 if let userInfo = notification.userInfo,
                     let meetingId = userInfo["meetingId"] as? UUID
                 {
-                    // switch to the meetings tab
                     selection = .meetings
-                    // Meeting id to open
                     pendingMeetingId = meetingId
                 }
             }
 
             if showSettings {
-                Color.black.opacity(0.28)
+                Color.black.opacity(0.35)
                     .ignoresSafeArea()
                     .transition(.opacity)
                     .onTapGesture { showSettings = false }
@@ -94,43 +69,149 @@ struct ContentView: View {
                     .transition(.scale.combined(with: .opacity))
                     .zIndex(1)
             }
-        }.animation(.easeInOut(duration: 0.2), value: showSettings)
-            .onReceive(
-                NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
-            ) { _ in
-                showSettings = true
+        }
+        .preferredColorScheme(.dark)
+        .animation(.easeInOut(duration: 0.2), value: showSettings)
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
+        ) { _ in
+            showSettings = true
+        }
+    }
+
+    private var sidebar: some View {
+        VStack(spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Toss")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+                Text("Control Center")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText.opacity(0.8))
+            }
+            .padding(.bottom, 4)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(SidebarItem.allCases, id: \.self) { item in
+                    sidebarButton(for: item)
+                }
             }
 
+            Spacer()
+
+            sidebarAuth
+        }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(AppTheme.sidebarBackground)
+                .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 18)
+        )
+        .padding(.vertical, 32)
+        .padding(.leading, 18)
+        .padding(.trailing, 12)
+    }
+
+    private func sidebarButton(for item: SidebarItem) -> some View {
+        let isSelected = selection == item
+        return Button {
+            if item == .settings {
+                showSettings = true
+            } else {
+                selection = item
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: item.systemImage)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(isSelected ? AppTheme.accent : AppTheme.secondaryText)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(isSelected ? AppTheme.accent.opacity(0.15) : Color.clear)
+                    )
+
+                Text(item.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+
+                Spacer()
+
+                if isSelected {
+                    Circle()
+                        .fill(AppTheme.accent)
+                        .frame(width: 8, height: 8)
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? AppTheme.pillBackground(highlighted: true) : Color.white.opacity(0.03)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        switch selection {
+        case .home:
+            OnboardingGate()
+                .background(AppTheme.windowBackground)
+        case .meetings:
+            MeetingsListView(repository: meetingRepo, pendingMeetingId: $pendingMeetingId)
+        case .settings, .none:
+            OnboardingGate()
+                .background(AppTheme.windowBackground)
+        }
     }
 
     private var sidebarAuth: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             if auth.isAuthenticated {
-                if let url = auth.userImageURL {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image): image.resizable().scaledToFill()
-                        default: Color.gray.opacity(0.2)
+                HStack(spacing: 12) {
+                    if let url = auth.userImageURL {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image): image.resizable().scaledToFill()
+                            default: Color.gray.opacity(0.2)
+                            }
+                        }
+                        .frame(width: 36, height: 36)
+                        .clipShape(Circle())
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 34))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(auth.userName ?? "Signed in")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryText)
+                        if let email = auth.userEmail {
+                            Text(email)
+                                .font(.system(size: 12))
+                                .foregroundColor(AppTheme.secondaryText)
                         }
                     }
-                    .frame(width: 28, height: 28)
-                    .clipShape(Circle())
-                } else {
-                    Image(systemName: "person.crop.circle.fill").font(.system(size: 24))
-                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    Button("Sign out") { auth.signOut() }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(AppTheme.accent)
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(auth.userName ?? "Signed in").font(.system(size: 13, weight: .semibold))
-                    if let email = auth.userEmail {
-                        Text(email).foregroundColor(.secondary).font(.system(size: 11))
-                    }
-                }
-                Spacer()
-                Button("Sign out") { auth.signOut() }
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Sign in to Toss").font(.system(size: 13, weight: .semibold))
-                    HStack {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Sign in to Toss")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                    HStack(spacing: 10) {
                         Button {
                             auth.continueWithGoogle()
                         } label: {
@@ -143,11 +224,19 @@ struct ContentView: View {
                         }
                         Button("Dev token…") { auth.signInDevToken() }
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                 }
-                Spacer()
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.elevatedBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
         .onAppear { Task { await auth.refreshProfile() } }
     }
 }

@@ -15,7 +15,7 @@ final class AgentPanelController {
         self.viewModel = viewModel
         self.anchorFrameProvider = anchorFrameProvider
 
-        let contentRect = NSRect(x: 0, y: 0, width: 400, height: 200)
+        let contentRect = NSRect(x: 0, y: 0, width: 650, height: 200)
         self.panel = NSPanel(
             contentRect: contentRect,
             styleMask: [.nonactivatingPanel, .borderless],

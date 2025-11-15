@@ -44,18 +44,20 @@ struct MeetingView: View {
 
     var body: some View {
         ZStack {
-            // Base notes interface
-            VStack(spacing: 0) {
+            AppTheme.windowBackground
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
                 header
-                Divider()
                 notesArea
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 bottomToolbar
             }
-            .background(Color(NSColor.windowBackgroundColor))
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
 
-            // Transcript overlay (when expanded)
             if showTranscriptOverlay {
-                Color.black.opacity(0.3)
+                Color.black.opacity(0.45)
                     .ignoresSafeArea()
                     .onTapGesture {
                         withAnimation {
@@ -77,6 +79,7 @@ struct MeetingView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showTranscriptOverlay)
+        .preferredColorScheme(.dark)
         .onAppear {
             loadNotes()
             checkIfRecording()
@@ -88,7 +91,6 @@ struct MeetingView: View {
                 let notificationMeetingId = userInfo["meetingId"] as? UUID,
                 notificationMeetingId == meetingId
             {
-                // Auto-open transcript when navigating to this meeting
                 showTranscriptOverlay = true
             }
         }
@@ -97,107 +99,130 @@ struct MeetingView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 12) {
-            // Meeting title (editable)
-            if isEditingTitle {
-                TextField(
-                    "Meeting title", text: $editedTitle,
-                    onCommit: {
-                        saveMeetingTitle()
-                    }
-                )
-                .font(.system(size: 20, weight: .semibold))
-                .textFieldStyle(.plain)
-            } else {
-                Text(meeting?.title ?? "Untitled meeting")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .onTapGesture {
-                        editedTitle = meeting?.title ?? ""
-                        isEditingTitle = true
-                    }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 16) {
+                if isEditingTitle {
+                    TextField(
+                        "Meeting title",
+                        text: $editedTitle,
+                        onCommit: {
+                            saveMeetingTitle()
+                        }
+                    )
+                    .font(.system(size: 22, weight: .semibold))
+                    .textFieldStyle(.plain)
+                    .foregroundColor(AppTheme.primaryText)
+                } else {
+                    Text(meeting?.title ?? "Untitled meeting")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                        .onTapGesture {
+                            editedTitle = meeting?.title ?? ""
+                            isEditingTitle = true
+                        }
+                }
+
+                Spacer()
+
+                Button {
+                    // TODO: Share meeting
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(AppTheme.secondaryText)
             }
 
-            Spacer()
+            HStack(spacing: 10) {
+                pill(icon: "calendar", text: relativeDate)
 
-            // Metadata pills
-            HStack(spacing: 8) {
-                // Date pill
-                HStack(spacing: 4) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 11))
-                    Text(relativeDate)
-                        .font(.system(size: 12))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(6)
+                pill(icon: "person.3.sequence", text: "\(chunks.count) entries")
 
-                // Add to folder button
                 Button {
                     // TODO: Add to folder
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "plus")
-                            .font(.system(size: 11))
                         Text("Add to folder")
-                            .font(.system(size: 12))
                     }
+                    .font(.system(size: 12, weight: .semibold))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(AppTheme.pillBackground())
+                .cornerRadius(18)
+                .foregroundColor(AppTheme.primaryText)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Notes Area
 
     private var notesArea: some View {
         ZStack(alignment: .topLeading) {
-            // Placeholder
             if notes.isEmpty {
-                Text("Write notes...")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                Text("Write notes…")
+                    .font(.system(size: 15))
+                    .foregroundColor(AppTheme.secondaryText)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
             }
 
-            // Text editor
             TextEditor(text: $notes)
-                .font(.system(size: 14))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .font(.system(size: 15))
+                .foregroundColor(AppTheme.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .onChange(of: notes) { oldValue, newValue in
+                .onChange(of: notes) { _, _ in
                     autoSaveNotes()
                 }
         }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Bottom Toolbar
 
     private var bottomToolbar: some View {
         HStack(spacing: 12) {
-            // Left: Transcript indicator (only when recording)
             if isRecording {
                 transcriptIndicatorButton
             }
 
             Spacer()
 
-            // Right: Generate notes button
             generateNotesButton
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(Color.secondary.opacity(0.03))
-        .overlay(
-            Divider(),
-            alignment: .top
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
         )
     }
 
@@ -207,27 +232,27 @@ struct MeetingView: View {
         Button {
             showTranscriptOverlay = true
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(Color.red)
+                        .fill(AppTheme.destructive)
                         .frame(width: 8, height: 8)
 
                     Circle()
-                        .stroke(Color.red.opacity(0.3), lineWidth: 4)
+                        .stroke(AppTheme.destructive.opacity(0.3), lineWidth: 4)
                         .frame(width: 8, height: 8)
                         .scaleEffect(pulseAnimation ? 1.8 : 1.0)
                         .opacity(pulseAnimation ? 0 : 1)
                 }
 
-                Text("Transcript on...")
+                Text("Transcript on…")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.primary)
+                    .foregroundColor(AppTheme.primaryText)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.secondary.opacity(0.08))
-            .cornerRadius(20)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(AppTheme.pillBackground())
+            .cornerRadius(24)
         }
         .buttonStyle(.plain)
         .onAppear {
@@ -242,19 +267,33 @@ struct MeetingView: View {
             // TODO: Generate notes with AI
             print("Generate notes tapped")
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                 Text("Generate notes")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .semibold))
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.blue)
-            .cornerRadius(20)
+            .foregroundColor(AppTheme.primaryText)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .background(AppTheme.accent)
+            .cornerRadius(24)
         }
         .buttonStyle(.plain)
+    }
+
+    private func pill(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .medium))
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(AppTheme.secondaryText)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(AppTheme.pillBackground())
+        .cornerRadius(18)
     }
 
     // MARK: - Helpers
@@ -280,9 +319,8 @@ struct MeetingView: View {
     private func autoSaveNotes() {
         saveTask?.cancel()
         saveTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)  // 500ms debounce
+            try? await Task.sleep(nanoseconds: 500_000_000)
             // TODO: Add updateMeetingNotes to repository
-            // repository.updateMeetingNotes(id: meetingId, notes: notes)
         }
     }
 }
@@ -539,31 +577,69 @@ struct MeetingsListView: View {
         repository.listMeetings()
     }
 
+    private var meetingSections: [MeetingSection] {
+        let grouped = Dictionary(grouping: meetings) { sectionTitle(for: $0.startTime) }
+        let sections = grouped.map { key, meetings -> MeetingSection in
+            MeetingSection(
+                title: key,
+                meetings: meetings.sorted(by: { $0.startTime > $1.startTime })
+            )
+        }
+        return sections.sorted { lhs, rhs in
+            guard let lhsDate = lhs.meetings.first?.startTime,
+                let rhsDate = rhs.meetings.first?.startTime
+            else { return false }
+            return lhsDate > rhsDate
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            VStack(spacing: 0) {
-                List(meetings, selection: $selectedMeeting) { meeting in
-                    NavigationLink(value: meeting.id) {
-                        meetingRow(meeting)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 28) {
+                    ForEach(meetingSections) { section in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(section.title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                                .textCase(.uppercase)
+
+                            VStack(spacing: 12) {
+                                ForEach(section.meetings) { meeting in
+                                    NavigationLink(value: meeting.id) {
+                                        meetingCard(
+                                            meeting, isSelected: selectedMeeting == meeting.id)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .simultaneousGesture(
+                                        TapGesture().onEnded {
+                                            selectedMeeting = meeting.id
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-                .navigationTitle("Meetings")
-                .navigationDestination(for: UUID.self) { meetingId in
-                    MeetingView(meetingId: meetingId, repository: repository)
-                }
+                .padding(.vertical, 32)
+                .padding(.horizontal, 28)
             }
-        }.onChange(of: pendingMeetingId) { oldValue, newValue in
+            .background(AppTheme.windowBackground)
+            .navigationTitle("Meetings")
+            .navigationDestination(for: UUID.self) { meetingId in
+                MeetingView(meetingId: meetingId, repository: repository)
+            }
+        }
+        .onChange(of: pendingMeetingId) { _, newValue in
             if let meetingId = newValue {
-                // Navigate to the meeting
                 navigationPath.append(meetingId)
                 selectedMeeting = meetingId
-                // Clear the pending ID after handling
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     pendingMeetingId = nil
                 }
             }
-        }.onAppear {
-            // Handle case where view appears with pending meeting
+        }
+        .onAppear {
             if let meetingId = pendingMeetingId {
                 navigationPath.append(meetingId)
                 selectedMeeting = meetingId
@@ -572,28 +648,70 @@ struct MeetingsListView: View {
         }
     }
 
-    private func meetingRow(_ meeting: MeetingModel) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(meeting.title)
-                .font(.system(size: 14, weight: .medium))
+    private func meetingCard(_ meeting: MeetingModel, isSelected: Bool) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            Circle()
+                .fill(AppTheme.accent.opacity(0.16))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(AppTheme.accent)
+                )
 
-            HStack(spacing: 4) {
-                Text(meeting.startTime, style: .date)
-                Text("•")
-                Text(meeting.startTime, style: .time)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(meeting.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
 
-                if let endTime = meeting.endTime {
-                    Text("•")
-                    Text(durationString(from: meeting.startTime, to: endTime))
-                } else {
-                    Text("• Recording...")
-                        .foregroundColor(.red)
-                }
+                Text("\(formattedDate(meeting.startTime)) • \(formattedTime(meeting.startTime))")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
             }
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 8) {
+                if isRecording(meeting) {
+                    recordingPill
+                } else if let endTime = meeting.endTime {
+                    Text(durationString(from: meeting.startTime, to: endTime))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Text(relativeTimeString(from: meeting.startTime))
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
         }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(
+                            isSelected ? AppTheme.accent : AppTheme.subtleStroke,
+                            lineWidth: isSelected ? 1.5 : 1)
+                )
+        )
+    }
+
+    private var recordingPill: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(AppTheme.destructive)
+                .frame(width: 8, height: 8)
+            Text("Recording")
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundColor(AppTheme.destructive)
+        .padding(.horizontal, 10)
         .padding(.vertical, 6)
+        .background(AppTheme.destructive.opacity(0.15))
+        .cornerRadius(16)
     }
 
     private func durationString(from start: Date, to end: Date) -> String {
@@ -601,5 +719,46 @@ struct MeetingsListView: View {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func formattedDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter.string(from: date)
+    }
+
+    private func formattedTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+
+    private func relativeTimeString(from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func isRecording(_ meeting: MeetingModel) -> Bool {
+        meeting.endTime == nil
+    }
+
+    private func sectionTitle(for date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE, MMM d"
+            return formatter.string(from: date)
+        }
+    }
+
+    private struct MeetingSection: Identifiable {
+        var id: String { title }
+        let title: String
+        let meetings: [MeetingModel]
     }
 }
