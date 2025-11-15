@@ -164,9 +164,6 @@ jobs:
           # Staple the DMG
           xcrun stapler staple "Toss-${{ steps.version.outputs.VERSION }}.dmg"
 
-      - name: Install Sparkle tools
-        run: brew install sparkle
-
       - name: Sign for Sparkle
         working-directory: Toss
         env:
@@ -174,10 +171,16 @@ jobs:
         run: |
           printf "%s\n" "$SPARKLE_PRIVATE_KEY" > ed25519_privkey.pem
 
-          SIGN_TOOL="$(brew --prefix)/opt/sparkle/bin/sign_update"
-          OUT=$("$SIGN_TOOL" "Toss-${{ steps.version.outputs.VERSION }}.dmg" -f ed25519_privkey.pem 2>&1) || {
+          SPARKLE_VERSION="2.8.0"
+          curl -L -o Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          tar -xf Sparkle.tar.xz "Sparkle.framework/Versions/Current/Resources/bin/sign_update" --strip-components=4
+          mv sign_update ./sign_update
+          rm Sparkle.tar.xz
+          chmod +x sign_update
+
+          OUT=$(./sign_update "Toss-${{ steps.version.outputs.VERSION }}.dmg" -f ed25519_privkey.pem 2>&1) || {
             echo "Warning: Sparkle signing failed, continuing without Sparkle signature"
-            rm -f ed25519_privkey.pem
+            rm -f ed25519_privkey.pem ./sign_update
             exit 0
           }
 
@@ -186,14 +189,14 @@ jobs:
 
           if [ -z "$SIG" ]; then
             echo "Warning: Could not extract Sparkle signature, continuing without it"
-            rm -f ed25519_privkey.pem
+            rm -f ed25519_privkey.pem ./sign_update
             exit 0
           fi
 
           echo "SIGNATURE=$SIG" >> $GITHUB_ENV
           echo "DMG_LENGTH=$LEN" >> $GITHUB_ENV
 
-          rm -f ed25519_privkey.pem
+          rm -f ed25519_privkey.pem ./sign_update
 
       - name: Export dSYMs
         working-directory: Toss
