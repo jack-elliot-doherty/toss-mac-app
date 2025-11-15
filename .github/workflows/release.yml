@@ -234,7 +234,7 @@ jobs:
           fi
 
           # Use Python to properly parse and update XML
-          python3 << 'PYTHON'
+          python3 - "$VERSION" "$DATE" "$URL" "$SIG" "$LEN" <<'PYTHON'
           import xml.etree.ElementTree as ET
           from datetime import datetime
           import sys
@@ -243,10 +243,8 @@ jobs:
           tree = ET.parse(appcast_path)
           root = tree.getroot()
 
-          # Find channel
           channel = root.find('channel')
 
-          # Create new item
           item = ET.Element('item')
 
           title = ET.SubElement(item, 'title')
@@ -257,8 +255,6 @@ jobs:
 
           pub_date = ET.SubElement(item, 'pubDate')
           pub_date.text = sys.argv[2]
-
-          sparkle_ns = {'sparkle': 'http://www.andymatuschak.org/xml-namespaces/sparkle'}
 
           version = ET.SubElement(item, '{http://www.andymatuschak.org/xml-namespaces/sparkle}version')
           version.text = sys.argv[1]
@@ -275,12 +271,10 @@ jobs:
           enclosure.set('length', sys.argv[5])
           enclosure.set('type', 'application/octet-stream')
 
-          # Insert at beginning of channel
           channel.insert(0, item)
 
-          # Write back
           tree.write(appcast_path, encoding='utf-8', xml_declaration=True)
-          PYTHON "$VERSION" "$DATE" "$URL" "$SIG" "$LEN"
+          PYTHON
 
           # Format XML nicely
           xmllint --format "$APPCAST" > "${APPCAST}.tmp" 2>/dev/null && mv "${APPCAST}.tmp" "$APPCAST" || true
