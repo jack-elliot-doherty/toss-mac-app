@@ -217,7 +217,6 @@ jobs:
           fi
 
       - name: Update appcast.xml
-        continue-on-error: true
         run: |
           APPCAST="appcast.xml"
           VERSION="${{ steps.version.outputs.VERSION }}"
