@@ -173,10 +173,20 @@ jobs:
 
           SPARKLE_VERSION="2.8.0"
           curl -L -o Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-          tar -xf Sparkle.tar.xz "Sparkle.framework/Versions/Current/Resources/bin/sign_update" --strip-components=4
-          mv sign_update ./sign_update
-          rm Sparkle.tar.xz
+
+          mkdir sparkle_extract
+          tar -xf Sparkle.tar.xz -C sparkle_extract
+
+          SIGN_TOOL=$(find sparkle_extract -path "*bin/sign_update" -type f | head -n 1)
+          if [ -z "$SIGN_TOOL" ]; then
+            echo "Error: sign_update not found in Sparkle archive"
+            rm -f ed25519_privkey.pem Sparkle.tar.xz
+            exit 1
+          fi
+
+          cp "$SIGN_TOOL" ./sign_update
           chmod +x sign_update
+          rm -rf sparkle_extract Sparkle.tar.xz
 
           OUT=$(./sign_update "Toss-${{ steps.version.outputs.VERSION }}.dmg" -f ed25519_privkey.pem 2>&1) || {
             echo "Warning: Sparkle signing failed, continuing without Sparkle signature"
