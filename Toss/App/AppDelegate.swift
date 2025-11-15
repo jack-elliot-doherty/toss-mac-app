@@ -163,6 +163,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(runPlannerDemo),
             name: Notification.Name("plannerDemoRequested"), object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleRecordMeetingRequest),
+            name: .requestMeetingRecording, object: nil)
 
         // Setup meeting detection
         meetingDetector.onMeetingDetected = { [weak self] in
@@ -239,8 +242,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func runPlannerDemo() {}
+
+    @objc private func handleRecordMeetingRequest() {
+        pillController.send(.quickActionRecordMeeting)
+    }
 }
 
 extension Notification.Name {
     static let plannerDemoRequested = Notification.Name("plannerDemoRequested")
+    static let requestMeetingRecording = Notification.Name("requestMeetingRecording")
 }

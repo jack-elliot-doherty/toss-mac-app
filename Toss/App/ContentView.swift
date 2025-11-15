@@ -2,6 +2,50 @@ import AppKit
 import Foundation
 import SwiftUI
 
+struct Breadcrumb: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+}
+
+struct AppScreenAction {
+    let title: String
+    let systemImage: String?
+    let handler: () -> Void
+}
+
+struct AppScreenLayoutState {
+    var breadcrumb: [Breadcrumb]
+    var action: AppScreenAction?
+}
+
+final class AppScreenLayout: ObservableObject {
+    @Published private(set) var state: AppScreenLayoutState
+    private var defaultState: AppScreenLayoutState
+    private var isOverrideActive = false
+
+    init(initialState: AppScreenLayoutState) {
+        self.state = initialState
+        self.defaultState = initialState
+    }
+
+    func setDefault(_ state: AppScreenLayoutState) {
+        defaultState = state
+        if !isOverrideActive {
+            self.state = state
+        }
+    }
+
+    func override(with state: AppScreenLayoutState) {
+        isOverrideActive = true
+        self.state = state
+    }
+
+    func clearOverride() {
+        isOverrideActive = false
+        self.state = defaultState
+    }
+}
+
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home
     case meetings
@@ -33,6 +77,14 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
     @State private var windowReference: NSWindow?
+    @State private var navigationHistory: [SidebarItem] = [.home]
+    @State private var historyIndex: Int = 0
+    @StateObject private var pageChrome = AppScreenLayout(
+        initialState: AppScreenLayoutState(
+            breadcrumb: [Breadcrumb(title: "Overview")],
+            action: nil
+        )
+    )
 
     @StateObject private var meetingRepo = PersistentMeetingRepository()
 
@@ -59,7 +111,7 @@ struct ContentView: View {
                 if let userInfo = notification.userInfo,
                     let meetingId = userInfo["meetingId"] as? UUID
                 {
-                    selection = .meetings
+                    selectSidebarItem(.meetings)
                     pendingMeetingId = meetingId
                 }
             }
@@ -76,6 +128,7 @@ struct ContentView: View {
                     .zIndex(1)
             }
         }
+        .environmentObject(pageChrome)
         .background(
             WindowReader { window in
                 guard let window else { return }
@@ -86,6 +139,12 @@ struct ContentView: View {
         .ignoresSafeArea()
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.2), value: showSettings)
+        .onAppear {
+            updateChromeForCurrentSelection()
+        }
+        .onChange(of: selection) { _ in
+            updateChromeForCurrentSelection()
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
         ) { _ in
@@ -123,9 +182,13 @@ struct ContentView: View {
         .padding(.bottom, 4)
         .padding(.horizontal, 8)
         .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(AppTheme.sidebarBackground)
                 .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
         )
         .padding(.vertical, 0)
         .padding(.horizontal, 0)
@@ -134,11 +197,7 @@ struct ContentView: View {
     private func sidebarButton(for item: SidebarItem) -> some View {
         let isSelected = selection == item
         return Button {
-            if item == .settings {
-                showSettings = true
-            } else {
-                selection = item
-            }
+            handleSelectionTap(item)
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: item.systemImage)
@@ -161,18 +220,202 @@ struct ContentView: View {
         .buttonStyle(.plain)
     }
 
+    private var navigationControls: some View {
+        HStack(spacing: 8) {
+            navButton(systemName: "chevron.left", enabled: canGoBack) {
+                navigateBack()
+            }
+
+            navButton(systemName: "chevron.right", enabled: canGoForward) {
+                navigateForward()
+            }
+        }
+    }
+
     @ViewBuilder
-    private var detailContent: some View {
+    private var contentView: some View {
         switch selection {
         case .home:
-            OnboardingGate()
-                .background(AppTheme.windowBackground)
+            HomeView()
         case .meetings:
             MeetingsListView(repository: meetingRepo, pendingMeetingId: $pendingMeetingId)
         case .settings, .none:
             OnboardingGate()
-                .background(AppTheme.windowBackground)
         }
+    }
+
+    private var pageHeader: some View {
+        HStack(spacing: 16) {
+            navigationControls
+
+            breadcrumbView
+
+            Spacer()
+
+            if let action = pageChrome.state.action {
+                AppScreenActionButton(action: action)
+            }
+        }
+    }
+
+    private func navButton(systemName: String, enabled: Bool, action: @escaping () -> Void)
+        -> some View
+    {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(
+                    enabled ? AppTheme.primaryText : AppTheme.secondaryText.opacity(0.5)
+                )
+                .frame(width: 30, height: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(Color.white.opacity(enabled ? 0.06 : 0.02))
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    private var breadcrumbView: some View {
+        HStack(spacing: 6) {
+            let crumbs = pageChrome.state.breadcrumb
+            ForEach(Array(crumbs.enumerated()), id: \.element.id) { index, crumb in
+                if index > 0 {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                Text(crumb.title)
+                    .font(
+                        .system(size: 16, weight: index == crumbs.count - 1 ? .semibold : .regular)
+                    )
+                    .foregroundColor(
+                        index == crumbs.count - 1 ? AppTheme.primaryText : AppTheme.secondaryText)
+            }
+        }
+    }
+
+    private func defaultActionForSelection() -> AppScreenAction? {
+        guard selection == .meetings else { return nil }
+        return AppScreenAction(title: "Record", systemImage: "plus") {
+            NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
+        }
+    }
+
+    private func updateChromeForCurrentSelection() {
+        let state = AppScreenLayoutState(
+            breadcrumb: [Breadcrumb(title: currentPageTitle)],
+            action: defaultActionForSelection()
+        )
+        pageChrome.setDefault(state)
+    }
+
+    private struct AppScreenActionButton: View {
+        let action: AppScreenAction
+
+        var body: some View {
+            Button {
+                action.handler()
+            } label: {
+                HStack(spacing: 6) {
+                    if let systemImage = action.systemImage {
+                        Image(systemName: systemImage)
+                    }
+                    Text(action.title)
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.08))
+                .foregroundColor(AppTheme.primaryText)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var recordButton: some View {
+        Button {
+            NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                Text("Record")
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(AppTheme.primaryText)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func handleSelectionTap(_ item: SidebarItem) {
+        if item == .settings {
+            showSettings = true
+        } else {
+            selectSidebarItem(item)
+        }
+    }
+
+    private func selectSidebarItem(_ item: SidebarItem, pushToHistory: Bool = true) {
+        guard selection != item else { return }
+        selection = item
+        if pushToHistory {
+            if historyIndex < navigationHistory.count - 1 {
+                navigationHistory = Array(navigationHistory.prefix(historyIndex + 1))
+            }
+            navigationHistory.append(item)
+            historyIndex = navigationHistory.count - 1
+        }
+    }
+
+    private var canGoBack: Bool {
+        historyIndex > 0
+    }
+
+    private var canGoForward: Bool {
+        historyIndex < navigationHistory.count - 1
+    }
+
+    private var currentPageTitle: String {
+        switch selection {
+        case .home:
+            return "Overview"
+        case .meetings:
+            return "Calls"
+        case .settings:
+            return "Settings"
+        case .none:
+            return ""
+        }
+    }
+
+    private func navigateBack() {
+        guard canGoBack else { return }
+        historyIndex -= 1
+        selection = navigationHistory[historyIndex]
+    }
+
+    private func navigateForward() {
+        guard canGoForward else { return }
+        historyIndex += 1
+        selection = navigationHistory[historyIndex]
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            pageHeader
+            contentView
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 28)
+        .background(AppTheme.windowBackground)
     }
 
     private var sidebarAuth: some View {
@@ -349,7 +592,6 @@ struct HomeView: View {
             .padding(.horizontal, 32)
             .padding(.vertical, 32)
         }
-        .background(AppTheme.windowBackground)
         .onAppear {
             loadHistory()
             // Refresh every 2 seconds to catch new dictations
