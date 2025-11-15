@@ -1,29 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-    <channel>
-        <title>Toss Updates</title>
-        <description>Updates for Toss</description>
-        <language>en</language>
-        
-        <item>
-            <title>Version 1.0.0</title>
-            <description><![CDATA[
-                <h2>What's New</h2>
-                <ul>
-                    <li>Initial release</li>
-                    <li>Universal dictation with Fn key</li>
-                    <li>History view with copy support</li>
-                </ul>
-            ]]></description>
-            <pubDate>Tue, 05 Nov 2024 12:00:00 +0000</pubDate>
-            <sparkle:version>1.0.0</sparkle:version>
-            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure 
-                url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.0.0/Toss-1.0.0.dmg"
-                sparkle:edSignature="REPLACE_WITH_SIGNATURE"
-                length="12345678"
-                type="application/octet-stream" />
-        </item>
-    </channel>
+<rss xmlns:ns0="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <item>
+      <title>Version 1.0.14</title>
+      <description>&lt;![CDATA[
+                &lt;h2&gt;What's New in 1.0.14&lt;/h2&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;See release notes on GitHub&lt;/li&gt;
+                &lt;/ul&gt;
+            ]]&gt;</description>
+      <pubDate>Sat, 15 Nov 2025 19:15:12 +0000</pubDate>
+      <ns0:version>1.0.14</ns0:version>
+      <ns0:shortVersionString>1.0.14</ns0:shortVersionString>
+      <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
+      <enclosure url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.0.14/Toss-1.0.14.dmg" ns0:edSignature="l/ijalHNHRtiCHbI8RFUdPDzKYV5crLuEnLXlniHWlzwI2TwHdzckop70LdP1C6hnYMBGzB1mmExsHMHwqONCA==" length="3653877" type="application/octet-stream"/>
+    </item>
+    <title>Toss Updates</title>
+    <description>Updates for Toss</description>
+    <language>en</language>
+    <item>
+      <title>Version 1.0.0</title>
+      <description>
+                &lt;h2&gt;What's New&lt;/h2&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;Initial release&lt;/li&gt;
+                    &lt;li&gt;Universal dictation with Fn key&lt;/li&gt;
+                    &lt;li&gt;History view with copy support&lt;/li&gt;
+                &lt;/ul&gt;
+            </description>
+      <pubDate>Tue, 05 Nov 2024 12:00:00 +0000</pubDate>
+      <ns0:version>1.0.0</ns0:version>
+      <ns0:shortVersionString>1.0.0</ns0:shortVersionString>
+      <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
+      <enclosure url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.0.0/Toss-1.0.0.dmg" ns0:edSignature="REPLACE_WITH_SIGNATURE" length="12345678" type="application/octet-stream"/>
+    </item>
+  </channel>
 </rss>
