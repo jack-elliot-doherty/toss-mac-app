@@ -41,12 +41,11 @@ struct PillView: View {
                 listening(mode: mode)
             case .transcribing(let mode):
                 transcribing(mode: mode)
-            case .meetingRecording(let meetingId):
-                if isHovered {
-                    meetingRecordingHovered(meetingId: meetingId)
-                } else {
-                    meetingRecording(meetingId: meetingId)
-                }
+            case .meetingDetected:
+                meetingDetected
+            case .meetingRecording(let meetingId, let isPaused):
+                meetingRecording(meetingId: meetingId, isPaused: isPaused)
+
             }
         }
         .padding(.horizontal, 0)
@@ -223,43 +222,33 @@ struct PillView: View {
         .padding(.vertical, PillStyle.padYActive)
     }
 
-    // MARK: Meeting Recording
-
-    private func meetingRecording(meetingId: UUID) -> some View {
+    private var meetingDetected: some View {
         HStack(spacing: PillStyle.spacing) {
-            DotWaveformView(viewModel: viewModel)
-                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
-        }
-        .padding(.horizontal, PillStyle.padXActive)
-        .padding(.vertical, PillStyle.padYActive)
-    }
+            Image(systemName: "waveform.badge.mic")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
 
-    // NEW: Meeting recording hovered state (shows stop button)
-    private func meetingRecordingHovered(meetingId: UUID) -> some View {
-        HStack(spacing: 8) {
-            // Current recording indicator
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 6, height: 6)
-                Text("Recording")
-                    .font(.system(size: 12, weight: .medium))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Meeting detected")
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
+                Text("Tap Start or press fn to begin recording")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
             }
 
-            // Stop button
             Button {
-                viewModel.onStopMeetingRecording?()
+                viewModel.onQuickActionRecordMeeting?()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("Stop")
-                        .font(.system(size: 11, weight: .medium))
+                HStack(spacing: 6) {
+                    Image(systemName: "record.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("Start")
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
                 .background(
                     Capsule()
                         .fill(Color.red.opacity(0.9))
@@ -267,8 +256,57 @@ struct PillView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, PillStyle.padXActive)
+        .padding(.vertical, PillStyle.padYActive)
+    }
+
+    private func meetingRecording(meetingId: UUID, isPaused: Bool) -> some View {
+        HStack(spacing: PillStyle.spacing) {
+            DotWaveformView(viewModel: viewModel)
+                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
+
+            if isPaused {
+                Button {
+                    viewModel.onResumeMeetingRecording?()
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Circle().fill(Color.green.opacity(0.9)))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    viewModel.onStopMeetingRecording?()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Done")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.red.opacity(0.9)))
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button {
+                    viewModel.onPauseMeetingRecording?()
+                } label: {
+                    Image(systemName: "pause.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Circle().fill(Color.white.opacity(0.2)))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, PillStyle.padXActive)
+        .padding(.vertical, PillStyle.padYActive)
     }
 
 }

@@ -2,12 +2,17 @@ import Cocoa
 
 final class PasteManager {
 
+    private weak var hotkeyTap: HotkeyEventTap?
     private let pb = NSPasteboard.general
-    
+
     // reentry guard
     private var isPasting = false
-    
+
     typealias PasteSnapshot = [[NSPasteboard.PasteboardType: Data]]
+
+    init(hotkeyTap: HotkeyEventTap? = nil) {
+        self.hotkeyTap = hotkeyTap
+    }
 
     // Mark: Public Api
     func pasteOrCopy(
@@ -19,65 +24,68 @@ final class PasteManager {
     ) {
 
         // Prevent overlapping paste cycles
-               guard !isPasting else { completion(.error("busy")); return }
-               isPasting = true
-        
+        guard !isPasting else {
+            completion(.error("busy"))
+            return
+        }
+        isPasting = true
+
         // Snapshot current clipboard first
-               let snapshot = snapshotClipboard()
-        
+        let snapshot = snapshotClipboard()
+
         // Replace clipboard with our text
-               NSPasteboard.general.clearContents()
-               NSPasteboard.general.setString(text, forType: .string)
-        
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+
         // Give the focused app a beat, then ⌘V, then restore clipboard
-               DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                   self.sendCmdV()
-                   DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                       self.restoreClipboard(snapshot)
-                       self.isPasting = false
-                       completion(.pasted)
-                   }
-               }
-        
-//        // Direct insert for Cocoa text inputs (No AX needed)
-//        if directInsertIntoCocoa(text) {
-//            completion(.pasted)
-//            return
-//        }
-//
-//        // if we dont have an editable target  or AX trust, just copy
-//        guard hasFocus, axTrusted, AXFocusHelper.hasEditableTextTarget() else {
-//            copyToClipboard(text)
-//            completion(.copiedNoFocus)
-//            return
-//        }
-//
-//        // Use clipboard + ⌘V but restore previous clipboard after
-//        let snapshot = pb.pasteboardItems  // preserve
-//        copyToClipboard(text)
-//
-//        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-//            self.sendCmdV()
-//
-//            // Restore the clipboard shortly after the paste is dispatched
-//            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-//                self.restoreClipboard(snapshot)
-//                completion(.pasted)
-//            }
-//
-//            NSPasteboard.general.clearContents()
-//            NSPasteboard.general.setString(text, forType: .string)
-//
-//            guard hasFocus, axTrusted else {
-//                completion(.copiedNoFocus)
-//                return
-//            }
-//
-//            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-//                self.sendCmdV()
-//                completion(.pasted)
-//            }
-//        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            self.sendCmdV()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                self.restoreClipboard(snapshot)
+                self.isPasting = false
+                completion(.pasted)
+            }
+        }
+
+        //        // Direct insert for Cocoa text inputs (No AX needed)
+        //        if directInsertIntoCocoa(text) {
+        //            completion(.pasted)
+        //            return
+        //        }
+        //
+        //        // if we dont have an editable target  or AX trust, just copy
+        //        guard hasFocus, axTrusted, AXFocusHelper.hasEditableTextTarget() else {
+        //            copyToClipboard(text)
+        //            completion(.copiedNoFocus)
+        //            return
+        //        }
+        //
+        //        // Use clipboard + ⌘V but restore previous clipboard after
+        //        let snapshot = pb.pasteboardItems  // preserve
+        //        copyToClipboard(text)
+        //
+        //        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        //            self.sendCmdV()
+        //
+        //            // Restore the clipboard shortly after the paste is dispatched
+        //            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        //                self.restoreClipboard(snapshot)
+        //                completion(.pasted)
+        //            }
+        //
+        //            NSPasteboard.general.clearContents()
+        //            NSPasteboard.general.setString(text, forType: .string)
+        //
+        //            guard hasFocus, axTrusted else {
+        //                completion(.copiedNoFocus)
+        //                return
+        //            }
+        //
+        //            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        //                self.sendCmdV()
+        //                completion(.pasted)
+        //            }
+        //        }
     }
 
     // MARK: Cocoa fast-path
@@ -126,34 +134,38 @@ final class PasteManager {
         guard let snap, !snap.isEmpty else { return }
         let board = NSPasteboard.general
         board.clearContents()
-        
+
         // Recreate brand-new NSPasteboardItem instances
-               var newItems: [NSPasteboardItem] = []
-               for itemDict in snap {
-                   let newItem = NSPasteboardItem()
-                   for (type, data) in itemDict {
-                       newItem.setData(data, forType: type)
-                   }
-                   newItems.append(newItem)
-               }
-               board.writeObjects(newItems)
+        var newItems: [NSPasteboardItem] = []
+        for itemDict in snap {
+            let newItem = NSPasteboardItem()
+            for (type, data) in itemDict {
+                newItem.setData(data, forType: type)
+            }
+            newItems.append(newItem)
+        }
+        board.writeObjects(newItems)
     }
-    
+
     private func snapshotClipboard() -> PasteSnapshot {
         let board = NSPasteboard.general
-               let items = board.pasteboardItems ?? []
-               return items.map { item in
-                   var dict: [NSPasteboard.PasteboardType: Data] = [:]
-                   for type in item.types {
-                       if let data = item.data(forType: type) {
-                           dict[type] = data
-                       }
-                   }
-                   return dict
-               }
+        let items = board.pasteboardItems ?? []
+        return items.map { item in
+            var dict: [NSPasteboard.PasteboardType: Data] = [:]
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    dict[type] = data
+                }
+            }
+            return dict
+        }
     }
 
     func sendCmdV() {
+
+        // Tell the hotkey tap to ignore command events for the duration of the paste
+        self.hotkeyTap?.suppressCommandCallbacks(for: 0.5)
+
         let src = CGEventSource(stateID: .hidSystemState)
 
         let cmdDown = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: true)
@@ -174,6 +186,7 @@ final class PasteManager {
     }
 
     func sendCmdZ() {
+
         let src = CGEventSource(stateID: .hidSystemState)
         let tap = CGEventTapLocation.cghidEventTap
 

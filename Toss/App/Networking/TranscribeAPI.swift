@@ -133,12 +133,16 @@ final class TranscribeAPI {
     func transcribeMeetingChunk(
         meetingId: UUID,
         chunkIndex: Int,
+        speaker: MeetingSpeaker,
         fileURL: URL,
         token: String? = nil,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/chunks")
-            .appending(queryItems: [URLQueryItem(name: "index", value: "\(chunkIndex)")])
+            .appending(queryItems: [
+                URLQueryItem(name: "index", value: "\(chunkIndex)"),
+                URLQueryItem(name: "speaker", value: speaker.rawValue),
+            ])
 
         NSLog("[TranscribeAPI] POST %@ (chunk #%d)", url.absoluteString, chunkIndex)
 

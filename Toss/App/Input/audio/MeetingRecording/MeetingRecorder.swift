@@ -2,20 +2,29 @@ import AVFoundation
 import Foundation
 
 final class MeetingRecorder {
-    private let chunkDuration: TimeInterval = 15.0  // 15 second chunks
+
+    struct RecordedChunk {
+        let url: URL
+        let index: Int
+        let startedAt: Date
+    }
+
+    private let chunkDuration: TimeInterval = 15.0
     private let engine = AVAudioEngine()
     private let mixer = AVAudioMixerNode()
     private var currentChunkFile: AVAudioFile?
     private var currentChunkURL: URL?
+    private var currentChunkStartedAt: Date?
     private var chunkTimer: Timer?
-    private(set) var chunkIndex: Int = 0
+    private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
 
     var onError: ((Error) -> Void)?
     var onLevelUpdate: ((Float) -> Void)?
-    var onChunkReady: ((URL, Int) -> Void)?  // Called every 15s with audio file + index
+    var onChunkReady: ((URL, Int, Date) -> Void)?  // Called every 30s with audio file + index
 
     private(set) var isRunning = false
+    private(set) var isPaused = false
 
     func start() {
         guard !isRunning else { return }
@@ -84,9 +93,7 @@ final class MeetingRecorder {
                         let s = ch0[i]
                         sum += s * s
                     }
-                    var rms = sqrtf(sum / max(1, Float(frameCount)))
-                    rms = powf(rms, 0.6) * 6.0
-                    rms = min(1.0, max(0.0, rms))
+                    let rms = min(1.0, max(0.0, sqrtf(sum / max(1, Float(frameCount))) * 4.0))
                     DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
                 }
             }
@@ -117,6 +124,7 @@ final class MeetingRecorder {
             let file = try AVAudioFile(forWriting: tmp, settings: format.settings)
             currentChunkURL = tmp
             currentChunkFile = file
+            currentChunkStartedAt = Date()
             NSLog("[MeetingRecorder] Started chunk #\(chunkIndex)")
         } catch {
             onError?(error)
@@ -125,14 +133,13 @@ final class MeetingRecorder {
 
     private func rotateChunk(format: AVAudioFormat) {
         guard let url = currentChunkURL else { return }
+        let index = chunkIndex
+        let startedAt = currentChunkStartedAt ?? Date()
 
         // Close current chunk
         currentChunkFile = nil
-
-        // Notify that chunk is ready for upload
-        let index = chunkIndex
         DispatchQueue.main.async { [weak self] in
-            self?.onChunkReady?(url, index)
+            self?.onChunkReady?(url, index, startedAt)
         }
 
         // Start next chunk
@@ -140,25 +147,52 @@ final class MeetingRecorder {
         startNewChunk(format: format)
     }
 
-    func stop() -> URL? {
+    func stop() -> RecordedChunk? {
         guard isRunning else { return nil }
-
         chunkTimer?.invalidate()
         chunkTimer = nil
-
         mixer.removeTap(onBus: 0)
         engine.stop()
         isRunning = false
+        isPaused = false
+
+        guard let url = currentChunkURL else { return nil }
+        let chunk = RecordedChunk(
+            url: url, index: chunkIndex, startedAt: currentChunkStartedAt ?? Date())
 
         // Close and return final chunk
         currentChunkFile = nil
-        let finalURL = currentChunkURL
         currentChunkURL = nil
-
-        // Reset for next meeting
+        currentChunkStartedAt = nil
         chunkIndex = 0
-
         NSLog("[MeetingRecorder] Stopped")
-        return finalURL
+        return chunk
+    }
+
+    func pause() {
+        guard isRunning, !isPaused else { return }
+        chunkTimer?.invalidate()
+        chunkTimer = nil
+        if let format = currentChunkFile?.processingFormat {
+            rotateChunk(format: format)
+        }
+        engine.pause()
+        isPaused = true
+    }
+
+    func resume() {
+        guard isRunning, isPaused, let format = currentChunkFile?.processingFormat else { return }
+        engine.prepare()
+        do {
+            try engine.start()
+            isPaused = false
+            chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
+                [weak self] _ in
+                self?.rotateChunk(format: format)
+            }
+            RunLoop.main.add(chunkTimer!, forMode: .common)
+        } catch {
+            onError?(error)
+        }
     }
 }

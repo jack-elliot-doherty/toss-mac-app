@@ -20,9 +20,10 @@ enum PillMode: Equatable {
 enum PillState: Equatable {
     case idle
     case hovered
+    case meetingDetected  // Were now going to have the pill transform rather than show a toast
     case listening(PillMode)  // audio capture running, waveform shown
     case transcribing(PillMode)  // audio capture stopped, uploading/awaiting text transcription
-    case meetingRecording(UUID)
+    case meetingRecording(UUID, isPaused: Bool)
 }
 
 enum PillEvent: Equatable {
@@ -39,11 +40,13 @@ enum PillEvent: Equatable {
     // meetings
     case startMeetingRecording
     case stopMeetingRecording
-    case meetingChunkReady(URL, Int)  // audio chunk ready for transcription
+    case pauseMeetingRecording
+    case resumeMeetingRecording
+    case meetingChunkReady(MeetingSpeaker, URL, Int, Date)  // audio chunk ready for transcription
 
     // meeting detection events
     case meetingDetected
-    case meetingDetectionExpired  // toast timeout
+    case meetingDetectionExpired  // auto dismiss meeting detected
     case dismissMeetingDetection
 
     // hover events
@@ -87,14 +90,17 @@ enum PillEffect: Equatable {
     case setVisualStateTranscribing
     case setVisualStateIdle
     case setVisualStateHovered
+    case setVisualStateMeetingDetected
+    case setVisualStateMeetingRecording(UUID, isPaused: Bool)
     case setAlwaysOn(Bool)
 
     // meetings
     case scheduleMeetingDetectionTimeout(TimeInterval)
     case startMeetingRecording(UUID)
     case stopMeetingRecording
-    case uploadMeetingChunk(UUID, URL, Int)
-    case setVisualStateMeetingRecording(UUID)
+    case pauseMeetingRecording
+    case resumeMeetingRecording
+    case uploadMeetingChunk(UUID, MeetingSpeaker, URL, Int, Date)
     case openMeetingView(UUID)  // when the pill body is clicked during meeting state will open the meeting view for that meeting
 
 }
@@ -142,7 +148,6 @@ enum ToastActionVariant: Equatable {
 struct PillContext: Equatable {
     var isAlwaysOn = false
     var isCmdHeld = false
-    var meetingDetected = false  // changes fn behavior when true (makes hitting fn enter meeting recording mode)
 }
 
 struct PillStateMachine {
@@ -173,19 +178,10 @@ struct PillStateMachine {
 
         case (.hovered, .quickActionRecordMeeting):
             let meetingId = UUID()
-            state = .meetingRecording(meetingId)
+            state = .meetingRecording(meetingId, isPaused: false)
             effects += [
                 .startMeetingRecording(meetingId),
-                .setVisualStateMeetingRecording(meetingId),
-                .showToast(
-                    icon: "mic.fill",
-                    title: "Recording meeting",
-                    subtitle: nil,
-                    primary: nil,
-                    secondary: nil,
-                    duration: 2.0,
-                    offsetAboveAnchor: nil
-                ),
+                .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
         case (.hovered, .quickActionDictation):
@@ -197,21 +193,17 @@ struct PillStateMachine {
                 .setAlwaysOn(true),
             ]
 
-        // IDLE + Fn down + meeting detected → START MEETING
-        case (.idle, .fnDown) where ctx.meetingDetected:
-            NSLog("[PillStateMachine] Entering meeting recording mode")
-            ctx.meetingDetected = false
-            let meetingId = UUID()
-            state = .meetingRecording(meetingId)
+        case (.idle, .meetingDetected), (.hovered, .meetingDetected):
+            state = .meetingDetected
             effects += [
-                .startMeetingRecording(meetingId),
-                .setVisualStateMeetingRecording(meetingId),
-                .showToast(title: "Recording meeting"),
+                .setVisualStateMeetingDetected,
+                .scheduleMeetingDetectionTimeout(10),
             ]
 
         // - IDLE
         case (.idle, .fnDown):
             let mode: PillMode = ctx.isCmdHeld ? .command : .dictation
+            ctx.isCmdHeld = false  // dont let stale cmddown leak from cmd + v from paste from prev session
             state = .listening(mode)
             effects += [.startAudioCapture, .setVisualStateListening]
 
@@ -219,7 +211,9 @@ struct PillStateMachine {
             ctx.isCmdHeld = true
         // Noop until fn down starts a session
 
-        case (.idle, .cmdUp):
+        case (.idle, .cmdUp), (.meetingDetected, .cmdUp),
+            (.transcribing, .cmdUp),
+            (.meetingRecording, .cmdUp):
             ctx.isCmdHeld = false
 
         case (.idle, .doubleTapFn):
@@ -230,38 +224,28 @@ struct PillStateMachine {
                     title: ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
             ]
 
-        case (.idle, .meetingDetected):
-            ctx.meetingDetected = true
+        case (.meetingDetected, .meetingDetectionExpired),
+            (.meetingDetected, .escapePressed),
+            (.meetingDetected, .dismissMeetingDetection):
+            state = .idle
+            effects += [.setVisualStateIdle]
+
+        case (.meetingDetected, .fnDown),
+            (.meetingDetected, .quickActionRecordMeeting),
+            (.meetingDetected, .pillClicked):
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .showToast(
-                    icon: "mic.fill",
-                    title: "Meeting detected",
-                    subtitle: "Press fn to start recording",
-                    duration: 10
-                ),
-                .scheduleMeetingDetectionTimeout(10),
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
-
-        // IDLE + detection expired (timeout)
-        case (.idle, .meetingDetectionExpired):
-            ctx.meetingDetected = false
-        // Silently clear the flag
-
-        // IDLE + user dismisses detection
-        case (.idle, .escapePressed) where ctx.meetingDetected:
-            ctx.meetingDetected = false
-            effects += [.showToast(title: "Cancelled")]
-
-        case (.idle, .dismissMeetingDetection):
-            ctx.meetingDetected = false
-            effects += [.showToast(title: "Dismissed")]
 
         case (.idle, .startMeetingRecording):
             let meetingId = UUID()
-            state = .meetingRecording(meetingId)
+            state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .startMeetingRecording(meetingId), .setVisualStateMeetingRecording(meetingId),
-                .showToast(title: "Meeting recording started"),
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
         // - LISTENING
@@ -364,32 +348,43 @@ struct PillStateMachine {
             ctx.isCmdHeld = false
             effects += [.setVisualStateIdle, .showToast(title: "Transcription Failed: \(error)")]
 
-        // - MEETING RECORDING
-        case (.meetingRecording, .stopMeetingRecording):
+        case (.meetingRecording(let meetingId, let isPaused), .pauseMeetingRecording)
+        where !isPaused:
+            state = .meetingRecording(meetingId, isPaused: true)
+            effects += [
+                .pauseMeetingRecording,
+                .setVisualStateMeetingRecording(meetingId, isPaused: true),
+            ]
+
+        case (.meetingRecording(let meetingId, let isPaused), .resumeMeetingRecording)
+        where isPaused:
+            state = .meetingRecording(meetingId, isPaused: false)
+            effects += [
+                .resumeMeetingRecording,
+                .setVisualStateMeetingRecording(meetingId, isPaused: false),
+            ]
+
+        case (.meetingRecording(let meetingId, _), .stopMeetingRecording):
             state = .idle
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
                 .showToast(title: "Meeting recording stopped"),
+                .openMeetingView(meetingId),
             ]
 
-        case (.meetingRecording(let meetingId), .pillClicked):
+        case (.meetingRecording(let meetingId, _), .pillClicked):
             effects += [.openMeetingView(meetingId)]
 
-        case (.meetingRecording(let meetingId), .meetingChunkReady(let url, let index)):
-            // just upload the chunk to the server and continue recording
-            effects += [.uploadMeetingChunk(meetingId, url, index)]
+        case (
+            .meetingRecording(let meetingId, _),
+            .meetingChunkReady(let speaker, let url, let index, let startedAt)
+        ):
+            effects += [.uploadMeetingChunk(meetingId, speaker, url, index, startedAt)]
 
         // - MEETING RECORDING → IDLE (escape/cancel)
-        case (.meetingRecording, .escapePressed):
-            state = .idle
-            effects += [
-                .stopMeetingRecording,
-                .setVisualStateIdle,
-                .showToast(title: "Meeting cancelled"),
-            ]
-
-        case (.meetingRecording, .cancelButton):
+        case (.meetingRecording, .escapePressed),
+            (.meetingRecording, .cancelButton):
             state = .idle
             effects += [
                 .stopMeetingRecording,

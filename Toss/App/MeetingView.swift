@@ -5,10 +5,10 @@ struct MeetingView: View {
     @ObservedObject var repository: PersistentMeetingRepository
     @EnvironmentObject private var pageChrome: AppScreenLayout
 
-    @State private var selectedTab: MeetingDetailTab = .summary
+    @State private var selectedTab: MeetingDetailTab = .overview
 
     private enum MeetingDetailTab: String, CaseIterable {
-        case summary = "Summary"
+        case overview = "Overview"
         case transcript = "Transcript"
     }
 
@@ -44,36 +44,39 @@ struct MeetingView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(spacing: 32) {
                 header
-                tabSwitcher
-                tabContent
+                tabSection
             }
-            .padding(.bottom, 48)
+            .frame(maxWidth: 960)  // matches Aside-style width
+            .padding(.horizontal, 32)
+            .padding(.top, 28)
+            .padding(.bottom, 60)
+            .frame(maxWidth: .infinity)  // center when window wider
         }
-        .onAppear {
-            configureChrome()
-        }
-        .onDisappear {
-            pageChrome.clearOverride()
-        }
+        .background(AppTheme.windowBackground)
+        .onAppear(perform: configureChrome)
+        .onDisappear { pageChrome.clearOverride() }
+        .onChange(of: meeting?.title) { _, _ in configureChrome() }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(meetingTitle)
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundColor(AppTheme.primaryText)
-                Text("Created \(createdAtString)")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.secondaryText)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(meetingTitle)
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Created \(createdAtString)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                Spacer()
             }
 
-            Divider()
-                .background(AppTheme.subtleStroke)
+            Divider().background(Color.white.opacity(0.08))
 
-            HStack(spacing: 24) {
+            HStack(spacing: 32) {
                 metaColumn(title: "Duration", value: durationString)
                 metaColumn(title: "Entries", value: "\(chunks.count)")
                 Spacer()
@@ -81,13 +84,29 @@ struct MeetingView: View {
         }
         .padding(28)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(AppTheme.cardBackground)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.10),
+                            Color.white.opacity(0.04),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 32)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+    }
+
+    private var tabSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            tabSwitcher
+            tabContent
+        }
     }
 
     private func metaColumn(title: String, value: String) -> some View {
@@ -102,23 +121,24 @@ struct MeetingView: View {
     }
 
     private var tabSwitcher: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 10) {
             ForEach(MeetingDetailTab.allCases, id: \.self) { tab in
                 Button {
                     selectedTab = tab
                 } label: {
                     Text(tab.rawValue)
                         .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .foregroundColor(selectedTab == tab ? .black : AppTheme.secondaryText)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
                         .background(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            Capsule()
                                 .fill(
                                     selectedTab == tab
-                                        ? Color.white.opacity(0.15) : Color.white.opacity(0.04))
+                                        ? Color.white
+                                        : Color.white.opacity(0.08)
+                                )
                         )
-                        .foregroundColor(
-                            selectedTab == tab ? AppTheme.primaryText : AppTheme.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
@@ -128,24 +148,24 @@ struct MeetingView: View {
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
-        case .summary:
-            summaryView
+        case .overview:
+            overviewView
         case .transcript:
             MeetingTranscriptView(chunks: chunks)
         }
     }
 
-    private var summaryView: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private var overviewView: some View {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Summary")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(AppTheme.secondaryText)
 
             if let notes = meeting?.notes, !notes.isEmpty {
                 Text(notes)
                     .font(.system(size: 15))
                     .foregroundColor(AppTheme.primaryText)
-                    .lineSpacing(6)
+                    .lineSpacing(5)
             } else {
                 Text("No AI summary yet. Generate notes after the meeting ends.")
                     .font(.system(size: 14))
@@ -153,11 +173,12 @@ struct MeetingView: View {
             }
         }
         .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(AppTheme.cardBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 20)
                         .stroke(AppTheme.subtleStroke, lineWidth: 1)
                 )
         )
@@ -184,63 +205,100 @@ private struct MeetingTranscriptView: View {
     let chunks: [MeetingChunkModel]
 
     var body: some View {
-        if chunks.isEmpty {
-            VStack(spacing: 12) {
-                Text("No transcript yet")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(AppTheme.primaryText)
-                Text("Transcript entries will appear here automatically once available.")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.secondaryText)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(40)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(AppTheme.cardBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                    )
-            )
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
+            if chunks.isEmpty {
+                EmptyStateCard(
+                    title: "No transcript yet",
+                    subtitle: "Transcript entries appear here automatically once available."
+                )
+            } else {
+                VStack(spacing: 16) {
                     ForEach(chunks) { chunk in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(chunk.timestamp, style: .time)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(AppTheme.secondaryText)
-                            Text(chunk.transcript)
-                                .font(.system(size: 14))
-                                .foregroundColor(AppTheme.primaryText)
-                                .lineSpacing(4)
-                                .textSelection(.enabled)
+                        HStack(alignment: .top, spacing: 12) {
+                            if chunk.speaker == .user {
+                                speakerBadge(text: "You", accent: .blue)
+                            } else {
+                                speakerBadge(text: "Them", accent: .green)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(chunk.startedAt, style: .time)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                Text(chunk.transcript)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .lineSpacing(4)
+                                    .textSelection(.enabled)
+                            }
+
+                            Spacer(minLength: 0)
                         }
-                        .padding(.vertical, 6)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.white.opacity(0.02))
+                        )
                     }
                 }
                 .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(AppTheme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                        )
+                )
             }
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(AppTheme.cardBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                    )
-            )
         }
+    }
+
+    private func speakerBadge(text: String, accent: Color) -> some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(accent.opacity(0.8))
+            .clipShape(Capsule())
+            .frame(width: 60, alignment: .center)
     }
 }
 
-// MARK: - Meetings List View (unchanged from previous design)
+private struct EmptyStateCard: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppTheme.primaryText)
+            Text(subtitle)
+                .font(.system(size: 13))
+                .foregroundColor(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(36)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+}
 
 struct MeetingsListView: View {
     @ObservedObject var repository: PersistentMeetingRepository
     @Binding var pendingMeetingId: UUID?
+    @Binding var navigationPath: NavigationPath
     @State private var selectedMeeting: UUID?
-    @State private var navigationPath = NavigationPath()
 
     var meetings: [MeetingModel] {
         repository.listMeetings()

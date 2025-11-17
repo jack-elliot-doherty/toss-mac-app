@@ -7,15 +7,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     let updaterController: SPUStandardUpdaterController
     private let meetingDetector = MeetingDetector()
+    let meetingRepository = PersistentMeetingRepository()
 
     private var pillController: PillController!
     private var statusItem: NSStatusItem?
     private let hotkey = HotkeyEventTap()
     private let recorder = AudioRecorder()
     private var didPaste: Bool = false
-    private let pasteManager = PasteManager()
     private let historyRepo: PersistentHistoryRepository = History.shared
     private let pillViewModel = PillViewModel()
+    private lazy var pasteManager = PasteManager(hotkeyTap: hotkey)
     private lazy var pillPanel = PillPanelController(viewModel: pillViewModel)
     private lazy var toastPanel = ToastPanelController(anchorFrameProvider: { [weak self] in
         self?.pillPanel.frame
@@ -117,7 +118,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             viewModel: pillViewModel,
             history: History.shared,
             auth: AuthManager.shared,
-            agentPanel: agentPanel
+            agentPanel: agentPanel,
+            meetingRepository: meetingRepository
 
         )
 
@@ -157,6 +159,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pillViewModel.onStopMeetingRecording = { [weak self] in
             self?.pillController.send(.stopMeetingRecording)
+        }
+        pillViewModel.onPauseMeetingRecording = { [weak self] in
+            self?.pillController.send(.pauseMeetingRecording)
+        }
+        pillViewModel.onResumeMeetingRecording = { [weak self] in
+            self?.pillController.send(.resumeMeetingRecording)
         }
 
         // Observe planner demo trigger

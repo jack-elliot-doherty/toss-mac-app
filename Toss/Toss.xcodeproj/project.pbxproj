@@ -12,6 +12,7 @@
 		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
 		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
 		DA3427592EC9258F00F85DEB /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427582EC9258F00F85DEB /* AppTheme.swift */; };
+		DA34275B2ECA889500F85DEB /* SystemAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA34275A2ECA889500F85DEB /* SystemAudioRecorder.swift */; };
 		DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234B2EB23FCE000207F0 /* PillViewModel.swift */; };
 		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
 		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
@@ -45,7 +46,7 @@
 		DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */; };
 		DA3623A22EBBDAC1000207F0 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DA3623A12EBBDAC1000207F0 /* Sparkle */; };
 		DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827972EBE94720040ED92 /* MeetingRepository.swift */; };
-		DA7827A22EBE94CC0040ED92 /* meeting-recorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA78279F2EBE94CC0040ED92 /* meeting-recorder.swift */; };
+		DA7827A22EBE94CC0040ED92 /* MeetingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA78279F2EBE94CC0040ED92 /* MeetingRecorder.swift */; };
 		DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */; };
 		DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */; };
 		DAD483E72EBCE56A001C5902 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD483E62EBCE56A001C5902 /* Config.swift */; };
@@ -81,6 +82,7 @@
 		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
 		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
 		DA3427582EC9258F00F85DEB /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		DA34275A2ECA889500F85DEB /* SystemAudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemAudioRecorder.swift; sourceTree = "<group>"; };
 		DA3623412EB23FCE000207F0 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyEventTap.swift; sourceTree = "<group>"; };
 		DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscribeAPI.swift; sourceTree = "<group>"; };
@@ -115,7 +117,7 @@
 		DA36239B2EBB77CB000207F0 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		DA36239D2EBB7BC7000207F0 /* SettingsModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsModalView.swift; sourceTree = "<group>"; };
 		DA7827972EBE94720040ED92 /* MeetingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRepository.swift; sourceTree = "<group>"; };
-		DA78279F2EBE94CC0040ED92 /* meeting-recorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "meeting-recorder.swift"; sourceTree = "<group>"; };
+		DA78279F2EBE94CC0040ED92 /* MeetingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRecorder.swift; sourceTree = "<group>"; };
 		DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetector.swift; sourceTree = "<group>"; };
 		DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingView.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -293,18 +295,19 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
-		DA7827A02EBE94CC0040ED92 /* meeting-recording */ = {
+		DA7827A02EBE94CC0040ED92 /* MeetingRecording */ = {
 			isa = PBXGroup;
 			children = (
-				DA78279F2EBE94CC0040ED92 /* meeting-recorder.swift */,
+				DA34275A2ECA889500F85DEB /* SystemAudioRecorder.swift */,
+				DA78279F2EBE94CC0040ED92 /* MeetingRecorder.swift */,
 			);
-			path = "meeting-recording";
+			path = MeetingRecording;
 			sourceTree = "<group>";
 		};
 		DA7827A12EBE94CC0040ED92 /* audio */ = {
 			isa = PBXGroup;
 			children = (
-				DA7827A02EBE94CC0040ED92 /* meeting-recording */,
+				DA7827A02EBE94CC0040ED92 /* MeetingRecording */,
 			);
 			path = audio;
 			sourceTree = "<group>";
@@ -505,6 +508,7 @@
 				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
 				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
+				DA34275B2ECA889500F85DEB /* SystemAudioRecorder.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
@@ -524,7 +528,7 @@
 				DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */,
 				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
 				DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */,
-				DA7827A22EBE94CC0040ED92 /* meeting-recorder.swift in Sources */,
+				DA7827A22EBE94CC0040ED92 /* MeetingRecorder.swift in Sources */,
 				DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 			);

@@ -1,6 +1,11 @@
 import Combine
 import Foundation
 
+enum MeetingSpeaker: String, Codable, CaseIterable {
+    case user
+    case remote
+}
+
 struct MeetingModel: Identifiable, Equatable, Codable {
     let id: UUID
     var title: String
@@ -16,14 +21,43 @@ struct MeetingChunkModel: Identifiable, Equatable, Codable {
     let meetingId: UUID
     let chunkIndex: Int
     var transcript: String
-    let timestamp: Date
+    let startedAt: Date
+    let speaker: MeetingSpeaker
+
+    init(
+        id: UUID = UUID(),
+        meetingId: UUID,
+        chunkIndex: Int,
+        transcript: String,
+        startedAt: Date,
+        speaker: MeetingSpeaker
+    ) {
+        self.id = id
+        self.meetingId = meetingId
+        self.chunkIndex = chunkIndex
+        self.transcript = transcript
+        self.startedAt = startedAt
+        self.speaker = speaker
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        meetingId = try container.decode(UUID.self, forKey: .meetingId)
+        chunkIndex = try container.decode(Int.self, forKey: .chunkIndex)
+        transcript = try container.decode(String.self, forKey: .transcript)
+        startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt) ?? Date()
+        speaker = try container.decodeIfPresent(MeetingSpeaker.self, forKey: .speaker) ?? .user
+    }
 }
 
 protocol MeetingRepositoryProtocol {
     func createMeeting(id: UUID, title: String) -> MeetingModel
     func endMeeting(id: UUID)
     func getMeeting(id: UUID) -> MeetingModel?
-    func appendChunk(meetingId: UUID, index: Int, transcript: String) -> MeetingChunkModel
+    func appendChunk(
+        meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
+    ) -> MeetingChunkModel
     func listMeetings() -> [MeetingModel]
     func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
@@ -114,11 +148,13 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         return queue.sync { meetings[id] }
     }
 
-    func appendChunk(meetingId: UUID, index: Int, transcript: String) -> MeetingChunkModel {
+    func appendChunk(
+        meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
+    ) -> MeetingChunkModel {
         return queue.sync {
             let chunk = MeetingChunkModel(
                 id: UUID(), meetingId: meetingId, chunkIndex: index, transcript: transcript,
-                timestamp: Date())
+                startedAt: startedAt, speaker: speaker)
             var arr = chunks[meetingId] ?? []
             arr.append(chunk)
             chunks[meetingId] = arr
@@ -134,14 +170,14 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     func getChunks(meetingId: UUID) -> [MeetingChunkModel] {  // ← ADD THIS METHOD
         return queue.sync {
             (chunks[meetingId] ?? [])
-                .sorted { $0.chunkIndex < $1.chunkIndex }
+                .sorted { $0.startedAt < $1.startedAt }
         }
     }
 
     func getFullTranscript(meetingId: UUID) -> String {
         return queue.sync {
             (chunks[meetingId] ?? [])
-                .sorted { $0.chunkIndex < $1.chunkIndex }
+                .sorted { $0.startedAt < $1.startedAt }
                 .map { $0.transcript }
                 .joined(separator: " ")
         }

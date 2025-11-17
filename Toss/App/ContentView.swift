@@ -73,11 +73,13 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 @MainActor
 struct ContentView: View {
     @ObservedObject private var auth = AuthManager.shared
+    @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .home
     @State private var showSettings = false
     @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
     @State private var windowReference: NSWindow?
     @State private var navigationHistory: [SidebarItem] = [.home]
+    @State private var meetingsNavigationPath = NavigationPath()
     @State private var historyIndex: Int = 0
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
@@ -85,9 +87,6 @@ struct ContentView: View {
             action: nil
         )
     )
-
-    @StateObject private var meetingRepo = PersistentMeetingRepository()
-
     var body: some View {
         ZStack {
             AppTheme.windowBackground
@@ -210,12 +209,14 @@ struct ContentView: View {
 
                 Spacer()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0))
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -238,7 +239,9 @@ struct ContentView: View {
         case .home:
             HomeView()
         case .meetings:
-            MeetingsListView(repository: meetingRepo, pendingMeetingId: $pendingMeetingId)
+            MeetingsListView(
+                repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
+                navigationPath: $meetingsNavigationPath)
         case .settings, .none:
             OnboardingGate()
         }
@@ -374,11 +377,12 @@ struct ContentView: View {
     }
 
     private var canGoBack: Bool {
-        historyIndex > 0
+        if selection == .meetings && !meetingsNavigationPath.isEmpty { return true }
+        return historyIndex > 0
     }
 
     private var canGoForward: Bool {
-        historyIndex < navigationHistory.count - 1
+        return historyIndex < navigationHistory.count - 1
     }
 
     private var currentPageTitle: String {
@@ -395,6 +399,10 @@ struct ContentView: View {
     }
 
     private func navigateBack() {
+        if selection == .meetings && !meetingsNavigationPath.isEmpty {
+            meetingsNavigationPath.removeLast()
+            return
+        }
         guard canGoBack else { return }
         historyIndex -= 1
         selection = navigationHistory[historyIndex]

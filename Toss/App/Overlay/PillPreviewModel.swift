@@ -78,7 +78,7 @@
             case 2: return .listening(.command)
             case 3: return .transcribing(.dictation)
             case 4: return .transcribing(.command)
-            case 5: return .meetingRecording(UUID())
+            case 5: return .meetingRecording(UUID(), isPaused: false)
             default: return current
             }
         }

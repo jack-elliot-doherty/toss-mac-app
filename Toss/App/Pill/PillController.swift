@@ -14,7 +14,7 @@ final class PillController {
 
     private var activeMeetingId: UUID?
     private var meetingRecorder: MeetingRecorder?  // create this on demand as we dont need it until we start a meeting
-    private let meetingRepo = PersistentMeetingRepository()
+    private var systemAudioMeetingRecorder: SystemAudioRecorder?
 
     // dependencies injected from AppDelegate
     private let audio: AudioRecorder
@@ -26,6 +26,7 @@ final class PillController {
     private let history: PersistentHistoryRepository
     private let auth: AuthManager
     private let agentPanel: AgentPanelController
+    private let meetingRepository: PersistentMeetingRepository
 
     init(
         audio: AudioRecorder,
@@ -36,7 +37,8 @@ final class PillController {
         viewModel: PillViewModel,
         history: PersistentHistoryRepository,
         auth: AuthManager,
-        agentPanel: AgentPanelController
+        agentPanel: AgentPanelController,
+        meetingRepository: PersistentMeetingRepository
     ) {
         self.audio = audio
         self.transcriber = transcriber
@@ -47,6 +49,7 @@ final class PillController {
         self.history = history
         self.auth = auth
         self.agentPanel = agentPanel
+        self.meetingRepository = meetingRepository
     }
 
     private func log(_ s: String) { print("[PillController] \(s)") }
@@ -92,6 +95,9 @@ final class PillController {
             case .setVisualStateHovered:
                 pillPanel.setState(.hovered)
 
+            case .setVisualStateMeetingDetected:
+                pillPanel.setState(.meetingDetected)
+
             case .openMeetingView(let meetingId):
                 handleOpenMeetingView(meetingId)
 
@@ -131,12 +137,20 @@ final class PillController {
             case .stopMeetingRecording:
                 handleStopMeetingRecording()
 
-            case .uploadMeetingChunk(let meetingId, let url, let index):
-                handleUploadMeetingChunk(meetingId: meetingId, url: url, index: index)
+            case .uploadMeetingChunk(let meetingId, let speaker, let url, let index, let startedAt):
+                handleUploadMeetingChunk(
+                    meetingId: meetingId, speaker: speaker, url: url, index: index,
+                    startedAt: startedAt)
 
-            case .setVisualStateMeetingRecording(let meetingId):
-                viewModel.meetingRecording(meetingId)
-                pillPanel.setState(.meetingRecording(meetingId))
+            case .setVisualStateMeetingRecording(let meetingId, let isPaused):
+                viewModel.meetingRecording(meetingId, isPaused: isPaused)
+                pillPanel.setState(.meetingRecording(meetingId, isPaused: isPaused))
+
+            case .pauseMeetingRecording:
+                handlePauseMeetingRecording()
+
+            case .resumeMeetingRecording:
+                handleResumeMeetingRecording()
 
             case .scheduleMeetingDetectionTimeout(let timeout):
                 Task { @MainActor in
@@ -308,19 +322,17 @@ final class PillController {
 
         activeMeetingId = meetingId
 
-        let meeting = meetingRepo.createMeeting(
+        _ = meetingRepository.createMeeting(
             id: meetingId,
-            title: "Meeting \(Date().formatted(date: .abbreviated, time: .shortened))"
+            title: "Untitled Meeting"
         )
 
         // create the meeting recorder on demand
         let recorder = MeetingRecorder()
         recorder.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
-
-        recorder.onChunkReady = { [weak self] url, index in
-            guard let self = self, self.activeMeetingId != nil else { return }
-            // Now we know which meeting this chunk belongs to!
-            self.send(.meetingChunkReady(url, index))
+        recorder.onChunkReady = { [weak self] url, index, startedAt in
+            guard let self, self.activeMeetingId != nil else { return }
+            self.send(.meetingChunkReady(.user, url, index, startedAt))
         }
         recorder.onError = { error in
             NSLog("[PillController] Meeting recorder error: \(error)")
@@ -329,32 +341,65 @@ final class PillController {
         recorder.start()
         meetingRecorder = recorder
 
+        let systemRecorder = SystemAudioRecorder()
+        systemRecorder.onChunkReady = { [weak self] url, index, startedAt in
+            guard let self, self.activeMeetingId != nil else { return }
+            self.send(.meetingChunkReady(.remote, url, index, startedAt))
+        }
+        do {
+            try systemRecorder.start()
+            systemAudioMeetingRecorder = systemRecorder
+        } catch {
+            NSLog("[PillController] System audio recorder error: \(error)")
+            toast.show(
+                icon: Image(systemName: "speaker.slash"),
+                title: "System audio unavailable",
+                subtitle: error.localizedDescription,
+                duration: 4
+            )
+        }
+
         SoundFeedback.shared.playStart()
-        NSLog("[PillController] Meeting recording started for meeting \(meeting.id)")
+        NSLog("[PillController] Meeting recording started for meeting")
     }
 
     private func handleStopMeetingRecording() {
-        guard let meetingRecorder = meetingRecorder, let meetingId = activeMeetingId else { return }
+        guard let meetingId = activeMeetingId else { return }
 
-        let finalChunkIndex = meetingRecorder.chunkIndex
-
-        // Stop recorder and upload the final chunk
-        if let finalChunkURL = meetingRecorder.stop() {
+        if let chunk = meetingRecorder?.stop() {
             handleUploadMeetingChunk(
-                meetingId: meetingId, url: finalChunkURL, index: finalChunkIndex)
+                meetingId: meetingId,
+                speaker: .user,
+                url: chunk.url,
+                index: chunk.index,
+                startedAt: chunk.startedAt
+            )
+        }
+        if let chunk = systemAudioMeetingRecorder?.stop() {
+            handleUploadMeetingChunk(
+                meetingId: meetingId,
+                speaker: .remote,
+                url: chunk.url,
+                index: chunk.index,
+                startedAt: chunk.startedAt
+            )
         }
 
-        self.meetingRecorder = nil  // reset the recorder
-
-        meetingRepo.endMeeting(id: meetingId)
-
+        meetingRecorder = nil  // reset the recorder
+        systemAudioMeetingRecorder = nil  // reset the system audio recorder
+        meetingRepository.endMeeting(id: meetingId)
         activeMeetingId = nil
-
         SoundFeedback.shared.playStop()
         NSLog("[PillController] Meeting recording stopped for meeting \(meetingId)")
     }
 
-    private func handleUploadMeetingChunk(meetingId: UUID, url: URL, index: Int) {
+    private func handleUploadMeetingChunk(
+        meetingId: UUID,
+        speaker: MeetingSpeaker,
+        url: URL,
+        index: Int,
+        startedAt: Date
+    ) {
         // // Upload the meeting chunk to the server
         guard let token = auth.accessToken else {
             NSLog("[PillController] No auth token for chunk upload")
@@ -366,6 +411,7 @@ final class PillController {
         transcriber.transcribeMeetingChunk(
             meetingId: meetingId,
             chunkIndex: index,
+            speaker: speaker,
             fileURL: url,
             token: token
         ) { [weak self] result in
@@ -375,10 +421,12 @@ final class PillController {
                 switch result {
                 case .success(let text):
                     // Save chunk transcript to repository
-                    _ = self.meetingRepo.appendChunk(
+                    _ = self.meetingRepository.appendChunk(
                         meetingId: meetingId,
                         index: index,
-                        transcript: text
+                        transcript: text,
+                        startedAt: startedAt,
+                        speaker: speaker
                     )
                     NSLog("[PillController] Chunk #\(index) transcribed: \(text.prefix(40))...")
 
@@ -391,6 +439,14 @@ final class PillController {
             }
         }
 
+    }
+
+    private func handlePauseMeetingRecording() {
+        meetingRecorder?.pause()
+    }
+
+    private func handleResumeMeetingRecording() {
+        meetingRecorder?.resume()
     }
 
     private func handleMeetingChunkReady(meetingId: UUID, url: URL, index: Int) {

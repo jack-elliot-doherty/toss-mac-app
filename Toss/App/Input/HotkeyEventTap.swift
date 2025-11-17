@@ -24,6 +24,9 @@ final class HotkeyEventTap {
     private var swallowNextFnUp = false
     private var swallowFnUpAfterEscape = false
 
+    // Our cmd v emissions for pasting dictations are causing us to enter command mode, so we need to ignore cmd events until the paste is complete
+    private var ignoreCmdEventsUntil: Date? = nil
+
     private(set) var isStarted: Bool = false
 
     private var previousFlags: NSEvent.ModifierFlags = []
@@ -132,10 +135,18 @@ final class HotkeyEventTap {
 
                 // --- Cmd edges ---
                 if !cmdWasDown && cmdIsDown {
+                    guard !self.shouldIgnoreCommandEvent() else {
+                        self.previousFlags = flags
+                        return
+                    }
                     print("[Hotkey] Cmd DOWN")
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
+                    guard !self.shouldIgnoreCommandEvent() else {
+                        self.previousFlags = flags
+                        return
+                    }
                     print("[Hotkey] Cmd UP")
                     onCmdUp?()
                 }
@@ -232,10 +243,18 @@ final class HotkeyEventTap {
 
                 // --- Cmd edges ---
                 if !cmdWasDown && cmdIsDown {
+                    guard !self.shouldIgnoreCommandEvent() else {
+                        self.previousFlags = flags
+                        return event
+                    }
                     print("[Hotkey] (Local) Cmd DOWN")
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
+                    guard !self.shouldIgnoreCommandEvent() else {
+                        self.previousFlags = flags
+                        return event
+                    }
                     print("[Hotkey] (Local) Cmd UP")
                     onCmdUp?()
                 }
@@ -324,6 +343,16 @@ final class HotkeyEventTap {
             isHoldingCmd = false
             onCmdUp?()
         }
+    }
+
+    func suppressCommandCallbacks(for duration: TimeInterval) {
+        ignoreCmdEventsUntil = Date().addingTimeInterval(duration)
+    }
+
+    private func shouldIgnoreCommandEvent() -> Bool {
+        if let until = ignoreCmdEventsUntil, Date() < until { return true }
+        ignoreCmdEventsUntil = nil
+        return false
     }
 
     deinit {
