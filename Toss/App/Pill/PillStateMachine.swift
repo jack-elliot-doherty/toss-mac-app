@@ -383,8 +383,7 @@ struct PillStateMachine {
             effects += [.uploadMeetingChunk(meetingId, speaker, url, index, startedAt)]
 
         // - MEETING RECORDING → IDLE (escape/cancel)
-        case (.meetingRecording, .escapePressed),
-            (.meetingRecording, .cancelButton):
+        case (.meetingRecording, .cancelButton):
             state = .idle
             effects += [
                 .stopMeetingRecording,
