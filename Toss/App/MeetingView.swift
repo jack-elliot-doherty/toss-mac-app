@@ -6,10 +6,23 @@ struct MeetingView: View {
     @EnvironmentObject private var pageChrome: AppScreenLayout
 
     @State private var selectedTab: MeetingDetailTab = .overview
+    @Namespace private var tabAnimation
+    @State private var tabFrames: [MeetingDetailTab: CGRect] = [:]
 
     private enum MeetingDetailTab: String, CaseIterable {
         case overview = "Overview"
         case transcript = "Transcript"
+
+        var icon: String {
+            switch self {
+            case .overview: return "list.bullet.rectangle"
+            case .transcript: return "text.alignleft"
+            }
+        }
+
+        var index: Int {
+            Self.allCases.firstIndex(of: self) ?? 0
+        }
     }
 
     private var meeting: MeetingModel? {
@@ -61,45 +74,19 @@ struct MeetingView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(meetingTitle)
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text("Created \(createdAtString)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.6))
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            Text(meetingTitle)
+                .font(.system(size: 36, weight: .bold))
+                .foregroundColor(.white)
+
+            HStack(spacing: 28) {
+                metaColumn(title: "Created", value: createdAtString)
                 Spacer()
             }
 
-            Divider().background(Color.white.opacity(0.08))
-
-            HStack(spacing: 32) {
-                metaColumn(title: "Duration", value: durationString)
-                metaColumn(title: "Entries", value: "\(chunks.count)")
-                Spacer()
-            }
+            Divider()
+                .background(Color.white.opacity(0.12))
         }
-        .padding(28)
-        .background(
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.10),
-                            Color.white.opacity(0.04),
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 32)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
-        )
     }
 
     private var tabSection: some View {
@@ -115,32 +102,59 @@ struct MeetingView: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(AppTheme.secondaryText)
             Text(value)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(AppTheme.primaryText)
         }
     }
 
     private var tabSwitcher: some View {
-        HStack(spacing: 10) {
-            ForEach(MeetingDetailTab.allCases, id: \.self) { tab in
-                Button {
-                    selectedTab = tab
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(selectedTab == tab ? .black : AppTheme.secondaryText)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+        VStack(spacing: 6) {
+            HStack(spacing: 24) {
+                ForEach(MeetingDetailTab.allCases, id: \.self) { tab in
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 13, weight: .semibold))
+                            Text(tab.rawValue)
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundColor(selectedTab == tab ? .white : AppTheme.secondaryText)
                         .background(
-                            Capsule()
-                                .fill(
-                                    selectedTab == tab
-                                        ? Color.white
-                                        : Color.white.opacity(0.08)
-                                )
+                            GeometryReader { proxy in
+                                Color.clear
+                                    .preference(
+                                        key: TabWidthPreference.self,
+                                        value: [tab: proxy.frame(in: .named("tabRow"))]
+                                    )
+                            }
                         )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                Spacer()
+            }
+            .coordinateSpace(name: "tabRow")
+            .onPreferenceChange(TabWidthPreference.self) { value in
+                tabFrames = value
+            }
+
+            ZStack(alignment: .leading) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.08))
+                    .frame(height: 1)
+
+                if let frame = tabFrames[selectedTab] {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(.white)
+                        .frame(width: frame.width, height: 2)
+                        .offset(x: frame.minX)
+                        .animation(
+                            .spring(response: 0.35, dampingFraction: 0.85), value: selectedTab)
+                }
             }
         }
     }
@@ -174,14 +188,6 @@ struct MeetingView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                )
-        )
     }
 
     private func configureChrome() {
@@ -199,10 +205,22 @@ struct MeetingView: View {
         // TODO: Implement actual share
         NSLog("[MeetingView] Share tapped for \(meetingTitle)")
     }
+
+    private struct TabWidthPreference: PreferenceKey {
+        static var defaultValue: [MeetingDetailTab: CGRect] = [:]
+
+        static func reduce(
+            value: inout [MeetingDetailTab: CGRect],
+            nextValue: () -> [MeetingDetailTab: CGRect]
+        ) {
+            value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+        }
+    }
 }
 
 private struct MeetingTranscriptView: View {
     let chunks: [MeetingChunkModel]
+    @State private var didCopyTranscript = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -212,7 +230,30 @@ private struct MeetingTranscriptView: View {
                     subtitle: "Transcript entries appear here automatically once available."
                 )
             } else {
-                VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Text("Transcript")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Spacer()
+                        Button {
+                            copyTranscript()
+                        } label: {
+                            Label(
+                                didCopyTranscript ? "Copied" : "Copy transcript",
+                                systemImage: didCopyTranscript ? "checkmark" : "doc.on.doc"
+                            )
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(didCopyTranscript ? 0.18 : 0.1))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
                     ForEach(chunks) { chunk in
                         HStack(alignment: .top, spacing: 12) {
                             if chunk.speaker == .user {
@@ -243,15 +284,32 @@ private struct MeetingTranscriptView: View {
                 }
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(AppTheme.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                        )
-                )
+
             }
+        }
+    }
+
+    private func copyTranscript() {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
+
+        let text =
+            chunks
+            .sorted(by: { $0.startedAt < $1.startedAt })
+            .map { chunk in
+                let speaker = chunk.speaker == .user ? "You" : "Them"
+                let timestamp = formatter.string(from: chunk.startedAt)
+                return "[\(speaker) \(timestamp)] \(chunk.transcript)"
+            }
+            .joined(separator: "\n\n")
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+
+        didCopyTranscript = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            didCopyTranscript = false
         }
     }
 
