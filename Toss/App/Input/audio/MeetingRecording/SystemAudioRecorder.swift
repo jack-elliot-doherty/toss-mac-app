@@ -24,7 +24,7 @@ final class SystemAudioRecorder: NSObject {
     private var currentURL: URL?
     private var currentStart: Date?
     private var chunkIndex = 0
-    private var timer: Timer?
+    private var timer: DispatchSourceTimer?
 
     private(set) var isRunning = false
     var onChunkReady: ((URL, Int, Date) -> Void)?
@@ -122,13 +122,14 @@ final class SystemAudioRecorder: NSObject {
     }
 
     private func scheduleRotation() {
-        timer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
-            [weak self] _ in
+        timer?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: streamQueue)
+        timer.schedule(deadline: .now() + chunkDuration, repeating: chunkDuration)
+        timer.setEventHandler { [weak self] in
             self?.rotateChunk()
         }
-        if let timer {
-            RunLoop.main.add(timer, forMode: .common)
-        }
+        timer.resume()
+        self.timer = timer
     }
 }
 
