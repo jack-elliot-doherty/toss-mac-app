@@ -29,6 +29,7 @@ final class SystemAudioRecorder: NSObject {
     private(set) var isRunning = false
     var onChunkReady: ((URL, Int, Date) -> Void)?
     var onError: ((Error) -> Void)?
+    var onReferenceBuffer: ((AVAudioPCMBuffer) -> Void)?
 
     func start() async throws {
         guard !isRunning else { return }
@@ -174,6 +175,12 @@ extension SystemAudioRecorder: SCStreamOutput {
             return
         }
 
+        inputBuffer.frameLength = frames
+
+        if let referenceCopy = inputBuffer.deepCopy() {
+            onReferenceBuffer?(referenceCopy)
+        }
+
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             NSLog("[SystemAudioRecorder] Failed to create audio converter")
             return
@@ -223,5 +230,20 @@ extension SystemAudioRecorder: SCStreamDelegate {
     @objc func stream(_ stream: SCStream, didStopWithError error: Error) {
         NSLog("[SystemAudioRecorder] Stream stopped with error: \(error)")
         onError?(error)
+    }
+}
+
+extension AVAudioPCMBuffer {
+    fileprivate func deepCopy() -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength) else {
+            return nil
+        }
+        copy.frameLength = frameLength
+        let channels = Int(format.channelCount)
+        let bytes = Int(frameLength) * MemoryLayout<Float>.size
+        for ch in 0..<channels {
+            memcpy(copy.floatChannelData![ch], floatChannelData![ch], bytes)
+        }
+        return copy
     }
 }

@@ -1,4 +1,5 @@
 import AVFoundation
+import Accelerate
 import AudioToolbox
 import Foundation
 
@@ -11,44 +12,29 @@ final class MeetingRecorder {
     }
 
     private let chunkDuration: TimeInterval = 15.0
+    private var voiceUnit: AudioUnit?
+    private var graph: AUGraph?
 
-    // Engine + voice-processing IO unit
-    private let engine = AVAudioEngine()
-    private let remotePlayer = AVAudioPlayerNode()
-    private let remoteReferenceQueue = DispatchQueue(label: "ai.toss.meeting.remote")
-    private lazy var voiceIO: AVAudioUnit = {
-        let desc = AudioComponentDescription(
-            componentType: kAudioUnitType_Output,
-            componentSubType: kAudioUnitSubType_VoiceProcessingIO,
-            componentManufacturer: kAudioUnitManufacturer_Apple,
-            componentFlags: 0,
-            componentFlagsMask: 0
-        )
+    // Buffering for remote reference (circular buffer simplified)
+    private let referenceLock = NSLock()
+    private var referenceBuffer: AVAudioPCMBuffer?
+    private var referenceReadOffset: Int = 0
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var createdUnit: AVAudioUnit?
-        var creationError: Error?
-
-        AVAudioUnit.instantiate(with: desc, options: []) { unit, error in
-            createdUnit = unit
-            creationError = error
-            semaphore.signal()
-        }
-        semaphore.wait()
-
-        if let error = creationError {
-            fatalError("Failed to create voice-processing unit: \(error)")
-        }
-        return createdUnit!
-    }()
-    private let mixer = AVAudioMixerNode()
-
+    // Conversion & Writing
     private var currentChunkFile: AVAudioFile?
     private var currentChunkURL: URL?
     private var currentChunkStartedAt: Date?
     private var chunkTimer: Timer?
     private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
+
+    // Target format: 16kHz Mono Float32
+    private let targetFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: 16000,
+        channels: 1,
+        interleaved: false
+    )!
 
     var onError: ((Error) -> Void)?
     var onLevelUpdate: ((Float) -> Void)?
@@ -61,151 +47,42 @@ final class MeetingRecorder {
         guard !isRunning else { return }
 
         do {
-            try configureVoiceProcessingIO()
-        } catch {
-            onError?(error)
-            return
-        }
+            try setupAudioGraph()
+            startNewChunk()
 
-        let micFormat = voiceIO.outputFormat(forBus: 1)  // processed mic bus
-        guard
-            let outputFormat = AVAudioFormat(
-                commonFormat: .pcmFormatFloat32,
-                sampleRate: 16_000,
-                channels: 1,
-                interleaved: false
-            )
-        else {
-            onError?(NSError(domain: "MeetingRecorder", code: 1, userInfo: nil))
-            return
-        }
+            var status = AUGraphInitialize(graph!)
+            try status.throwIfNeeded()
 
-        NSLog("[MeetingRecorder] Starting meeting recording at 16kHz mono")
+            status = AUGraphStart(graph!)
+            try status.throwIfNeeded()
 
-        if remotePlayer.engine == nil { engine.attach(remotePlayer) }
-        if voiceIO.engine == nil { engine.attach(voiceIO) }
-        if mixer.engine == nil { engine.attach(mixer) }
-
-        let referenceFormat = voiceIO.inputFormat(forBus: 0)
-
-        engine.connect(remotePlayer, to: voiceIO, fromBus: 0, toBus: 0, format: referenceFormat)
-        engine.connect(voiceIO, to: mixer, fromBus: 1, toBus: 0, format: micFormat)
-
-        guard let converter = AVAudioConverter(from: micFormat, to: outputFormat) else {
-            onError?(NSError(domain: "MeetingRecorder", code: 2, userInfo: nil))
-            return
-        }
-
-        startNewChunk(format: outputFormat)
-
-        mixer.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self] buffer, _ in
-            guard let self, let file = self.currentChunkFile else { return }
-
-            let frameCapacity = AVAudioFrameCount(
-                Double(buffer.frameLength) * outputFormat.sampleRate / micFormat.sampleRate)
-            guard
-                let convertedBuffer = AVAudioPCMBuffer(
-                    pcmFormat: outputFormat, frameCapacity: frameCapacity)
-            else { return }
-
-            var convertError: NSError?
-            let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-
-            converter.convert(to: convertedBuffer, error: &convertError, withInputFrom: inputBlock)
-
-            guard convertError == nil else {
-                NSLog("[MeetingRecorder] Conversion error: \(convertError!)")
-                return
-            }
-
-            self.ioQueue.async {
-                try? file.write(from: convertedBuffer)
-            }
-
-            if let ch0 = buffer.floatChannelData?[0] {
-                let count = Int(buffer.frameLength)
-                var sum: Float = 0
-                for i in 0..<count {
-                    let s = ch0[i]
-                    sum += s * s
-                }
-                let rms = min(1.0, max(0.0, sqrtf(sum / max(1, Float(count))) * 4.0))
-                DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
-            }
-        }
-
-        engine.prepare()
-
-        do {
-            try engine.start()
-            remotePlayer.play()
             isRunning = true
-            chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
-                [weak self] _ in
-                guard let self, let format = self.currentChunkFile?.processingFormat else { return }
-                self.rotateChunk(format: format)
+            NSLog("[MeetingRecorder] Voice Processing Graph started")
+
+            DispatchQueue.main.async { [weak self] in
+                self?.startRotationTimer()
             }
-            NSLog("[MeetingRecorder] Engine started, chunk rotation scheduled")
         } catch {
+            NSLog("[MeetingRecorder] Start failed: \(error)")
             onError?(error)
+            teardown()
         }
-    }
-
-    private func configureVoiceProcessingIO() throws {
-        if voiceIO.engine == nil {
-            engine.attach(voiceIO)
-        }
-
-        try voiceIO.setIO(enabled: true, scope: kAudioUnitScope_Input, bus: 1)  // enable mic
-        try voiceIO.setIO(enabled: false, scope: kAudioUnitScope_Output, bus: 0)  // disable speaker out
-        try voiceIO.setVoiceProcessing(bypassed: false)
-    }
-
-    private func startNewChunk(format: AVAudioFormat) {
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("meeting_chunk_\(chunkIndex)_\(UUID().uuidString).wav")
-
-        do {
-            let file = try AVAudioFile(forWriting: tmp, settings: format.settings)
-            currentChunkURL = tmp
-            currentChunkFile = file
-            currentChunkStartedAt = Date()
-            NSLog("[MeetingRecorder] Started chunk #\(chunkIndex)")
-        } catch {
-            onError?(error)
-        }
-    }
-
-    private func rotateChunk(format: AVAudioFormat) {
-        guard let url = currentChunkURL else { return }
-        let index = chunkIndex
-        let startedAt = currentChunkStartedAt ?? Date()
-
-        currentChunkFile = nil
-        DispatchQueue.main.async { [weak self] in
-            self?.onChunkReady?(url, index, startedAt)
-        }
-
-        chunkIndex += 1
-        startNewChunk(format: format)
     }
 
     func stop() -> RecordedChunk? {
         guard isRunning else { return nil }
+
         chunkTimer?.invalidate()
         chunkTimer = nil
-        mixer.removeTap(onBus: 0)
-        engine.stop()
-        remotePlayer.stop()
 
-        do {
-            try voiceIO.setVoiceProcessing(bypassed: true)
-        } catch {
-            NSLog("[MeetingRecorder] Failed to disable voice processing: \(error)")
+        if let graph = graph {
+            AUGraphStop(graph)
+            AUGraphUninitialize(graph)
+            AUGraphClose(graph)
+            DisposeAUGraph(graph)
         }
+        graph = nil
+        voiceUnit = nil
 
         isRunning = false
         isPaused = false
@@ -214,107 +91,335 @@ final class MeetingRecorder {
         let chunk = RecordedChunk(
             url: url, index: chunkIndex, startedAt: currentChunkStartedAt ?? Date())
 
-        currentChunkFile = nil
+        currentChunkFile = nil  // Closes file
         currentChunkURL = nil
         currentChunkStartedAt = nil
         chunkIndex = 0
+
         NSLog("[MeetingRecorder] Stopped")
         return chunk
     }
 
-    func pause() {
-        guard isRunning, !isPaused else { return }
-        chunkTimer?.invalidate()
-        chunkTimer = nil
-        if let format = currentChunkFile?.processingFormat {
-            rotateChunk(format: format)
+    // MARK: - Graph Setup
+
+    private func setupAudioGraph() throws {
+        var status = NewAUGraph(&graph)
+        try status.throwIfNeeded()
+
+        var cd = AudioComponentDescription(
+            componentType: kAudioUnitType_Output,
+            componentSubType: kAudioUnitSubType_VoiceProcessingIO,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
+
+        var node: AUNode = 0
+        status = AUGraphAddNode(graph!, &cd, &node)
+        try status.throwIfNeeded()
+
+        status = AUGraphOpen(graph!)
+        try status.throwIfNeeded()
+
+        status = AUGraphNodeInfo(graph!, node, nil, &voiceUnit)
+        try status.throwIfNeeded()
+
+        guard let unit = voiceUnit else {
+            throw NSError(domain: "MeetingRecorder", code: -1, userInfo: nil)
         }
-        engine.pause()
-        isPaused = true
+
+        // Enable Input scope (Mic)
+        var enable: UInt32 = 1
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enable, 4)
+        try status.throwIfNeeded()
+
+        // Enable Output scope (Speaker/Reference)
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enable, 4)
+        try status.throwIfNeeded()
+
+        // Setup Render Callback (Where we provide remote audio for AEC)
+        var renderCallback = AURenderCallbackStruct(
+            inputProc: renderRemoteReference,
+            inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        )
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &renderCallback,
+            UInt32(MemoryLayout<AURenderCallbackStruct>.size))
+        try status.throwIfNeeded()
+
+        // Setup Input Callback (Where we get processed mic audio)
+        var inputCallback = AURenderCallbackStruct(
+            inputProc: recordProcessedMic,
+            inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        )
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 1,
+            &inputCallback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
+        try status.throwIfNeeded()
+
+        // Set Format (Standard Float32)
+        var asbd = AudioStreamBasicDescription(
+            mSampleRate: 48000,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+                | kAudioFormatFlagIsNonInterleaved,
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
+
+        // Set format on Output of Bus 1 (Mic Output from Unit)
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &asbd,
+            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
+        try status.throwIfNeeded()
+
+        // Set format on Input of Bus 0 (Reference Input to Unit)
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &asbd,
+            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
+        try status.throwIfNeeded()
     }
 
-    func resume() {
-        guard isRunning, isPaused, let format = currentChunkFile?.processingFormat else { return }
-        engine.prepare()
-        do {
-            try engine.start()
-            isPaused = false
-            chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
-                [weak self] _ in self?.rotateChunk(format: format)
+    // MARK: - Remote Reference Ingestion
+
+    func ingestRemoteReference(_ buffer: AVAudioPCMBuffer) {
+        referenceLock.lock()
+        defer { referenceLock.unlock() }
+
+        guard buffer.format.sampleRate == 48_000 else {
+            NSLog(
+                "[MeetingRecorder] Reference buffer must be 48kHz; got \(buffer.format.sampleRate)")
+            return
+        }
+
+        let monoCopy = AVAudioPCMBuffer(
+            pcmFormat: AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: 48_000,
+                channels: 1,
+                interleaved: false)!,
+            frameCapacity: buffer.frameCapacity)!
+        monoCopy.frameLength = buffer.frameLength
+
+        let dst = monoCopy.floatChannelData![0]
+        let left = buffer.floatChannelData![0]
+        if buffer.format.channelCount == 2 {
+            let right = buffer.floatChannelData![1]
+            vDSP_vadd(left, 1, right, 1, dst, 1, vDSP_Length(buffer.frameLength))
+            var scale: Float = 0.5
+            vDSP_vsmul(dst, 1, &scale, dst, 1, vDSP_Length(buffer.frameLength))
+        } else {
+            memcpy(dst, left, Int(buffer.frameLength) * MemoryLayout<Float>.size)
+        }
+
+        referenceBuffer = monoCopy
+        referenceReadOffset = 0
+
+    }
+
+    // MARK: - Core Audio Callbacks
+
+    private let renderRemoteReference: AURenderCallback = {
+        (inRefCon, ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData) -> OSStatus in
+        let recorder = Unmanaged<MeetingRecorder>.fromOpaque(inRefCon).takeUnretainedValue()
+        let ioList = UnsafeMutableAudioBufferListPointer(ioData!)
+        let status = recorder.provideReferenceAudio(ioData: ioList, frameCount: inNumberFrames)
+        ioActionFlags.pointee.insert(.unitRenderAction_OutputIsSilence)
+        for i in 0..<ioList.count {
+            memset(ioList[i].mData, 0, Int(ioList[i].mDataByteSize))
+        }
+        return status
+    }
+
+    private func provideReferenceAudio(
+        ioData: UnsafeMutableAudioBufferListPointer, frameCount: UInt32
+    ) -> OSStatus {
+        referenceLock.lock()
+        defer { referenceLock.unlock() }
+
+        guard let ref = referenceBuffer else {
+            for i in 0..<ioData.count {
+                memset(ioData[i].mData, 0, Int(ioData[i].mDataByteSize))
             }
-            RunLoop.main.add(chunkTimer!, forMode: .common)
+            return noErr
+        }
+
+        let availableFrames = Int(ref.frameLength) - referenceReadOffset
+        let framesToCopy = min(Int(frameCount), availableFrames)
+        if framesToCopy <= 0 {
+            for i in 0..<ioData.count {
+                memset(ioData[i].mData, 0, Int(ioData[i].mDataByteSize))
+            }
+            return noErr
+        }
+
+        let bytes = framesToCopy * MemoryLayout<Float>.size
+        memcpy(ioData[0].mData, ref.floatChannelData![0] + referenceReadOffset, bytes)
+
+        if ioData.count > 1 {
+            memcpy(ioData[1].mData, ref.floatChannelData![0] + referenceReadOffset, bytes)
+        }
+
+        referenceReadOffset += framesToCopy
+        if referenceReadOffset >= Int(ref.frameLength) {
+            referenceBuffer = nil
+            referenceReadOffset = 0
+        }
+        return noErr
+    }
+
+    private let recordProcessedMic: AURenderCallback = {
+        (inRefCon, ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData) -> OSStatus in
+        let recorder = Unmanaged<MeetingRecorder>.fromOpaque(inRefCon).takeUnretainedValue()
+        return recorder.captureMicAudio(
+            frameCount: inNumberFrames, timeStamp: inTimeStamp, bus: inBusNumber)
+    }
+
+    private func captureMicAudio(
+        frameCount: UInt32, timeStamp: UnsafePointer<AudioTimeStamp>, bus: UInt32
+    ) -> OSStatus {
+        guard let unit = voiceUnit else { return noErr }
+
+        var bufferList = AudioBufferList()
+        bufferList.mNumberBuffers = 1
+        bufferList.mBuffers.mNumberChannels = 1
+        bufferList.mBuffers.mDataByteSize = frameCount * 4
+        bufferList.mBuffers.mData = nil  // AudioUnitRender will allocate if null, or we provide scratch memory.
+
+        // We need to allocate a buffer for AudioUnitRender to fill
+        // Or simpler: Use an AVAudioPCMBuffer wrapper.
+
+        // Let's alloc a temporary buffer
+        let byteSize = Int(frameCount * 4)
+        let rawPointer = UnsafeMutableRawPointer.allocate(byteCount: byteSize, alignment: 16)
+        defer { rawPointer.deallocate() }
+
+        bufferList.mBuffers.mData = rawPointer
+
+        var flags: AudioUnitRenderActionFlags = []
+        var ts = timeStamp.pointee
+
+        let status = AudioUnitRender(unit, &flags, &ts, 1, frameCount, &bufferList)
+        if status == noErr {
+            // We have processed audio in rawPointer!
+            // Convert to 16kHz and Write to file
+            processAndWriteMicData(data: rawPointer, frames: frameCount)
+        }
+
+        return status
+    }
+
+    private func processAndWriteMicData(data: UnsafeMutableRawPointer, frames: UInt32) {
+        // Wrap in AVAudioPCMBuffer
+        guard
+            let pcmBuffer = AVAudioPCMBuffer(
+                pcmFormat: AVAudioFormat(
+                    commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1,
+                    interleaved: false)!, frameCapacity: AVAudioFrameCount(frames))
+        else { return }
+
+        pcmBuffer.frameLength = AVAudioFrameCount(frames)
+        memcpy(pcmBuffer.floatChannelData![0], data, Int(frames * 4))
+
+        // Convert to 16kHz
+        guard let converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat),
+            let outputBuffer = AVAudioPCMBuffer(
+                pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(frames))
+        else { return }
+
+        var error: NSError?
+        converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return pcmBuffer
+        }
+
+        if let file = currentChunkFile {
+            ioQueue.async {
+                try? file.write(from: outputBuffer)
+            }
+        }
+
+        // Level Metering
+        let count = Int(frames)
+        let samples = pcmBuffer.floatChannelData![0]
+        var sum: Float = 0
+        for i in 0..<count {
+            let s = samples[i]
+            sum += s * s
+        }
+        let rms = min(1.0, max(0.0, sqrtf(sum / max(1, Float(count))) * 4.0))
+        DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
+    }
+
+    // MARK: - Lifecycle Helpers
+
+    private func startNewChunk() {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("meeting_chunk_\(chunkIndex)_\(UUID().uuidString).wav")
+        do {
+            currentChunkFile = try AVAudioFile(forWriting: tmp, settings: targetFormat.settings)
+            currentChunkURL = tmp
+            currentChunkStartedAt = Date()
+            NSLog("[MeetingRecorder] Started chunk #\(chunkIndex)")
         } catch {
             onError?(error)
         }
     }
 
-    func ingestRemoteReference(_ buffer: AVAudioPCMBuffer) {
-        remoteReferenceQueue.async { [weak self] in
-            guard let self, self.isRunning, let prepared = self.prepareReferenceBuffer(buffer)
-            else { return }
-            self.remotePlayer.scheduleBuffer(prepared, completionHandler: nil)
+    private func startRotationTimer() {
+        chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
+            [weak self] _ in
+            guard let self = self else { return }
+            self.rotateChunk()
         }
     }
 
-    private func prepareReferenceBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
-        let targetFormat = voiceIO.inputFormat(forBus: 0)
+    private func rotateChunk() {
+        guard let url = currentChunkURL else { return }
+        let idx = chunkIndex
+        let start = currentChunkStartedAt ?? Date()
 
-        if buffer.matches(format: targetFormat) {
-            return buffer.deepCopy()
+        currentChunkFile = nil  // Flush file
+        DispatchQueue.main.async { [weak self] in
+            self?.onChunkReady?(url, idx, start)
         }
 
-        guard
-            let converter = AVAudioConverter(from: buffer.format, to: targetFormat),
-            let converted = AVAudioPCMBuffer(
-                pcmFormat: targetFormat,
-                frameCapacity: AVAudioFrameCount(
-                    Double(buffer.frameLength) * targetFormat.sampleRate / buffer.format.sampleRate)
-            )
-        else { return nil }
+        chunkIndex += 1
+        startNewChunk()
+    }
 
-        var error: NSError?
-        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
-            outStatus.pointee = .haveData
-            return buffer
+    private func teardown() {
+        if let graph = graph {
+            AUGraphStop(graph)
+            AUGraphUninitialize(graph)
+            AUGraphClose(graph)
+            DisposeAUGraph(graph)
         }
-        converter.convert(to: converted, error: &error, withInputFrom: inputBlock)
-        return error == nil ? converted : nil
+        graph = nil
+        voiceUnit = nil
+        isRunning = false
     }
 
-}
-// MARK: - AudioUnit helpers
-
-extension AVAudioUnit {
-    fileprivate func setIO(enabled: Bool, scope: AudioUnitScope, bus: AudioUnitElement) throws {
-        var value: UInt32 = enabled ? 1 : 0
-        let status = AudioUnitSetProperty(
-            audioUnit,
-            kAudioOutputUnitProperty_EnableIO,
-            scope,
-            bus,
-            &value,
-            UInt32(MemoryLayout.size(ofValue: value))
-        )
-        try status.throwIfNeeded()
+    func pause() {
+        // MVP: Just stop graph? Or pause writing?
+        // For now, let's just stop to be safe.
+        _ = stop()
     }
 
-    fileprivate func setVoiceProcessing(bypassed: Bool) throws {
-        var flag: UInt32 = bypassed ? 1 : 0
-        let status = AudioUnitSetProperty(
-            audioUnit,
-            kAUVoiceIOProperty_BypassVoiceProcessing,
-            kAudioUnitScope_Global,
-            0,
-            &flag,
-            UInt32(MemoryLayout.size(ofValue: flag))
-        )
-        try status.throwIfNeeded()
+    func resume() {
+        start()
     }
 }
 
 extension OSStatus {
     fileprivate func throwIfNeeded() throws {
-        guard self == noErr else {
+        if self != noErr {
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(self), userInfo: nil)
         }
     }
@@ -326,17 +431,11 @@ extension AVAudioPCMBuffer {
             return nil
         }
         copy.frameLength = frameLength
-        let channels = Int(format.channelCount)
-        let bytes = Int(frameLength) * MemoryLayout<Float>.size
-        for ch in 0..<channels {
-            memcpy(copy.floatChannelData![ch], floatChannelData![ch], bytes)
+        if let src = floatChannelData, let dst = copy.floatChannelData {
+            for i in 0..<Int(format.channelCount) {
+                memcpy(dst[i], src[i], Int(frameLength) * 4)
+            }
         }
         return copy
-    }
-
-    fileprivate func matches(format other: AVAudioFormat) -> Bool {
-        format.commonFormat == other.commonFormat && format.sampleRate == other.sampleRate
-            && format.channelCount == other.channelCount && !format.isInterleaved
-            && !other.isInterleaved
     }
 }
