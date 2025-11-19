@@ -87,7 +87,20 @@ struct ContentView: View {
             action: nil
         )
     )
+
+    @ObservedObject private var onboarding = OnboardingManager.shared
+
     var body: some View {
+        if onboarding.needsOnboarding {
+            OnboardingView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AppTheme.windowBackground)
+        } else {
+            main
+        }
+    }
+
+    var main: some View {
         ZStack {
             AppTheme.windowBackground
                 .ignoresSafeArea()
@@ -103,7 +116,7 @@ struct ContentView: View {
             .padding(.horizontal, 6)
             .padding(.top, 6)
             .padding(.bottom, 6)
-            .frame(minWidth: 980, minHeight: 600)
+            .frame(minWidth: 750, minHeight: 600)
             .onReceive(
                 NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
             ) { notification in

@@ -318,6 +318,17 @@ final class PillController {
     // MARK: - Meeting recording handlers
 
     private func handleStartMeetingRecording(_ meetingId: UUID) {
+
+        guard ScreenRecordingAuth.status() else {
+            toast.show(
+                icon: Image(systemName: "speaker.slash"),
+                title: "Enable Screen Recording",
+                subtitle: "Allow in System Settings to capture remote audio.",
+                duration: 4
+            )
+            return
+        }
+
         guard meetingRecorder == nil else { return }
 
         activeMeetingId = meetingId
@@ -342,21 +353,31 @@ final class PillController {
         meetingRecorder = recorder
 
         let systemRecorder = SystemAudioRecorder()
+        systemRecorder.onReferenceBuffer = { [weak recorder] buffer in
+            recorder?.ingestRemoteReference(buffer)
+        }
         systemRecorder.onChunkReady = { [weak self] url, index, startedAt in
             guard let self, self.activeMeetingId != nil else { return }
             self.send(.meetingChunkReady(.remote, url, index, startedAt))
         }
-        do {
-            try systemRecorder.start()
-            systemAudioMeetingRecorder = systemRecorder
-        } catch {
-            NSLog("[PillController] System audio recorder error: \(error)")
-            toast.show(
-                icon: Image(systemName: "speaker.slash"),
-                title: "System audio unavailable",
-                subtitle: error.localizedDescription,
-                duration: 4
-            )
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await systemRecorder.start()
+                await MainActor.run {
+                    self.systemAudioMeetingRecorder = systemRecorder
+                }
+            } catch {
+                NSLog("[PillController] System audio recorder error: \(error)")
+                await MainActor.run {
+                    self.toast.show(
+                        icon: Image(systemName: "speaker.slash"),
+                        title: "System audio unavailable",
+                        subtitle: error.localizedDescription,
+                        duration: 4
+                    )
+                }
+            }
         }
 
         SoundFeedback.shared.playStart()

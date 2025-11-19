@@ -8,6 +8,6 @@ struct TossApp: App {
         Window("Toss", id: "main") {
             ContentView().environmentObject(appDelegate.meetingRepository)
         }
-        .defaultSize(width: 820, height: 520)
+        .defaultSize(width: 820, height: 400)
     }
 }

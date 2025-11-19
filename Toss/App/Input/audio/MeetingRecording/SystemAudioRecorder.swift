@@ -2,6 +2,7 @@ import AVFoundation
 import CoreMedia
 import CoreVideo
 import QuartzCore
+import ScreenCaptureKit
 
 final class SystemAudioRecorder: NSObject {
     struct RecordedChunk {
@@ -11,15 +12,14 @@ final class SystemAudioRecorder: NSObject {
     }
 
     private let chunkDuration: TimeInterval = 15
-    private let session = AVCaptureSession()
-    private let audioOutput = AVCaptureAudioDataOutput()
-    private let processingQueue = DispatchQueue(label: "ai.toss.system-audio.capture")
+    private let streamQueue = DispatchQueue(label: "ai.toss.system-audio.stream")
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
         sampleRate: 16_000,
         channels: 1,
         interleaved: false)!
 
+    private var stream: SCStream?
     private var currentFile: AVAudioFile?
     private var currentURL: URL?
     private var currentStart: Date?
@@ -30,72 +30,62 @@ final class SystemAudioRecorder: NSObject {
     var onChunkReady: ((URL, Int, Date) -> Void)?
     var onError: ((Error) -> Void)?
 
-    func start() throws {
+    func start() async throws {
         guard !isRunning else { return }
 
-        guard let screenInput = AVCaptureScreenInput(displayID: CGMainDisplayID()) else {
+        NSLog("[SystemAudioRecorder] Starting system audio capture...")
+
+        let content = try await SCShareableContent.current
+        guard let display = content.displays.first else {
             throw NSError(
                 domain: "SystemAudioRecorder",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Unable to access display"])
-        }
-        screenInput.capturesCursor = false
-        screenInput.capturesMouseClicks = false
-
-        session.beginConfiguration()
-        session.sessionPreset = .high
-
-        if session.canAddInput(screenInput) {
-            session.addInput(screenInput)
-        } else {
-            session.commitConfiguration()
-            throw NSError(
-                domain: "SystemAudioRecorder",
-                code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Cannot add screen input"])
+                code: -10,
+                userInfo: [NSLocalizedDescriptionKey: "No displays available for capture"])
         }
 
-        if session.canAddOutput(audioOutput) {
-            session.addOutput(audioOutput)
-        } else {
-            session.commitConfiguration()
-            throw NSError(
-                domain: "SystemAudioRecorder",
-                code: -3,
-                userInfo: [NSLocalizedDescriptionKey: "Cannot add audio output"])
-        }
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let configuration = SCStreamConfiguration()
+        configuration.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+        configuration.queueDepth = 4
+        configuration.showsCursor = false
+        configuration.capturesAudio = true
 
-        session.commitConfiguration()
-
-        audioOutput.setSampleBufferDelegate(self, queue: processingQueue)
+        let stream = SCStream(filter: filter, configuration: configuration, delegate: self)
+        try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: streamQueue)
 
         startNewChunk()
         scheduleRotation()
 
-        session.startRunning()
+        try await stream.startCapture()
+        self.stream = stream
         isRunning = true
+        NSLog("[SystemAudioRecorder] System audio capture started successfully")
     }
 
     func stop() -> RecordedChunk? {
         guard isRunning else { return nil }
-
         timer?.invalidate()
         timer = nil
-        session.stopRunning()
         isRunning = false
 
+        stream?.stopCapture(completionHandler: nil)
+        stream = nil
+
+        if let file = currentFile {
+            file.close()
+        }
+
         guard let url = currentURL else { return nil }
-        let chunk = RecordedChunk(
-            url: url,
-            index: chunkIndex,
-            startedAt: currentStart ?? Date()
-        )
+        let idx = chunkIndex
+        let started = currentStart ?? Date()
 
         currentFile = nil
         currentURL = nil
         currentStart = nil
         chunkIndex = 0
-        return chunk
+
+        NSLog("[SystemAudioRecorder] Stopped. Final chunk: \(url.lastPathComponent)")
+        return RecordedChunk(url: url, index: idx, startedAt: started)
     }
 
     private func startNewChunk() {
@@ -105,7 +95,10 @@ final class SystemAudioRecorder: NSObject {
             currentFile = try AVAudioFile(forWriting: tmp, settings: targetFormat.settings)
             currentURL = tmp
             currentStart = Date()
+            NSLog(
+                "[SystemAudioRecorder] Started new chunk #\(chunkIndex): \(tmp.lastPathComponent)")
         } catch {
+            NSLog("[SystemAudioRecorder] Error starting chunk: \(error)")
             onError?(error)
         }
     }
@@ -114,11 +107,14 @@ final class SystemAudioRecorder: NSObject {
         guard let url = currentURL else { return }
         let idx = chunkIndex
         let started = currentStart ?? Date()
-        currentFile = nil
 
         DispatchQueue.main.async { [weak self] in
             self?.onChunkReady?(url, idx, started)
         }
+
+        currentFile = nil
+        currentURL = nil
+        currentStart = nil
 
         chunkIndex += 1
         startNewChunk()
@@ -135,17 +131,23 @@ final class SystemAudioRecorder: NSObject {
     }
 }
 
-extension SystemAudioRecorder: AVCaptureAudioDataOutputSampleBufferDelegate {
-    func captureOutput(
-        _ output: AVCaptureOutput,
-        didOutput sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
+extension SystemAudioRecorder: SCStreamOutput {
+    func stream(
+        _ stream: SCStream,
+        didOutputSampleBuffer sampleBuffer: CMSampleBuffer,
+        of outputType: SCStreamOutputType
     ) {
-        guard let file = currentFile,
+        guard outputType == .audio,
+            let file = currentFile,
+            CMSampleBufferGetNumSamples(sampleBuffer) > 0,
             let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
-            let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc),
-            let block = CMSampleBufferGetDataBuffer(sampleBuffer)
-        else { return }
+            let asbd = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
+        else {
+            if outputType == .audio {
+                NSLog("[SystemAudioRecorder] Audio sample buffer received but guard failed")
+            }
+            return
+        }
 
         let inputFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -154,35 +156,72 @@ extension SystemAudioRecorder: AVCaptureAudioDataOutputSampleBufferDelegate {
             interleaved: false)!
         let frames = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
 
+        NSLog(
+            "[SystemAudioRecorder] Received audio: \(frames) frames, \(asbd.pointee.mSampleRate) Hz, \(asbd.pointee.mChannelsPerFrame) channels"
+        )
+
         guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: frames),
             let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frames)
-        else { return }
+        else {
+            NSLog("[SystemAudioRecorder] Failed to create audio buffers")
+            return
+        }
 
-        inputBuffer.frameLength = frames
-        block.copyAudioBufferContents(to: inputBuffer)
+        do {
+            try sampleBuffer.copyPCMData(into: inputBuffer)
+        } catch {
+            NSLog("[SystemAudioRecorder] Failed to copy audio data: \(error)")
+            return
+        }
 
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else { return }
-        converter.convert(to: outputBuffer, error: nil) { _, _ in inputBuffer }
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            NSLog("[SystemAudioRecorder] Failed to create audio converter")
+            return
+        }
 
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            outStatus.pointee = .haveData
+            return inputBuffer
+        }
+
+        var convertError: NSError?
+        converter.convert(to: outputBuffer, error: &convertError, withInputFrom: inputBlock)
+
+        if let convertError {
+            NSLog("[SystemAudioRecorder] Conversion error: \(convertError)")
+            return
+        }
         do {
             try file.write(from: outputBuffer)
         } catch {
+            NSLog("[SystemAudioRecorder] Error writing audio: \(error)")
             onError?(error)
         }
     }
 }
+extension CMSampleBuffer {
+    fileprivate func copyPCMData(into buffer: AVAudioPCMBuffer) throws {
+        let frameCount = CMSampleBufferGetNumSamples(self)
+        guard frameCount > 0 else { return }
 
-extension CMBlockBuffer {
-    fileprivate func copyAudioBufferContents(to buffer: AVAudioPCMBuffer) {
-        let length = Int(buffer.frameLength) * Int(buffer.stride)
-        var data = Data(count: length)
-        data.withUnsafeMutableBytes { dest in
-            _ = CMBlockBufferCopyDataBytes(
-                self,
-                atOffset: 0,
-                dataLength: length,
-                destination: dest.baseAddress!)
+        buffer.frameLength = AVAudioFrameCount(frameCount)
+
+        let status = CMSampleBufferCopyPCMDataIntoAudioBufferList(
+            self,
+            at: 0,
+            frameCount: Int32(frameCount),
+            into: buffer.mutableAudioBufferList
+        )
+
+        guard status == noErr else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status), userInfo: nil)
         }
-        memcpy(buffer.floatChannelData![0], data.withUnsafeBytes { $0.baseAddress! }, length)
+    }
+}
+
+extension SystemAudioRecorder: SCStreamDelegate {
+    @objc func stream(_ stream: SCStream, didStopWithError error: Error) {
+        NSLog("[SystemAudioRecorder] Stream stopped with error: \(error)")
+        onError?(error)
     }
 }

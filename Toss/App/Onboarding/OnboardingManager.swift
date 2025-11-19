@@ -10,11 +10,12 @@ final class OnboardingManager: ObservableObject {
     @Published var micStatus: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(
         for: .audio)
     @Published var isSignedIn: Bool = false
+    @Published var screenGranted: Bool = ScreenRecordingAuth.status()
 
     private var cancellables = Set<AnyCancellable>()
 
     var micGranted: Bool { micStatus == .authorized }
-    var needsOnboarding: Bool { !isSignedIn || !axGranted || !micGranted }
+    var needsOnboarding: Bool { !isSignedIn || !axGranted || !micGranted || !screenGranted }
 
     private init() {  // Initial state
         isSignedIn = AuthManager.shared.isAuthenticated
@@ -43,6 +44,7 @@ final class OnboardingManager: ObservableObject {
         axGranted = AccessibilityAuth.isTrusted()
         micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         isSignedIn = AuthManager.shared.isAuthenticated
+        screenGranted = ScreenRecordingAuth.status()
     }
 
     func requestAX() {
@@ -70,5 +72,15 @@ final class OnboardingManager: ObservableObject {
         {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    func requestScreenRecording() {
+        ScreenRecordingAuth.requestAccess { granted in
+            self.screenGranted = granted
+        }
+    }
+
+    func openScreenSettings() {
+        ScreenRecordingAuth.openSettings()
     }
 }

@@ -49,6 +49,7 @@
 		DA7827A22EBE94CC0040ED92 /* MeetingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA78279F2EBE94CC0040ED92 /* MeetingRecorder.swift */; };
 		DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */; };
 		DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */; };
+		DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */; };
 		DAD483E72EBCE56A001C5902 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD483E62EBCE56A001C5902 /* Config.swift */; };
 		DAEB72382EBD5739006A17C7 /* TossUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */; };
 		DAEB72392EBD5739006A17C7 /* TossTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72332EBD5739006A17C7 /* TossTests.swift */; };
@@ -120,6 +121,7 @@
 		DA78279F2EBE94CC0040ED92 /* MeetingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRecorder.swift; sourceTree = "<group>"; };
 		DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetector.swift; sourceTree = "<group>"; };
 		DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingView.swift; sourceTree = "<group>"; };
+		DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecordingAuth.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -223,6 +225,7 @@
 		DA3623592EB23FCE000207F0 /* System */ = {
 			isa = PBXGroup;
 			children = (
+				DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */,
 				DA3623552EB23FCE000207F0 /* Accessibility.swift */,
 				DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */,
 				DA3623582EB23FCE000207F0 /* PasteManager.swift */,
@@ -510,6 +513,7 @@
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
 				DA34275B2ECA889500F85DEB /* SystemAudioRecorder.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
+				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
