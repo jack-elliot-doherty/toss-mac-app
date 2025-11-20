@@ -162,6 +162,11 @@ final class MeetingRecorder {
             unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &asbd,
             UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
         try status.throwIfNeeded()
+
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &asbd,
+            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
+        try status.throwIfNeeded()
     }
 
     func updateRemoteLevel(_ level: Float) {
