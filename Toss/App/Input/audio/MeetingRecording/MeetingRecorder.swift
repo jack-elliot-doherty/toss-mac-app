@@ -130,27 +130,7 @@ final class MeetingRecorder {
             throw NSError(domain: "MeetingRecorder", code: -1, userInfo: nil)
         }
 
-        // add here:
-        var zero: UInt32 = 0
-        status = AudioUnitSetProperty(
-            unit,
-            kAUVoiceIOProperty_DuckNonVoiceAudio,
-            kAudioUnitScope_Global,
-            0,
-            &zero,
-            UInt32(MemoryLayout<UInt32>.size))
-        try status.throwIfNeeded()
-
-        var one: UInt32 = 1
-        status = AudioUnitSetProperty(
-            unit,
-            kAUVoiceIOProperty_BypassVoiceProcessing,
-            kAudioUnitScope_Global,
-            0,
-            &one,
-            UInt32(MemoryLayout<UInt32>.size))
-        try status.throwIfNeeded()
-
+        // Enable IO
         var enable: UInt32 = 1
         status = AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enable, 4)
@@ -160,6 +140,19 @@ final class MeetingRecorder {
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enable, 4)
         try status.throwIfNeeded()
 
+        // Disable OS auto-ducking (Safe to keep)
+        var zero: UInt32 = 0
+        status = AudioUnitSetProperty(
+            unit,
+            kAUVoiceIOProperty_DuckNonVoiceAudio,
+            kAudioUnitScope_Global,
+            0,
+            &zero,
+            UInt32(MemoryLayout<UInt32>.size))
+        // Log if unsupported, but don't throw
+        if status != noErr { NSLog("[MeetingRecorder] DuckNonVoiceAudio result: \(status)") }
+
+        // Callbacks
         var inputCallback = AURenderCallbackStruct(
             inputProc: recordProcessedMic,
             inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
@@ -169,6 +162,7 @@ final class MeetingRecorder {
             &inputCallback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
         try status.throwIfNeeded()
 
+        // Formats - MUST match on Input 0 and Output 1 for VPIO initialization
         var asbd = AudioStreamBasicDescription(
             mSampleRate: 48_000,
             mFormatID: kAudioFormatLinearPCM,
