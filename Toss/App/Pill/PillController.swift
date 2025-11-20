@@ -353,8 +353,8 @@ final class PillController {
         meetingRecorder = recorder
 
         let systemRecorder = SystemAudioRecorder()
-        systemRecorder.onReferenceBuffer = { [weak recorder] buffer in
-            recorder?.ingestRemoteReference(buffer)
+        systemRecorder.onRemoteLevel = { [weak recorder] level in
+            recorder?.updateRemoteLevel(level)
         }
         systemRecorder.onChunkReady = { [weak self] url, index, startedAt in
             guard let self, self.activeMeetingId != nil else { return }

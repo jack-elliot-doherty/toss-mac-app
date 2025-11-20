@@ -15,10 +15,9 @@ final class MeetingRecorder {
     private var voiceUnit: AudioUnit?
     private var graph: AUGraph?
 
-    // Buffering for remote reference (circular buffer simplified)
-    private let referenceLock = NSLock()
-    private var referenceBuffer: AVAudioPCMBuffer?
-    private var referenceReadOffset: Int = 0
+    private var ducking = DuckingProcessor()
+    private var remoteLevelRMS: Float = 0
+    private let remoteLevelLock = NSLock()
 
     // Conversion & Writing
     private var currentChunkFile: AVAudioFile?
@@ -128,28 +127,15 @@ final class MeetingRecorder {
             throw NSError(domain: "MeetingRecorder", code: -1, userInfo: nil)
         }
 
-        // Enable Input scope (Mic)
         var enable: UInt32 = 1
         status = AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enable, 4)
         try status.throwIfNeeded()
 
-        // Enable Output scope (Speaker/Reference)
         status = AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enable, 4)
         try status.throwIfNeeded()
 
-        // Setup Render Callback (Where we provide remote audio for AEC)
-        var renderCallback = AURenderCallbackStruct(
-            inputProc: renderRemoteReference,
-            inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        )
-        status = AudioUnitSetProperty(
-            unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0, &renderCallback,
-            UInt32(MemoryLayout<AURenderCallbackStruct>.size))
-        try status.throwIfNeeded()
-
-        // Setup Input Callback (Where we get processed mic audio)
         var inputCallback = AURenderCallbackStruct(
             inputProc: recordProcessedMic,
             inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
@@ -159,9 +145,8 @@ final class MeetingRecorder {
             &inputCallback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
         try status.throwIfNeeded()
 
-        // Set Format (Standard Float32)
         var asbd = AudioStreamBasicDescription(
-            mSampleRate: 48000,
+            mSampleRate: 48_000,
             mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
                 | kAudioFormatFlagIsNonInterleaved,
@@ -173,105 +158,22 @@ final class MeetingRecorder {
             mReserved: 0
         )
 
-        // Set format on Output of Bus 1 (Mic Output from Unit)
         status = AudioUnitSetProperty(
             unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &asbd,
             UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
         try status.throwIfNeeded()
-
-        // Set format on Input of Bus 0 (Reference Input to Unit)
-        status = AudioUnitSetProperty(
-            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &asbd,
-            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
-        try status.throwIfNeeded()
     }
 
-    // MARK: - Remote Reference Ingestion
-
-    func ingestRemoteReference(_ buffer: AVAudioPCMBuffer) {
-        referenceLock.lock()
-        defer { referenceLock.unlock() }
-
-        guard buffer.format.sampleRate == 48_000 else {
-            NSLog(
-                "[MeetingRecorder] Reference buffer must be 48kHz; got \(buffer.format.sampleRate)")
-            return
-        }
-
-        let monoCopy = AVAudioPCMBuffer(
-            pcmFormat: AVAudioFormat(
-                commonFormat: .pcmFormatFloat32,
-                sampleRate: 48_000,
-                channels: 1,
-                interleaved: false)!,
-            frameCapacity: buffer.frameCapacity)!
-        monoCopy.frameLength = buffer.frameLength
-
-        let dst = monoCopy.floatChannelData![0]
-        let left = buffer.floatChannelData![0]
-        if buffer.format.channelCount == 2 {
-            let right = buffer.floatChannelData![1]
-            vDSP_vadd(left, 1, right, 1, dst, 1, vDSP_Length(buffer.frameLength))
-            var scale: Float = 0.5
-            vDSP_vsmul(dst, 1, &scale, dst, 1, vDSP_Length(buffer.frameLength))
-        } else {
-            memcpy(dst, left, Int(buffer.frameLength) * MemoryLayout<Float>.size)
-        }
-
-        referenceBuffer = monoCopy
-        referenceReadOffset = 0
-
+    func updateRemoteLevel(_ level: Float) {
+        remoteLevelLock.lock()
+        remoteLevelRMS = level
+        remoteLevelLock.unlock()
     }
 
-    // MARK: - Core Audio Callbacks
-
-    private let renderRemoteReference: AURenderCallback = {
-        (inRefCon, ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData) -> OSStatus in
-        let recorder = Unmanaged<MeetingRecorder>.fromOpaque(inRefCon).takeUnretainedValue()
-        let ioList = UnsafeMutableAudioBufferListPointer(ioData!)
-        let status = recorder.provideReferenceAudio(ioData: ioList, frameCount: inNumberFrames)
-        ioActionFlags.pointee.insert(.unitRenderAction_OutputIsSilence)
-        for i in 0..<ioList.count {
-            memset(ioList[i].mData, 0, Int(ioList[i].mDataByteSize))
-        }
-        return status
-    }
-
-    private func provideReferenceAudio(
-        ioData: UnsafeMutableAudioBufferListPointer, frameCount: UInt32
-    ) -> OSStatus {
-        referenceLock.lock()
-        defer { referenceLock.unlock() }
-
-        guard let ref = referenceBuffer else {
-            for i in 0..<ioData.count {
-                memset(ioData[i].mData, 0, Int(ioData[i].mDataByteSize))
-            }
-            return noErr
-        }
-
-        let availableFrames = Int(ref.frameLength) - referenceReadOffset
-        let framesToCopy = min(Int(frameCount), availableFrames)
-        if framesToCopy <= 0 {
-            for i in 0..<ioData.count {
-                memset(ioData[i].mData, 0, Int(ioData[i].mDataByteSize))
-            }
-            return noErr
-        }
-
-        let bytes = framesToCopy * MemoryLayout<Float>.size
-        memcpy(ioData[0].mData, ref.floatChannelData![0] + referenceReadOffset, bytes)
-
-        if ioData.count > 1 {
-            memcpy(ioData[1].mData, ref.floatChannelData![0] + referenceReadOffset, bytes)
-        }
-
-        referenceReadOffset += framesToCopy
-        if referenceReadOffset >= Int(ref.frameLength) {
-            referenceBuffer = nil
-            referenceReadOffset = 0
-        }
-        return noErr
+    private func currentRemoteLevel() -> Float {
+        remoteLevelLock.lock()
+        defer { remoteLevelLock.unlock() }
+        return remoteLevelRMS
     }
 
     private let recordProcessedMic: AURenderCallback = {
@@ -316,19 +218,45 @@ final class MeetingRecorder {
     }
 
     private func processAndWriteMicData(data: UnsafeMutableRawPointer, frames: UInt32) {
-        // Wrap in AVAudioPCMBuffer
         guard
             let pcmBuffer = AVAudioPCMBuffer(
                 pcmFormat: AVAudioFormat(
-                    commonFormat: .pcmFormatFloat32, sampleRate: 48000, channels: 1,
-                    interleaved: false)!, frameCapacity: AVAudioFrameCount(frames))
+                    commonFormat: .pcmFormatFloat32,
+                    sampleRate: 48_000,
+                    channels: 1,
+                    interleaved: false
+                )!,
+                frameCapacity: AVAudioFrameCount(frames)
+            )
         else { return }
 
         pcmBuffer.frameLength = AVAudioFrameCount(frames)
         memcpy(pcmBuffer.floatChannelData![0], data, Int(frames * 4))
 
-        // Convert to 16kHz
-        guard let converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat),
+        let samples = pcmBuffer.floatChannelData![0]
+        let count = Int(frames)
+
+        var sum: Float = 0
+        for i in 0..<count {
+            let s = samples[i]
+            sum += s * s
+        }
+        let micRMS = sqrtf(sum / max(1, Float(count)))
+
+        let uiLevel = min(1.0, micRMS * 4.0)
+        DispatchQueue.main.async { [weak self] in
+            self?.onLevelUpdate?(uiLevel)
+        }
+
+        let remote = currentRemoteLevel()
+        let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
+        if gain < 0.999 {
+            var g = gain
+            vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(count))
+        }
+
+        guard
+            let converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat),
             let outputBuffer = AVAudioPCMBuffer(
                 pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(frames))
         else { return }
@@ -339,24 +267,20 @@ final class MeetingRecorder {
             return pcmBuffer
         }
 
-        if let file = currentChunkFile {
-            ioQueue.async {
-                try? file.write(from: outputBuffer)
+        if let error {
+            NSLog("[MeetingRecorder] Conversion error: \(error)")
+            return
+        }
+
+        guard let file = currentChunkFile else { return }
+        ioQueue.async {
+            do {
+                try file.write(from: outputBuffer)
+            } catch {
+                NSLog("[MeetingRecorder] Error writing mic audio: \(error)")
             }
         }
-
-        // Level Metering
-        let count = Int(frames)
-        let samples = pcmBuffer.floatChannelData![0]
-        var sum: Float = 0
-        for i in 0..<count {
-            let s = samples[i]
-            sum += s * s
-        }
-        let rms = min(1.0, max(0.0, sqrtf(sum / max(1, Float(count))) * 4.0))
-        DispatchQueue.main.async { [weak self] in self?.onLevelUpdate?(rms) }
     }
-
     // MARK: - Lifecycle Helpers
 
     private func startNewChunk() {
@@ -417,25 +341,40 @@ final class MeetingRecorder {
     }
 }
 
+private struct DuckingProcessor {
+    var remoteThreshold: Float = 0.08
+    var micQuietThreshold: Float = 0.03
+    var strongDuckGain: Float = 0.25
+    var mildDuckGain: Float = 0.85
+    var attack: Float = 0.05
+    var release: Float = 0.2
+    private(set) var currentGain: Float = 1.0
+
+    mutating func gain(remoteLevel: Float, micLevel: Float) -> Float {
+        let target: Float
+        if remoteLevel > remoteThreshold {
+            target = micLevel < micQuietThreshold ? strongDuckGain : mildDuckGain
+        } else {
+            target = 1.0
+        }
+
+        let diff = target - currentGain
+        if abs(diff) < 0.001 {
+            currentGain = target
+            return currentGain
+        }
+
+        let step = diff > 0 ? attack : release
+        currentGain += diff * step
+        currentGain = max(strongDuckGain, min(currentGain, 1.0))
+        return currentGain
+    }
+}
+
 extension OSStatus {
     fileprivate func throwIfNeeded() throws {
         if self != noErr {
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(self), userInfo: nil)
         }
-    }
-}
-
-extension AVAudioPCMBuffer {
-    fileprivate func deepCopy() -> AVAudioPCMBuffer? {
-        guard let copy = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength) else {
-            return nil
-        }
-        copy.frameLength = frameLength
-        if let src = floatChannelData, let dst = copy.floatChannelData {
-            for i in 0..<Int(format.channelCount) {
-                memcpy(dst[i], src[i], Int(frameLength) * 4)
-            }
-        }
-        return copy
     }
 }
