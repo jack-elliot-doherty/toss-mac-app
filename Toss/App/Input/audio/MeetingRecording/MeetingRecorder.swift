@@ -3,6 +3,9 @@ import Accelerate
 import AudioToolbox
 import Foundation
 
+private let kAUVoiceIOProperty_BypassVoiceProcessing = AudioUnitPropertyID(2100)
+private let kAUVoiceIOProperty_DuckNonVoiceAudio = AudioUnitPropertyID(2102)
+
 final class MeetingRecorder {
 
     struct RecordedChunk {
@@ -126,6 +129,27 @@ final class MeetingRecorder {
         guard let unit = voiceUnit else {
             throw NSError(domain: "MeetingRecorder", code: -1, userInfo: nil)
         }
+
+        // add here:
+        var zero: UInt32 = 0
+        status = AudioUnitSetProperty(
+            unit,
+            kAUVoiceIOProperty_DuckNonVoiceAudio,
+            kAudioUnitScope_Global,
+            0,
+            &zero,
+            UInt32(MemoryLayout<UInt32>.size))
+        try status.throwIfNeeded()
+
+        var one: UInt32 = 1
+        status = AudioUnitSetProperty(
+            unit,
+            kAUVoiceIOProperty_BypassVoiceProcessing,
+            kAudioUnitScope_Global,
+            0,
+            &one,
+            UInt32(MemoryLayout<UInt32>.size))
+        try status.throwIfNeeded()
 
         var enable: UInt32 = 1
         status = AudioUnitSetProperty(
