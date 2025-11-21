@@ -23,6 +23,9 @@ final class SystemAudioRecorder: NSObject {
     private var currentFile: AVAudioFile?
     private var currentURL: URL?
     private var currentStart: Date?
+    private var chunkEnergy: Float = 0
+    private var chunkFrames: Int = 0
+    private let silenceRmsThreshold: Float = 0.01
     private var chunkIndex = 0
     private var timer: DispatchSourceTimer?
 
@@ -106,11 +109,18 @@ final class SystemAudioRecorder: NSObject {
 
     private func rotateChunk() {
         guard let url = currentURL else { return }
+        let silent = chunkIsSilent()
         let idx = chunkIndex
         let started = currentStart ?? Date()
 
-        DispatchQueue.main.async { [weak self] in
-            self?.onChunkReady?(url, idx, started)
+        if silent {
+            try? FileManager.default.removeItem(at: url)
+            NSLog("[SystemAudioRecorder] Dropping silent chunk #\(idx)")
+        } else {
+
+            DispatchQueue.main.async { [weak self] in
+                self?.onChunkReady?(url, idx, started)
+            }
         }
 
         currentFile = nil
@@ -131,6 +141,23 @@ final class SystemAudioRecorder: NSObject {
         timer.resume()
         self.timer = timer
     }
+
+    private func resetChunkStats() {
+        chunkEnergy = 0
+        chunkFrames = 0
+    }
+
+    private func recordChunkEnergy(sumSquares: Float, frames: Int) {
+        chunkEnergy += sumSquares
+        chunkFrames += frames
+    }
+
+    private func chunkIsSilent() -> Bool {
+        guard chunkFrames > 0 else { return true }
+        let avgRms = sqrt(chunkEnergy / Float(chunkFrames))
+        return avgRms < silenceRmsThreshold
+    }
+
 }
 
 extension SystemAudioRecorder: SCStreamOutput {
@@ -158,10 +185,6 @@ extension SystemAudioRecorder: SCStreamOutput {
             interleaved: false)!
         let frames = AVAudioFrameCount(CMSampleBufferGetNumSamples(sampleBuffer))
 
-        NSLog(
-            "[SystemAudioRecorder] Received audio: \(frames) frames, \(asbd.pointee.mSampleRate) Hz, \(asbd.pointee.mChannelsPerFrame) channels"
-        )
-
         guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: frames),
             let outputBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frames)
         else {
@@ -178,11 +201,20 @@ extension SystemAudioRecorder: SCStreamOutput {
 
         inputBuffer.frameLength = frames
 
-        let remoteLevel = inputBuffer.rmsLevel()
+        // Calculate RMS for this buffer (existing logic, slightly adapted to feed accumulator)
+        let channel = inputBuffer.floatChannelData![0]
+        var sum: Float = 0
+        for i in 0..<Int(frames) {
+            let sample = channel[i]
+            sum += sample * sample
+        }
+        // Feed chunk stats
+        recordChunkEnergy(sumSquares: sum, frames: Int(frames))
+
+        let remoteLevel = sqrtf(sum / max(1, Float(frames)))
         DispatchQueue.main.async { [weak self] in
             self?.onRemoteLevel?(remoteLevel)
         }
-
         guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             NSLog("[SystemAudioRecorder] Failed to create audio converter")
             return

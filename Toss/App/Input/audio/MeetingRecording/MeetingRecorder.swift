@@ -27,6 +27,7 @@ final class MeetingRecorder {
     private var currentChunkURL: URL?
     private var currentChunkStartedAt: Date?
     private var chunkHasUserSpeech = false
+
     private var chunkTimer: Timer?
     private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
@@ -156,7 +157,7 @@ final class MeetingRecorder {
         guard format.commonFormat == .pcmFormatFloat32,
             let channelData = buffer.floatChannelData
         else {
-            // If you ever hit this, we can add a pre-converter, but on macOS this should be Float32.
+            // on macOS this should be Float32.
             return
         }
 
@@ -177,27 +178,49 @@ final class MeetingRecorder {
             self?.onLevelUpdate?(uiLevel)
         }
 
-        // Duck based on remote level
+        // --- Remote level & dominance ---
         let remote = currentRemoteLevel()
-
-        // Heuristic: mark this chunk as "user spoke" when
-        // mic is non-trivially loud and not utterly dominated by remote.
         let safeMic = max(micRMS, 1e-4)
         let dominance = remote / safeMic
 
-        if micRMS > 0.02 && dominance < 2.0 {
-            chunkHasUserSpeech = true
-        }
+        // Echo classification thresholds (tune as needed)
+        let remoteSpeechThreshold: Float = 0.04  // remote must be at least this loud
+        let micQuietThreshold: Float = 0.02  // mic is "very quiet" below this
+        let dominanceThreshold: Float = 5.0  // remote ≈ 14 dB louder than mic
 
-        let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
-        if gain < 0.999 {
-            var g = gain
+        // For "real user speech"
+        let userSpeechThreshold: Float = 0.02
+        let userSpeechDominanceLimit: Float = 3.0
+
+        let remoteDominatesHard =
+            remote > remoteSpeechThreshold && micRMS < micQuietThreshold
+            && dominance > dominanceThreshold
+
+        if remoteDominatesHard {
+            // HARD GATE: zero mic samples so ASR sees silence here
             for ch in 0..<channels {
-                vDSP_vsmul(channelData[ch], 1, &g, channelData[ch], 1, vDSP_Length(frames))
+                let samples = channelData[ch]
+                vDSP_vclr(samples, 1, vDSP_Length(frames))
+            }
+            // We deliberately do NOT mark this as user speech
+        } else {
+            // This buffer may contain user speech
+            if micRMS > userSpeechThreshold && dominance < userSpeechDominanceLimit {
+                chunkHasUserSpeech = true
+            }
+
+            // Optional: still apply ducking for overlap/comfort
+            let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
+            if gain < 0.999 {
+                var g = gain
+                for ch in 0..<channels {
+                    let samples = channelData[ch]
+                    vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(frames))
+                }
             }
         }
 
-        // Convert to 16kHz mono and write
+        // --- Convert to 16kHz mono and write (unchanged) ---
         guard let file = currentChunkFile else { return }
 
         let ratio = targetFormat.sampleRate / format.sampleRate
@@ -285,19 +308,21 @@ final class MeetingRecorder {
 }
 
 private struct DuckingProcessor {
-    // Remote has to be at least this loud to start ducking at all
-    var remoteThreshold: Float = 0.05
+    // Remote threshold: only duck when remote is clearly audible
+    var remoteThreshold: Float = 0.08
 
-    // Gains (linear)
-    let mildDuckGain: Float = 0.5  // -6 dB
-    let strongDuckGain: Float = 0.2  // -14 dB
-    let extremeDuckGain: Float = 0.03  // ~-30 dB
+    // When mic is very quiet (likely just echo), duck it hard
+    var micQuietThreshold: Float = 0.03
 
-    // How fast we move the gain
-    // duckAttack: how quickly we go *down* (start ducking)
-    // unduckRelease: how slowly we come *back up*
-    let duckAttack: Float = 0.7
-    let unduckRelease: Float = 0.15
+    // Gains
+    let fullGain: Float = 1.0
+    let mildDuckGain: Float = 0.4  // light overlap
+    let strongDuckGain: Float = 0.15  // clear remote dominance
+    let muteGain: Float = 0.01  // essentially mute
+
+    // Envelope speeds
+    let duckAttack: Float = 0.85  // duck fast
+    let unduckRelease: Float = 0.1  // unduck slowly
 
     private(set) var currentGain: Float = 1.0
 
@@ -305,44 +330,41 @@ private struct DuckingProcessor {
         let target: Float
 
         if remoteLevel <= remoteThreshold {
-            // No remote speech -> full mic
-            target = 1.0
+            // No remote speech
+            target = fullGain
         } else {
-            // How much louder is remote than whatever is on the mic?
-            let safeMic = max(micLevel, 1e-4)
-            let dominance = remoteLevel / safeMic
-
-            if dominance >= 8 {
-                // Remote massively dominates -> almost mute mic
-                target = extremeDuckGain
-            } else if dominance >= 4 {
-                // Remote clearly louder -> strong duck
-                target = strongDuckGain
+            // Remote is speaking
+            if micLevel < micQuietThreshold {
+                // Mic is very quiet → likely just echo/bleed
+                target = muteGain
             } else {
-                // Remote only a bit louder -> mild duck
-                target = mildDuckGain
+                // Mic has some energy
+                let safeMic = max(micLevel, 1e-4)
+                let dominance = remoteLevel / safeMic
+
+                if dominance >= 6 {
+                    // Remote >> mic: strong duck
+                    target = strongDuckGain
+                } else if dominance >= 2.5 {
+                    // Remote clearly louder: medium duck
+                    target = mildDuckGain
+                } else {
+                    // Overlap or user louder: light duck
+                    target = 0.6
+                }
             }
         }
 
-        var newGain = currentGain
         let diff = target - currentGain
-
         if abs(diff) < 0.001 {
             currentGain = target
             return currentGain
         }
 
-        if diff < 0 {
-            // Going down (ducking) – go fast
-            newGain += diff * duckAttack
-        } else {
-            // Coming back up – go slower
-            newGain += diff * unduckRelease
-        }
+        let step = diff < 0 ? duckAttack : unduckRelease
+        currentGain += diff * step
+        currentGain = min(fullGain, max(muteGain, currentGain))
 
-        // Clamp between "extremely ducked" and "full"
-        newGain = min(1.0, max(extremeDuckGain, newGain))
-        currentGain = newGain
-        return newGain
+        return currentGain
     }
 }
