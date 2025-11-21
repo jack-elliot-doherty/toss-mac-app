@@ -181,12 +181,15 @@ struct ContentView: View {
             .padding(.bottom, 4)
 
             VStack(alignment: .leading, spacing: 6) {
-                ForEach(SidebarItem.allCases, id: \.self) { item in
+                ForEach(SidebarItem.allCases.filter { $0 != .settings }, id: \.self) { item in
                     sidebarButton(for: item)
                 }
             }
 
             Spacer()
+            // Settings at bottom
+            sidebarButton(for: .settings)
+                .padding(.bottom, 4)
 
             sidebarAuth
         }
