@@ -1,5 +1,5 @@
 LINEAR BOARD FOR TOSS IN PRIORITY ORDER
-[] record quick action in calls list doesnt work
+[x] record quick action in calls list doesnt work
 [] move settings sidebar link item to bottom and make it different to show itll open a dialog
 [] improve layout for user button very squished right now
 [] fix silence "Thank you" transcriptions
