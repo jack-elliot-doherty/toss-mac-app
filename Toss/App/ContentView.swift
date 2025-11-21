@@ -443,9 +443,10 @@ struct ContentView: View {
     }
 
     private var sidebarAuth: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             if auth.isAuthenticated {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    // Avatar
                     if let url = auth.userImageURL {
                         AsyncImage(url: url) { phase in
                             switch phase {
@@ -453,59 +454,50 @@ struct ContentView: View {
                             default: Color.gray.opacity(0.2)
                             }
                         }
-                        .frame(width: 36, height: 36)
+                        .frame(width: 28, height: 28)
                         .clipShape(Circle())
                     } else {
                         Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 34))
+                            .font(.system(size: 26))
                             .foregroundColor(AppTheme.secondaryText)
                     }
 
+                    // Name + email (single-line, truncated)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(auth.userName ?? "Signed in")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+
                         if let email = auth.userEmail {
                             Text(email)
-                                .font(.system(size: 12))
+                                .font(.system(size: 11))
                                 .foregroundColor(AppTheme.secondaryText)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
                         }
                     }
 
                     Spacer()
 
-                    Button("Sign out") { auth.signOut() }
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(AppTheme.accent)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Sign in to Toss")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppTheme.primaryText)
-                    HStack(spacing: 10) {
-                        Button {
-                            auth.continueWithGoogle()
-                        } label: {
-                            Label("Google", systemImage: "globe")
-                        }
-                        Button {
-                            auth.continueWithApple()
-                        } label: {
-                            Label("Apple", systemImage: "applelogo")
-                        }
-                        Button("Dev token…") { auth.signInDevToken() }
+                    // Compact sign-out icon
+                    Button(action: { auth.signOut() }) {
+                        Image(systemName: "arrow.right.square")
+                            .font(.system(size: 13, weight: .semibold))
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.plain)
+                    .foregroundColor(AppTheme.accent)
                 }
             }
         }
-        .padding(16)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppTheme.elevatedBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 12)
                         .stroke(AppTheme.subtleStroke, lineWidth: 1)
                 )
         )

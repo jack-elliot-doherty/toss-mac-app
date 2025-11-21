@@ -1,7 +1,7 @@
 LINEAR BOARD FOR TOSS IN PRIORITY ORDER
 [x] record quick action in calls list doesnt work
-[] move settings sidebar link item to bottom and make it different to show itll open a dialog
-[] improve layout for user button very squished right now
+[x] move settings sidebar link item to bottom and make it different to show itll open a dialog
+[x] improve layout for user button very squished right now
 [] fix silence "Thank you" transcriptions
 [] auto title a meeting when stopped recording from transcript
 [] auto generate overview for meeting from transcript when stopped recording
