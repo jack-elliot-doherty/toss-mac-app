@@ -1,10 +1,6 @@
 import AVFoundation
 import Accelerate
-import AudioToolbox
 import Foundation
-
-private let kAUVoiceIOProperty_BypassVoiceProcessing = AudioUnitPropertyID(2100)
-private let kAUVoiceIOProperty_DuckNonVoiceAudio = AudioUnitPropertyID(2102)
 
 final class MeetingRecorder {
 
@@ -15,17 +11,22 @@ final class MeetingRecorder {
     }
 
     private let chunkDuration: TimeInterval = 15.0
-    private var voiceUnit: AudioUnit?
-    private var graph: AUGraph?
 
+    // Audio pipeline
+    private let engine = AVAudioEngine()
+    private var inputFormat: AVAudioFormat?
+    private var converter: AVAudioConverter?
+
+    // Ducking
     private var ducking = DuckingProcessor()
     private var remoteLevelRMS: Float = 0
     private let remoteLevelLock = NSLock()
 
-    // Conversion & Writing
+    // Conversion & writing
     private var currentChunkFile: AVAudioFile?
     private var currentChunkURL: URL?
     private var currentChunkStartedAt: Date?
+    private var chunkHasUserSpeech = false
     private var chunkTimer: Timer?
     private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
@@ -33,7 +34,7 @@ final class MeetingRecorder {
     // Target format: 16kHz Mono Float32
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
-        sampleRate: 16000,
+        sampleRate: 16_000,
         channels: 1,
         interleaved: false
     )!
@@ -45,21 +46,43 @@ final class MeetingRecorder {
     private(set) var isRunning = false
     private(set) var isPaused = false
 
+    // MARK: - Public API
+
     func start() {
         guard !isRunning else { return }
 
+        let inputNode = engine.inputNode
+        let inputFormat = inputNode.inputFormat(forBus: 0)
+        self.inputFormat = inputFormat
+
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            let err = NSError(
+                domain: "MeetingRecorder",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create AVAudioConverter"]
+            )
+            onError?(err)
+            return
+        }
+        self.converter = converter
+
+        startNewChunk()
+
+        // Just in case there was a previous tap
+        inputNode.removeTap(onBus: 0)
+
+        // Small-ish buffer for low latency
+        let bufferSize: AVAudioFrameCount = 1024
+
+        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
+            [weak self] buffer, _ in
+            self?.handleInputBuffer(buffer)
+        }
+
         do {
-            try setupAudioGraph()
-            startNewChunk()
-
-            var status = AUGraphInitialize(graph!)
-            try status.throwIfNeeded()
-
-            status = AUGraphStart(graph!)
-            try status.throwIfNeeded()
-
+            try engine.start()
             isRunning = true
-            NSLog("[MeetingRecorder] Voice Processing Graph started")
+            NSLog("[MeetingRecorder] AVAudioEngine started")
 
             DispatchQueue.main.async { [weak self] in
                 self?.startRotationTimer()
@@ -77,23 +100,20 @@ final class MeetingRecorder {
         chunkTimer?.invalidate()
         chunkTimer = nil
 
-        if let graph = graph {
-            AUGraphStop(graph)
-            AUGraphUninitialize(graph)
-            AUGraphClose(graph)
-            DisposeAUGraph(graph)
-        }
-        graph = nil
-        voiceUnit = nil
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
 
         isRunning = false
         isPaused = false
 
         guard let url = currentChunkURL else { return nil }
         let chunk = RecordedChunk(
-            url: url, index: chunkIndex, startedAt: currentChunkStartedAt ?? Date())
+            url: url,
+            index: chunkIndex,
+            startedAt: currentChunkStartedAt ?? Date()
+        )
 
-        currentChunkFile = nil  // Closes file
+        currentChunkFile = nil  // closes file
         currentChunkURL = nil
         currentChunkStartedAt = nil
         chunkIndex = 0
@@ -102,90 +122,16 @@ final class MeetingRecorder {
         return chunk
     }
 
-    // MARK: - Graph Setup
-
-    private func setupAudioGraph() throws {
-        var status = NewAUGraph(&graph)
-        try status.throwIfNeeded()
-
-        var cd = AudioComponentDescription(
-            componentType: kAudioUnitType_Output,
-            componentSubType: kAudioUnitSubType_VoiceProcessingIO,
-            componentManufacturer: kAudioUnitManufacturer_Apple,
-            componentFlags: 0,
-            componentFlagsMask: 0
-        )
-
-        var node: AUNode = 0
-        status = AUGraphAddNode(graph!, &cd, &node)
-        try status.throwIfNeeded()
-
-        status = AUGraphOpen(graph!)
-        try status.throwIfNeeded()
-
-        status = AUGraphNodeInfo(graph!, node, nil, &voiceUnit)
-        try status.throwIfNeeded()
-
-        guard let unit = voiceUnit else {
-            throw NSError(domain: "MeetingRecorder", code: -1, userInfo: nil)
-        }
-
-        // Enable IO
-        var enable: UInt32 = 1
-        status = AudioUnitSetProperty(
-            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enable, 4)
-        try status.throwIfNeeded()
-
-        status = AudioUnitSetProperty(
-            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &enable, 4)
-        try status.throwIfNeeded()
-
-        // Disable OS auto-ducking (Safe to keep)
-        var zero: UInt32 = 0
-        status = AudioUnitSetProperty(
-            unit,
-            kAUVoiceIOProperty_DuckNonVoiceAudio,
-            kAudioUnitScope_Global,
-            0,
-            &zero,
-            UInt32(MemoryLayout<UInt32>.size))
-        // Log if unsupported, but don't throw
-        if status != noErr { NSLog("[MeetingRecorder] DuckNonVoiceAudio result: \(status)") }
-
-        // Callbacks
-        var inputCallback = AURenderCallbackStruct(
-            inputProc: recordProcessedMic,
-            inputProcRefCon: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        )
-        status = AudioUnitSetProperty(
-            unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 1,
-            &inputCallback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
-        try status.throwIfNeeded()
-
-        // Formats - MUST match on Input 0 and Output 1 for VPIO initialization
-        var asbd = AudioStreamBasicDescription(
-            mSampleRate: 48_000,
-            mFormatID: kAudioFormatLinearPCM,
-            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
-                | kAudioFormatFlagIsNonInterleaved,
-            mBytesPerPacket: 4,
-            mFramesPerPacket: 1,
-            mBytesPerFrame: 4,
-            mChannelsPerFrame: 1,
-            mBitsPerChannel: 32,
-            mReserved: 0
-        )
-
-        status = AudioUnitSetProperty(
-            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &asbd,
-            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
-        try status.throwIfNeeded()
-
-        status = AudioUnitSetProperty(
-            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &asbd,
-            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
-        try status.throwIfNeeded()
+    func pause() {
+        // MVP: just stop everything for now
+        _ = stop()
     }
+
+    func resume() {
+        start()
+    }
+
+    // MARK: - Remote level (from SystemAudioRecorder)
 
     func updateRemoteLevel(_ level: Float) {
         remoteLevelLock.lock()
@@ -195,99 +141,79 @@ final class MeetingRecorder {
 
     private func currentRemoteLevel() -> Float {
         remoteLevelLock.lock()
-        defer { remoteLevelLock.unlock() }
-        return remoteLevelRMS
+        let level = remoteLevelRMS
+        remoteLevelLock.unlock()
+        return level
     }
 
-    private let recordProcessedMic: AURenderCallback = {
-        (inRefCon, ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, ioData) -> OSStatus in
-        let recorder = Unmanaged<MeetingRecorder>.fromOpaque(inRefCon).takeUnretainedValue()
-        return recorder.captureMicAudio(
-            frameCount: inNumberFrames, timeStamp: inTimeStamp, bus: inBusNumber)
-    }
+    // MARK: - Tap handler
 
-    private func captureMicAudio(
-        frameCount: UInt32, timeStamp: UnsafePointer<AudioTimeStamp>, bus: UInt32
-    ) -> OSStatus {
-        guard let unit = voiceUnit else { return noErr }
+    private func handleInputBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard buffer.frameLength > 0 else { return }
+        guard let converter = self.converter else { return }
 
-        var bufferList = AudioBufferList()
-        bufferList.mNumberBuffers = 1
-        bufferList.mBuffers.mNumberChannels = 1
-        bufferList.mBuffers.mDataByteSize = frameCount * 4
-        bufferList.mBuffers.mData = nil  // AudioUnitRender will allocate if null, or we provide scratch memory.
-
-        // We need to allocate a buffer for AudioUnitRender to fill
-        // Or simpler: Use an AVAudioPCMBuffer wrapper.
-
-        // Let's alloc a temporary buffer
-        let byteSize = Int(frameCount * 4)
-        let rawPointer = UnsafeMutableRawPointer.allocate(byteCount: byteSize, alignment: 16)
-        defer { rawPointer.deallocate() }
-
-        bufferList.mBuffers.mData = rawPointer
-
-        var flags: AudioUnitRenderActionFlags = []
-        var ts = timeStamp.pointee
-
-        let status = AudioUnitRender(unit, &flags, &ts, 1, frameCount, &bufferList)
-        if status == noErr {
-            // We have processed audio in rawPointer!
-            // Convert to 16kHz and Write to file
-            processAndWriteMicData(data: rawPointer, frames: frameCount)
+        let format = buffer.format
+        guard format.commonFormat == .pcmFormatFloat32,
+            let channelData = buffer.floatChannelData
+        else {
+            // If you ever hit this, we can add a pre-converter, but on macOS this should be Float32.
+            return
         }
 
-        return status
-    }
+        let channels = Int(format.channelCount)
+        let frames = Int(buffer.frameLength)
 
-    private func processAndWriteMicData(data: UnsafeMutableRawPointer, frames: UInt32) {
-        guard
-            let pcmBuffer = AVAudioPCMBuffer(
-                pcmFormat: AVAudioFormat(
-                    commonFormat: .pcmFormatFloat32,
-                    sampleRate: 48_000,
-                    channels: 1,
-                    interleaved: false
-                )!,
-                frameCapacity: AVAudioFrameCount(frames)
-            )
-        else { return }
-
-        pcmBuffer.frameLength = AVAudioFrameCount(frames)
-        memcpy(pcmBuffer.floatChannelData![0], data, Int(frames * 4))
-
-        let samples = pcmBuffer.floatChannelData![0]
-        let count = Int(frames)
-
+        // Mic RMS
         var sum: Float = 0
-        for i in 0..<count {
-            let s = samples[i]
-            sum += s * s
+        for ch in 0..<channels {
+            let samples = channelData[ch]
+            vDSP_svesq(samples, 1, &sum, vDSP_Length(frames))
         }
-        let micRMS = sqrtf(sum / max(1, Float(count)))
+        let micRMS = sqrtf(sum / max(1, Float(frames * channels)))
 
+        // UI level from mic
         let uiLevel = min(1.0, micRMS * 4.0)
         DispatchQueue.main.async { [weak self] in
             self?.onLevelUpdate?(uiLevel)
         }
 
+        // Duck based on remote level
         let remote = currentRemoteLevel()
+
+        // Heuristic: mark this chunk as "user spoke" when
+        // mic is non-trivially loud and not utterly dominated by remote.
+        let safeMic = max(micRMS, 1e-4)
+        let dominance = remote / safeMic
+
+        if micRMS > 0.02 && dominance < 2.0 {
+            chunkHasUserSpeech = true
+        }
+
         let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
         if gain < 0.999 {
             var g = gain
-            vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(count))
+            for ch in 0..<channels {
+                vDSP_vsmul(channelData[ch], 1, &g, channelData[ch], 1, vDSP_Length(frames))
+            }
         }
 
+        // Convert to 16kHz mono and write
+        guard let file = currentChunkFile else { return }
+
+        let ratio = targetFormat.sampleRate / format.sampleRate
+        let outCapacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 16)
+
         guard
-            let converter = AVAudioConverter(from: pcmBuffer.format, to: targetFormat),
-            let outputBuffer = AVAudioPCMBuffer(
-                pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(frames))
+            let outBuffer = AVAudioPCMBuffer(
+                pcmFormat: targetFormat,
+                frameCapacity: outCapacity
+            )
         else { return }
 
         var error: NSError?
-        converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+        converter.convert(to: outBuffer, error: &error) { _, outStatus in
             outStatus.pointee = .haveData
-            return pcmBuffer
+            return buffer
         }
 
         if let error {
@@ -295,18 +221,22 @@ final class MeetingRecorder {
             return
         }
 
-        guard let file = currentChunkFile else { return }
+        if outBuffer.frameLength == 0 { return }
+
         ioQueue.async {
             do {
-                try file.write(from: outputBuffer)
+                try file.write(from: outBuffer)
             } catch {
                 NSLog("[MeetingRecorder] Error writing mic audio: \(error)")
             }
         }
     }
-    // MARK: - Lifecycle Helpers
+
+    // MARK: - Chunk lifecycle
 
     private func startNewChunk() {
+        chunkHasUserSpeech = false
+
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("meeting_chunk_\(chunkIndex)_\(UUID().uuidString).wav")
         do {
@@ -322,8 +252,7 @@ final class MeetingRecorder {
     private func startRotationTimer() {
         chunkTimer = Timer.scheduledTimer(withTimeInterval: chunkDuration, repeats: true) {
             [weak self] _ in
-            guard let self = self else { return }
-            self.rotateChunk()
+            self?.rotateChunk()
         }
     }
 
@@ -332,9 +261,16 @@ final class MeetingRecorder {
         let idx = chunkIndex
         let start = currentChunkStartedAt ?? Date()
 
-        currentChunkFile = nil  // Flush file
-        DispatchQueue.main.async { [weak self] in
-            self?.onChunkReady?(url, idx, start)
+        currentChunkFile = nil  // flush file
+        if chunkHasUserSpeech {
+
+            DispatchQueue.main.async { [weak self] in
+                self?.onChunkReady?(url, idx, start)
+            }
+        } else {
+            // Remote-only or silence: delete & skip upload
+            try? FileManager.default.removeItem(at: url)
+            NSLog("[MeetingRecorder] Dropping mic chunk #\(idx) (no user speech detected)")
         }
 
         chunkIndex += 1
@@ -342,62 +278,71 @@ final class MeetingRecorder {
     }
 
     private func teardown() {
-        if let graph = graph {
-            AUGraphStop(graph)
-            AUGraphUninitialize(graph)
-            AUGraphClose(graph)
-            DisposeAUGraph(graph)
-        }
-        graph = nil
-        voiceUnit = nil
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
         isRunning = false
-    }
-
-    func pause() {
-        // MVP: Just stop graph? Or pause writing?
-        // For now, let's just stop to be safe.
-        _ = stop()
-    }
-
-    func resume() {
-        start()
     }
 }
 
 private struct DuckingProcessor {
-    var remoteThreshold: Float = 0.08
-    var micQuietThreshold: Float = 0.03
-    var strongDuckGain: Float = 0.25
-    var mildDuckGain: Float = 0.85
-    var attack: Float = 0.05
-    var release: Float = 0.2
+    // Remote has to be at least this loud to start ducking at all
+    var remoteThreshold: Float = 0.05
+
+    // Gains (linear)
+    let mildDuckGain: Float = 0.5  // -6 dB
+    let strongDuckGain: Float = 0.2  // -14 dB
+    let extremeDuckGain: Float = 0.03  // ~-30 dB
+
+    // How fast we move the gain
+    // duckAttack: how quickly we go *down* (start ducking)
+    // unduckRelease: how slowly we come *back up*
+    let duckAttack: Float = 0.7
+    let unduckRelease: Float = 0.15
+
     private(set) var currentGain: Float = 1.0
 
     mutating func gain(remoteLevel: Float, micLevel: Float) -> Float {
         let target: Float
-        if remoteLevel > remoteThreshold {
-            target = micLevel < micQuietThreshold ? strongDuckGain : mildDuckGain
-        } else {
+
+        if remoteLevel <= remoteThreshold {
+            // No remote speech -> full mic
             target = 1.0
+        } else {
+            // How much louder is remote than whatever is on the mic?
+            let safeMic = max(micLevel, 1e-4)
+            let dominance = remoteLevel / safeMic
+
+            if dominance >= 8 {
+                // Remote massively dominates -> almost mute mic
+                target = extremeDuckGain
+            } else if dominance >= 4 {
+                // Remote clearly louder -> strong duck
+                target = strongDuckGain
+            } else {
+                // Remote only a bit louder -> mild duck
+                target = mildDuckGain
+            }
         }
 
+        var newGain = currentGain
         let diff = target - currentGain
+
         if abs(diff) < 0.001 {
             currentGain = target
             return currentGain
         }
 
-        let step = diff > 0 ? attack : release
-        currentGain += diff * step
-        currentGain = max(strongDuckGain, min(currentGain, 1.0))
-        return currentGain
-    }
-}
-
-extension OSStatus {
-    fileprivate func throwIfNeeded() throws {
-        if self != noErr {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(self), userInfo: nil)
+        if diff < 0 {
+            // Going down (ducking) – go fast
+            newGain += diff * duckAttack
+        } else {
+            // Coming back up – go slower
+            newGain += diff * unduckRelease
         }
+
+        // Clamp between "extremely ducked" and "full"
+        newGain = min(1.0, max(extremeDuckGain, newGain))
+        currentGain = newGain
+        return newGain
     }
 }
