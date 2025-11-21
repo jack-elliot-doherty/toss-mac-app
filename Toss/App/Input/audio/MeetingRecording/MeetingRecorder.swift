@@ -10,6 +10,8 @@ final class MeetingRecorder {
         let startedAt: Date
     }
 
+    private var echoGate = EchoGate()
+
     private let chunkDuration: TimeInterval = 15.0
 
     // Audio pipeline
@@ -180,36 +182,23 @@ final class MeetingRecorder {
 
         // --- Remote level & dominance ---
         let remote = currentRemoteLevel()
-        let safeMic = max(micRMS, 1e-4)
-        let dominance = remote / safeMic
+        let decision = echoGate.decide(remoteRMS: remote, micRMS: micRMS)
 
-        // Echo classification thresholds (tune as needed)
-        let remoteSpeechThreshold: Float = 0.04  // remote must be at least this loud
-        let micQuietThreshold: Float = 0.02  // mic is "very quiet" below this
-        let dominanceThreshold: Float = 5.0  // remote ≈ 14 dB louder than mic
-
-        // For "real user speech"
-        let userSpeechThreshold: Float = 0.02
-        let userSpeechDominanceLimit: Float = 3.0
-
-        let remoteDominatesHard =
-            remote > remoteSpeechThreshold && micRMS < micQuietThreshold
-            && dominance > dominanceThreshold
-
-        if remoteDominatesHard {
-            // HARD GATE: zero mic samples so ASR sees silence here
+        switch decision {
+        case .echoOnly:
+            // Zero mic samples so ASR sees silence
             for ch in 0..<channels {
                 let samples = channelData[ch]
                 vDSP_vclr(samples, 1, vDSP_Length(frames))
             }
-            // We deliberately do NOT mark this as user speech
-        } else {
-            // This buffer may contain user speech
-            if micRMS > userSpeechThreshold && dominance < userSpeechDominanceLimit {
+
+        case .userOrOverlap:
+            // Mark this chunk as having user speech if mic is reasonably loud
+            if micRMS > 0.02 {
                 chunkHasUserSpeech = true
             }
 
-            // Optional: still apply ducking for overlap/comfort
+            // Optional: keep light ducking if you like
             let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
             if gain < 0.999 {
                 var g = gain
@@ -366,5 +355,31 @@ private struct DuckingProcessor {
         currentGain = min(fullGain, max(muteGain, currentGain))
 
         return currentGain
+    }
+}
+
+// Outside the class (file‑private helpers)
+private enum MicDecision {
+    case echoOnly
+    case userOrOverlap
+}
+
+private struct EchoGate {
+    // Tune these based on logs
+    var remoteSpeechThreshold: Float = 0.04
+    var micQuietThreshold: Float = 0.02
+    var dominanceThreshold: Float = 5.0
+
+    mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {
+        let safeMic = max(micRMS, 1e-4)
+        let dominance = remoteRMS / safeMic
+
+        if remoteRMS > remoteSpeechThreshold && micRMS < micQuietThreshold
+            && dominance > dominanceThreshold
+        {
+            return .echoOnly
+        } else {
+            return .userOrOverlap
+        }
     }
 }

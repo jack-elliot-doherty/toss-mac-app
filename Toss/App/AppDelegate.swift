@@ -252,7 +252,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func runPlannerDemo() {}
 
     @objc private func handleRecordMeetingRequest() {
-        pillController.send(.quickActionRecordMeeting)
+        pillController.send(.startMeetingRecording)
     }
 }
 

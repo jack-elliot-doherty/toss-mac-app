@@ -66,7 +66,8 @@ final class PillController {
 
         // Intercept events that require auth before state machine processes them
         switch event {
-        case .fnDown, .doubleTapFn, .quickActionDictation, .quickActionRecordMeeting:
+        case .fnDown, .doubleTapFn, .quickActionDictation, .quickActionRecordMeeting,
+            .startMeetingRecording:
             guard auth.isAuthenticated else {
                 toast.show(
                     icon: Image(systemName: "person.crop.circle.badge.exclamationmark"),
