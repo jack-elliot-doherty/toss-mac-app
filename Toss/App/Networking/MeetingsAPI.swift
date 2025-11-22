@@ -29,7 +29,7 @@ final class MeetingsApi {
         }
 
         // Server route to implement: POST /meetings/:id/title  { transcript: string }
-        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/title")
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/title/generate")
         NSLog("[MeetingsApi] POST %@", url.absoluteString)
 
         var request = URLRequest(url: url)
