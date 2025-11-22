@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss xmlns:ns0="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
-  <title>Toss Updates</title>
+    <item>
+      <title>Version 1.1.7</title>
+      <description>&lt;![CDATA[
+                &lt;h2&gt;What's New in 1.1.7&lt;/h2&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;See release notes on GitHub&lt;/li&gt;
+                &lt;/ul&gt;
+            ]]&gt;</description>
+      <pubDate>Sat, 22 Nov 2025 17:42:08 +0000</pubDate>
+      <ns0:version>1.1.7</ns0:version>
+      <ns0:shortVersionString>1.1.7</ns0:shortVersionString>
+      <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
+      <enclosure url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.1.7/Toss-1.1.7.dmg" ns0:edSignature="Q3QFhEkbMo8xgYHPydwjA9pChE8sm+gC4WVGUqyA+By4ua1oU5IRrm+ExXBxdZUEgBr9yvBNn3tUf0KpIP8CCw==" length="3842794" type="application/octet-stream"/>
+    </item>
+    <title>Toss Updates</title>
     <description>Updates for Toss</description>
     <language>en</language>
     <item>
@@ -129,6 +143,6 @@
       <ns0:shortVersionString>1.0.14</ns0:shortVersionString>
       <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
       <enclosure url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.0.14/Toss-1.0.14.dmg" ns0:edSignature="l/ijalHNHRtiCHbI8RFUdPDzKYV5crLuEnLXlniHWlzwI2TwHdzckop70LdP1C6hnYMBGzB1mmExsHMHwqONCA==" length="3653877" type="application/octet-stream"/>
-    </item>    
+    </item>
   </channel>
 </rss>
