@@ -4,10 +4,14 @@ struct MeetingView: View {
     let meetingId: UUID
     @ObservedObject var repository: PersistentMeetingRepository
     @EnvironmentObject private var pageChrome: AppScreenLayout
+    @ObservedObject private var auth = AuthManager.shared
 
     @State private var selectedTab: MeetingDetailTab = .overview
     @Namespace private var tabAnimation
     @State private var tabFrames: [MeetingDetailTab: CGRect] = [:]
+
+    @State private var isRegeneratingSummary = false
+    @State private var didCopySummary = false
 
     private enum MeetingDetailTab: String, CaseIterable {
         case overview = "Overview"
@@ -169,17 +173,99 @@ struct MeetingView: View {
         }
     }
 
+    private func regenerateSummary() {
+        guard !isRegeneratingSummary else { return }
+
+        let transcript = repository.getFullTranscript(meetingId: meetingId)
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isRegeneratingSummary = true
+        let token = auth.accessToken
+
+        MeetingsApi.shared.generateOverview(
+            for: meetingId,
+            transcript: trimmed,
+            token: token
+        ) { [weak repository] result in
+            DispatchQueue.main.async {
+                self.isRegeneratingSummary = false
+                switch result {
+                case .success(let summary):
+                    repository?.updateMeetingNotes(meetingId: self.meetingId, notes: summary)
+                case .failure(let error):
+                    NSLog("[MeetingView] Regenerate summary failed: \(error)")
+                }
+            }
+        }
+    }
+
+    private func copySummary() {
+        guard let notes = meeting?.notes, !notes.isEmpty else { return }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(notes, forType: .string)
+
+        didCopySummary = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            didCopySummary = false
+        }
+    }
+
     private var overviewView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Summary")
-                .font(.system(size: 13, weight: .semibold))
+        VStack(alignment: .leading, spacing: 12) {
+            // Header row: title + actions
+            HStack(spacing: 10) {
+                Text("Summary")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Spacer()
+
+                // Regenerate
+                Button {
+                    regenerateSummary()
+                } label: {
+                    Image(
+                        systemName: isRegeneratingSummary
+                            ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle"
+                    )
+                    .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
                 .foregroundColor(AppTheme.secondaryText)
+                .disabled(isRegeneratingSummary)
+
+                // Copy
+                Button {
+                    copySummary()
+                } label: {
+                    Image(systemName: didCopySummary ? "checkmark.square" : "square.on.square")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(AppTheme.secondaryText)
+                .disabled((meeting?.notes ?? "").isEmpty)
+            }
 
             if let notes = meeting?.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.system(size: 15))
-                    .foregroundColor(AppTheme.primaryText)
-                    .lineSpacing(5)
+                // Card-style block with markdown-rendered content
+                VStack(alignment: .leading, spacing: 12) {
+                    MarkdownSummaryView(markdown: notes)
+                }
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AppTheme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                        )
+                )
+            } else if isRegeneratingSummary {
+                Text("Generating summary…")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.secondaryText)
             } else {
                 Text("No AI summary yet. Generate notes after the meeting ends.")
                     .font(.system(size: 14))
@@ -556,4 +642,98 @@ struct MeetingsListView: View {
         let title: String
         let meetings: [MeetingModel]
     }
+}
+
+// MARK: - Summary rendering
+
+private struct SummarySection: Identifiable {
+    let id = UUID()
+    let title: String
+    let bullets: [String]
+}
+
+private struct MarkdownSummaryView: View {
+    let markdown: String
+
+    private var sections: [SummarySection] {
+        parseSummary(markdown)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(sections) { section in
+                VStack(alignment: .leading, spacing: 6) {
+                    // Section title
+                    Text(section.title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    // Bullets
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(section.bullets.enumerated(), id: \.element) { i, bullet in
+                            HStack(alignment: .top, spacing: 6) {
+                                Text("•")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(AppTheme.primaryText)
+
+                                // Bullet with inline markdown (respects **bold**, _italic_, etc.)
+                                textFromMarkdown(bullet)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .lineSpacing(4)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func textFromMarkdown(_ string: String) -> Text {
+        if let attr = try? AttributedString(
+            markdown: string,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            return Text(attr)
+        } else {
+            return Text(string)
+        }
+    }
+}
+
+// Very simple markdown-ish parser: pulls out "## Heading" + "- bullet" lines
+private func parseSummary(_ markdown: String) -> [SummarySection] {
+    var sections: [SummarySection] = []
+    var currentTitle: String?
+    var currentBullets: [String] = []
+
+    func flush() {
+        if let title = currentTitle, !currentBullets.isEmpty {
+            sections.append(SummarySection(title: title, bullets: currentBullets))
+        }
+        currentTitle = nil
+        currentBullets = []
+    }
+
+    let lines = markdown.split(whereSeparator: \.isNewline).map {
+        $0.trimmingCharacters(in: .whitespaces)
+    }
+
+    for line in lines {
+        if line.hasPrefix("## ") {
+            flush()
+            currentTitle = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        } else if line.hasPrefix("- ") {
+            let bullet = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            currentBullets.append(bullet)
+        } else if !line.isEmpty {
+            // Continuation of previous bullet: append text
+            if !currentBullets.isEmpty {
+                currentBullets[currentBullets.count - 1] += " " + line
+            }
+        }
+    }
+
+    flush()
+    return sections
 }
