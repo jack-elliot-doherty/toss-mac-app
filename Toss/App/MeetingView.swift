@@ -670,7 +670,8 @@ private struct MarkdownSummaryView: View {
 
                     // Bullets
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(section.bullets.enumerated(), id: \.element) { i, bullet in
+                        ForEach(section.bullets.indices, id: \.self) { i in
+                            let bullet = section.bullets[i]
                             HStack(alignment: .top, spacing: 6) {
                                 Text("•")
                                     .font(.system(size: 13, weight: .bold))
