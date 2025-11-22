@@ -107,15 +107,14 @@ struct ContentView: View {
             HStack(alignment: .top, spacing: 16) {
                 sidebar
                     .frame(width: 238)
+                    .padding(8)
 
                 detailContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, 6)
-            .padding(.top, 6)
-            .padding(.bottom, 6)
+            .padding(.horizontal, 2)
+            .padding(.top, 2)
             .frame(minWidth: 750, minHeight: 600)
-            .padding(12)
 
             if showSettings {
                 Color.black.opacity(0.35)
@@ -425,7 +424,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 12) {
             pageHeader
             contentView
         }

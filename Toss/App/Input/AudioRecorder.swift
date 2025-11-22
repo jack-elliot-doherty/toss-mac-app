@@ -130,6 +130,14 @@ final class AudioRecorder {
             return
         }
         isRunning = true
+
+        // Send out a notification that its us using the mic so that the meeting detector can ignore it.
+        NotificationCenter.default.post(
+            name: .tossMicUsageChanged,
+            object: nil,
+            userInfo: ["active": true]
+        )
+
     }
 
     func stop() -> URL? {
@@ -138,6 +146,12 @@ final class AudioRecorder {
         mixer.removeTap(onBus: 0)
         engine.stop()
         isRunning = false
+
+        NotificationCenter.default.post(
+            name: .tossMicUsageChanged,
+            object: nil,
+            userInfo: ["active": false]
+        )
 
         audioFile = nil
 
@@ -155,4 +169,8 @@ final class AudioRecorder {
 
         return url
     }
+}
+
+extension Notification.Name {
+    static let tossMicUsageChanged = Notification.Name("tossMicUsageChanged")
 }

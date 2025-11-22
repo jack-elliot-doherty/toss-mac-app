@@ -8,6 +8,8 @@ final class MeetingDetector {
     private var audioPropertyListener: AudioObjectPropertyListenerBlock?
     private var currentMeetingApp: String?
 
+    private var isDictationMicActive = false
+
     var onMeetingDetected: (() -> Void)?
 
     // Apps to monitor (user could configure this later)
@@ -35,6 +37,16 @@ final class MeetingDetector {
 
         // Start monitoring system audio input
         startAudioInputMonitoring()
+
+        // observe Toss mic usage so we can ignore it when it's active
+        NotificationCenter.default.addObserver(
+            forName: .tossMicUsageChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let active = (note.userInfo?["active"] as? Bool) ?? false
+            self?.isAppMicActive = active
+        }
 
         NSLog("[MeetingDetector] Started monitoring")
     }
@@ -108,6 +120,12 @@ final class MeetingDetector {
     }
 
     private func checkIfMicIsActive(deviceID: AudioDeviceID) {
+
+        // If its us using the mic, we should ignore it
+        if isDictationMicActive {
+            return
+        }
+
         var isRunning: UInt32 = 0
         var propertySize = UInt32(MemoryLayout<UInt32>.size)
 

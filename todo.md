@@ -13,3 +13,5 @@ LINEAR BOARD FOR TOSS IN PRIORITY ORDER
 [x] No way to regenerate an overview or kick off the overview generation again if the overview generation failed.
 [] Dictation doesn't take into account formatting
 [] No way to resume recording a meeting once it's been stopped.
+
+[] -When the user dictates in an app that we listen to for meetings like Slack, the use of the mic from us triggers the meeting detection flow as we just look for if the mic is active in one of our known meeting apps.
