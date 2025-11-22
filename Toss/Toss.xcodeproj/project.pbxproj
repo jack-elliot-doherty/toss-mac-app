@@ -59,6 +59,7 @@
 		DAEB723D2EBD5739006A17C7 /* TossUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72352EBD5739006A17C7 /* TossUITests.swift */; };
 		DAEB723F2EBD5E79006A17C7 /* TossApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB723E2EBD5E79006A17C7 /* TossApp.swift */; };
 		DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */; };
+		DAEEBF282ED265E1009DE3CF /* AppGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF272ED265E1009DE3CF /* AppGlass.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -132,6 +133,7 @@
 		DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		DAEB723E2EBD5E79006A17C7 /* TossApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossApp.swift; sourceTree = "<group>"; };
 		DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingsAPI.swift; sourceTree = "<group>"; };
+		DAEEBF272ED265E1009DE3CF /* AppGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGlass.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,6 +249,7 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DAEEBF272ED265E1009DE3CF /* AppGlass.swift */,
 				DA3427582EC9258F00F85DEB /* AppTheme.swift */,
 				DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */,
 				DA7827972EBE94720040ED92 /* MeetingRepository.swift */,
@@ -502,6 +505,7 @@
 				DAD483E72EBCE56A001C5902 /* Config.swift in Sources */,
 				DA3427592EC9258F00F85DEB /* AppTheme.swift in Sources */,
 				DA3623912EB95D39000207F0 /* AgentAPI.swift in Sources */,
+				DAEEBF282ED265E1009DE3CF /* AppGlass.swift in Sources */,
 				DA36239C2EBB77CB000207F0 /* HistoryView.swift in Sources */,
 				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
 				DA3623982EBB77B8000207F0 /* OnboardingView.swift in Sources */,

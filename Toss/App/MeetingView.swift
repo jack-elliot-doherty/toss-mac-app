@@ -71,7 +71,6 @@ struct MeetingView: View {
             .padding(.bottom, 60)
             .frame(maxWidth: .infinity)  // center when window wider
         }
-        .background(AppTheme.windowBackground)
         .onAppear(perform: configureChrome)
         .onDisappear { pageChrome.clearOverride() }
         .onChange(of: meeting?.title) { _, _ in configureChrome() }
@@ -249,19 +248,10 @@ struct MeetingView: View {
             }
 
             if let notes = meeting?.notes, !notes.isEmpty {
-                // Card-style block with markdown-rendered content
                 VStack(alignment: .leading, spacing: 12) {
                     MarkdownSummaryView(markdown: notes)
                 }
                 .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(AppTheme.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                        )
-                )
             } else if isRegeneratingSummary {
                 Text("Generating summary…")
                     .font(.system(size: 14))
@@ -506,7 +496,6 @@ struct MeetingsListView: View {
                 .padding(.vertical, 32)
                 .padding(.horizontal, 28)
             }
-            .background(AppTheme.windowBackground)
             .navigationDestination(for: UUID.self) { meetingId in
                 MeetingView(meetingId: meetingId, repository: repository)
             }

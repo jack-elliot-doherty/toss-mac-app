@@ -102,8 +102,7 @@ struct ContentView: View {
 
     var main: some View {
         ZStack {
-            AppTheme.windowBackground
-                .ignoresSafeArea()
+            AppGlassBackground()
 
             HStack(alignment: .top, spacing: 16) {
                 sidebar
@@ -111,22 +110,12 @@ struct ContentView: View {
 
                 detailContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.windowBackground)
             }
             .padding(.horizontal, 6)
             .padding(.top, 6)
             .padding(.bottom, 6)
             .frame(minWidth: 750, minHeight: 600)
-            .onReceive(
-                NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
-            ) { notification in
-                if let userInfo = notification.userInfo,
-                    let meetingId = userInfo["meetingId"] as? UUID
-                {
-                    selectSidebarItem(.meetings)
-                    pendingMeetingId = meetingId
-                }
-            }
+            .padding(12)
 
             if showSettings {
                 Color.black.opacity(0.35)
@@ -138,8 +127,15 @@ struct ContentView: View {
                     .frame(width: 760)
                     .transition(.scale.combined(with: .opacity))
                     .zIndex(1)
+                    .appGlass(.surface, radius: 24)
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+
         .environmentObject(pageChrome)
         .background(
             WindowReader { window in
@@ -156,6 +152,16 @@ struct ContentView: View {
         }
         .onChange(of: selection) { _ in
             updateChromeForCurrentSelection()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
+        ) { notification in
+            if let userInfo = notification.userInfo,
+                let meetingId = userInfo["meetingId"] as? UUID
+            {
+                selectSidebarItem(.meetings)
+                pendingMeetingId = meetingId
+            }
         }
         .onReceive(
             NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
@@ -196,17 +202,7 @@ struct ContentView: View {
         .padding(.top, 6)
         .padding(.bottom, 4)
         .padding(.horizontal, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(AppTheme.sidebarBackground)
-                .shadow(color: Color.black.opacity(0.4), radius: 30, x: 0, y: 18)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-        .padding(.vertical, 0)
-        .padding(.horizontal, 0)
+        .appGlass(.surface, radius: 10)
     }
 
     private func sidebarButton(for item: SidebarItem) -> some View {
@@ -287,10 +283,7 @@ struct ContentView: View {
                     enabled ? AppTheme.primaryText : AppTheme.secondaryText.opacity(0.5)
                 )
                 .frame(width: 30, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color.white.opacity(enabled ? 0.06 : 0.02))
-                )
+                .appGlass(.chrome, radius: 15)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -346,7 +339,7 @@ struct ContentView: View {
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color.white.opacity(0.08))
+                .appGlass(.chrome, radius: 16)
                 .foregroundColor(AppTheme.primaryText)
                 .clipShape(Capsule())
             }
@@ -365,7 +358,7 @@ struct ContentView: View {
             .font(.system(size: 13, weight: .semibold))
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(Color.white.opacity(0.08))
+            .appGlass(.chrome, radius: 16)
             .foregroundColor(AppTheme.primaryText)
             .clipShape(Capsule())
         }
@@ -437,9 +430,9 @@ struct ContentView: View {
             contentView
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding(.horizontal, 32)
-        .padding(.vertical, 28)
-        .background(AppTheme.windowBackground)
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 0)
     }
 
     private var sidebarAuth: some View {
@@ -668,14 +661,7 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 60)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(AppTheme.cardBackground)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                    )
-            )
+            .appGlass(.card, radius: 24)
         }
     }
 
@@ -727,14 +713,7 @@ struct HomeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(AppTheme.cardBackground)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                        )
-                )
+                .appGlass(.card, radius: 20)
             }
             .padding(.vertical, 4)
         }
