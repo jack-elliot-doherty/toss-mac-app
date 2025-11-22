@@ -202,10 +202,10 @@ final class MeetingsApi {
             }
 
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let summary = json["summary"] as? String
+                let overview = json["overview"] as? String
             {
-                NSLog("[MeetingsApi] generated summary length: %d", summary.count)
-                completion(.success(summary))
+                NSLog("[MeetingsApi] generated overview length: %d", overview.count)
+                completion(.success(overview))
                 return
             }
 
