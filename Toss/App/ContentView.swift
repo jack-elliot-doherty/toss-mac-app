@@ -49,6 +49,8 @@ final class AppScreenLayout: ObservableObject {
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home
     case meetings
+    case activity
+    case integrations
     case settings
 
     var id: String { rawValue }
@@ -57,6 +59,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "Home"
         case .meetings: return "Meetings"
+        case .activity: return "Activity"
+        case .integrations: return "Integrations"
         case .settings: return "Settings"
         }
     }
@@ -65,6 +69,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house"
         case .meetings: return "mic.fill"
+        case .activity: return "clock.fill"
+        case .integrations: return "square.stack.3d.down.right.fill"
         case .settings: return "gear"
         }
     }
@@ -253,6 +259,12 @@ struct ContentView: View {
             MeetingsListView(
                 repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
                 navigationPath: $meetingsNavigationPath)
+        case .activity:
+            EmptyView()
+        // ActivityView()
+        case .integrations:
+            EmptyView()
+        // IntegrationsView()
         case .settings, .none:
             OnboardingGate()
         }
@@ -399,6 +411,10 @@ struct ContentView: View {
             return "Overview"
         case .meetings:
             return "Calls"
+        case .activity:
+            return "Activity"
+        case .integrations:
+            return "Integrations"
         case .settings:
             return "Settings"
         case .none:

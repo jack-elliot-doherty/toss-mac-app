@@ -45,7 +45,7 @@ final class MeetingDetector {
             queue: .main
         ) { [weak self] note in
             let active = (note.userInfo?["active"] as? Bool) ?? false
-            self?.isAppMicActive = active
+            self?.isDictationMicActive = active
         }
 
         NSLog("[MeetingDetector] Started monitoring")
