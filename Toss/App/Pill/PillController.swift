@@ -410,6 +410,26 @@ final class PillController {
         meetingRecorder = nil  // reset the recorder
         systemAudioMeetingRecorder = nil  // reset the system audio recorder
         meetingRepository.endMeeting(id: meetingId)
+
+        // Auto‑title from full transcript
+        let fullTranscript = meetingRepository.getFullTranscript(meetingId: meetingId)
+        let token = auth.accessToken
+
+        MeetingsApi.shared.generateTitle(
+            for: meetingId,
+            transcript: fullTranscript,
+            token: token
+        ) { [weak self] result in
+            Task { @MainActor in
+                switch result {
+                case .success(let title):
+                    self?.meetingRepository.updateMeetingTitle(meetingId: meetingId, title: title)
+                case .failure(let error):
+                    NSLog("[PillController] Auto-title failed: \(error)")
+                }
+            }
+        }
+
         activeMeetingId = nil
         SoundFeedback.shared.playStop()
         NSLog("[PillController] Meeting recording stopped for meeting \(meetingId)")

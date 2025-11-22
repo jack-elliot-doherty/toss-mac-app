@@ -58,6 +58,7 @@
 		DAEB723C2EBD5739006A17C7 /* TossTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72332EBD5739006A17C7 /* TossTests.swift */; };
 		DAEB723D2EBD5739006A17C7 /* TossUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72352EBD5739006A17C7 /* TossUITests.swift */; };
 		DAEB723F2EBD5E79006A17C7 /* TossApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB723E2EBD5E79006A17C7 /* TossApp.swift */; };
+		DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -130,6 +131,7 @@
 		DAEB72352EBD5739006A17C7 /* TossUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossUITests.swift; sourceTree = "<group>"; };
 		DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		DAEB723E2EBD5E79006A17C7 /* TossApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossApp.swift; sourceTree = "<group>"; };
+		DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingsAPI.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,6 +174,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */,
 				DA3623902EB95D39000207F0 /* AgentAPI.swift */,
 				DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */,
 			);
@@ -522,6 +525,7 @@
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
+				DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */,
 				DA3623932EBB4616000207F0 /* SoundFeedback.swift in Sources */,
 				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
