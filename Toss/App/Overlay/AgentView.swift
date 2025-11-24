@@ -5,6 +5,8 @@ struct AgentView: View {
     @State private var inputText: String = ""
     @Namespace private var scrollNamespace
 
+    @State private var isHovering = false
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
@@ -54,18 +56,43 @@ struct AgentView: View {
         }
         .padding(16)
         .frame(width: 650)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.85))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(.white.opacity(0.15), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 24, y: 12)
-        )
+        .appGlass(.surface, radius: 18, opacity: 0.001)
+        .preferredColorScheme(.dark)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.messages)
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.pendingToolCalls)
+        .animation(
+            .spring(response: 0.3, dampingFraction: 0.85), value: viewModel.pendingToolCalls
+        )
         .animation(.easeInOut(duration: 0.15), value: viewModel.isProcessing)
+        .overlay(alignment: .topTrailing) {
+            closeButton
+                .opacity(isHovering ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: isHovering)
+                .padding(10)
+        }
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+
+    private var closeButton: some View {
+        Button {
+            // Post notification for controller to handle "Hide"
+            NotificationCenter.default.post(
+                name: NSNotification.Name("HideAgentPanel"), object: nil)
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(.white.opacity(0.8))
+                .frame(width: 24, height: 24)
+                .background(.ultraThinMaterial)  // subtle frosted backing
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.2), radius: 2)
+        }
+        .buttonStyle(.plain)
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -115,23 +142,29 @@ private struct MessageBubble: View {
                 spacing: 4
             ) {
                 Text(message.content)
-                    .font(.system(size: 13))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(message.role == .user ? Color.blue : Color.white.opacity(0.08))
-                    )
+                    .font(.system(size: 14))  // Slightly larger for readability
+                    .padding(.horizontal, message.role == .user ? 14 : 0)
+                    .padding(.vertical, message.role == .user ? 10 : 0)
+                    .background(bubbleBackground)  // Conditional background
                     .foregroundColor(.white)
-
-                Text(message.timestamp, style: .time)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    // Add corner radius if it has a background
+                    .cornerRadius(message.role == .user ? 18 : 0)
             }
 
             if message.role == .assistant { Spacer() }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    @ViewBuilder
+    private var bubbleBackground: some View {
+        if message.role == .user {
+            // User: Dark black/gray bubble
+            Color.black.opacity(0.6)
+        } else {
+            // Assistant: Transparent / No background
+            Color.clear
+        }
     }
 }
 

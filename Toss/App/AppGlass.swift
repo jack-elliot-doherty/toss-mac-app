@@ -25,6 +25,7 @@ struct AppGlassBackground: View {
 private struct AppGlassSurface: ViewModifier {
     let level: AppGlassLevel
     let cornerRadius: CGFloat
+    let opacity: Double?
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -32,15 +33,21 @@ private struct AppGlassSurface: ViewModifier {
         let tintOpacity: Double
         let strokeOpacity: Double
 
+          // Use provided opacity if present, otherwise use defaults
+        let baseTint = opacity ?? (
+            level == .surface ? 0.20 :
+            level == .chrome ? 0.30 :
+            0.35
+        )
+
+        tintOpacity = baseTint
+
         switch level {
         case .surface:
-            tintOpacity = 0.20
             strokeOpacity = 0.09
         case .chrome:
-            tintOpacity = 0.30
             strokeOpacity = 0.12
         case .card:
-            tintOpacity = 0.35
             strokeOpacity = 0.14
         }
 
@@ -60,9 +67,10 @@ private struct AppGlassSurface: ViewModifier {
 extension View {
     func appGlass(
         _ level: AppGlassLevel = .surface,
-        radius: CGFloat = 16
+        radius: CGFloat = 16,
+        opacity: Double? = nil
     ) -> some View {
-        modifier(AppGlassSurface(level: level, cornerRadius: radius))
+        modifier(AppGlassSurface(level: level, cornerRadius: radius, opacity: opacity))
     }
 }
 

@@ -23,6 +23,11 @@ final class AgentPanelController {
             defer: false
         )
 
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.styleMask.insert(.fullSizeContentView)
+        panel.isMovableByWindowBackground = true
+
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -71,6 +76,14 @@ final class AgentPanelController {
             }
             return event
         }
+
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("HideAgentPanel"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.hide()
+        }
     }
 
     func show(with initialMessage: String) {
@@ -92,7 +105,7 @@ final class AgentPanelController {
 
     private func resizePanelToFitContent() {
         let maxHeight: CGFloat = 500
-        let fixedWidth: CGFloat = 400
+        let fixedWidth: CGFloat = 650
         let verticalPadding: CGFloat = 24
 
         hostingView.layoutSubtreeIfNeeded()
