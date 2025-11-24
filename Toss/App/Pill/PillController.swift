@@ -230,7 +230,7 @@ final class PillController {
 
     private func handleStartTranscription() {
         guard !isTranscribing else { return }
-        guard let url = self.lastRecordingURL else {
+        guard let wavURL = self.lastRecordingURL else {
             toast.show(title: "No recording found", duration: 1.8)
             return
         }
@@ -238,6 +238,20 @@ final class PillController {
 
         print("⏱️ UPLOAD START: +\(Date().timeIntervalSince(stopTime!))s")
 
+        Task.detached {
+            do {
+                let compressedURL = try await AudioCompressor.compressToM4A(sourceURL: wavURL)
+                await self.startUpload(with: compressedURL)
+            } catch {
+                NSLog("[PillController] Compression failed: \(error)")
+                await self.startUpload(with: wavURL)  // fallback to WAV
+            }
+        }
+
+    }
+
+    @MainActor
+    private func startUpload(with url: URL) {
         let token = auth.accessToken
         transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
             Task { @MainActor in
