@@ -29,16 +29,27 @@ private enum PillStyle {
 struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @State private var isHovered: Bool = false
+    @State private var hoverExitWorkItem: DispatchWorkItem?
 
     var body: some View {
         Group {
             switch viewModel.visualState {
             case .idle:
-                idle
+                idle.transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .center)))
             case .hovered:
-                hoveredQuickActions
+                hoveredQuickActions.transition(
+                    .asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .opacity
+                    )
+                )
             case .listening(let mode):
-                listening(mode: mode)
+                listening(mode: mode).transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 1.05, anchor: .center).combined(with: .opacity),
+                        removal: .opacity
+                    )
+                )
             case .transcribing(let mode):
                 transcribing(mode: mode)
             case .meetingDetected:
@@ -61,13 +72,25 @@ struct PillView: View {
         )
         .contentShape(Capsule())
         .fixedSize(horizontal: true, vertical: true)  // hug content; no stretching
-        .animation(.easeInOut(duration: 0.18), value: viewModel.visualState)
+        .animation(
+            .spring(response: 0.22, dampingFraction: 0.85),
+            value: viewModel.visualState
+        )
         .onHover { hovering in
             isHovered = hovering
             if hovering {
+                // cancel any pending exit and fire immediately
+                hoverExitWorkItem?.cancel()
+                hoverExitWorkItem = nil
                 viewModel.onHoverEnter?()
             } else {
-                viewModel.onHoverExit?()
+                // wait a beat before leaving, so the resize can finish
+                hoverExitWorkItem?.cancel()
+                let item = DispatchWorkItem { [weak viewModel] in
+                    viewModel?.onHoverExit?()
+                }
+                hoverExitWorkItem = item
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: item)
             }
         }
         .onTapGesture {

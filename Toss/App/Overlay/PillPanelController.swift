@@ -124,7 +124,7 @@ final class PillPanelController {
 
             // FIRST: Resize the panel to the target size (without animation)
             // This happens before the visual transition
-            setSizeAndCenter(to: targetSize, animated: false)
+            setSizeKeepingCurrentOrigin(to: targetSize, animated: true)
 
             // THEN: Set the visual state to trigger the SwiftUI transition
             // The panel is already the right size, so the content just animates in place
@@ -136,12 +136,27 @@ final class PillPanelController {
             DispatchQueue.main.async {
                 // Resize heuristics for main states and center in one atomic frame update
                 let size = self.sizeForState(state)
-                self.setSizeAndCenter(to: size, animated: false)
+                self.setSizeAndCenter(to: size, animated: true)
             }
         }
         // Ensure panel is visible
         if !panel.isVisible {
             panel.orderFrontRegardless()
+        }
+    }
+
+    private func setSizeKeepingCurrentOrigin(to size: NSSize, animated: Bool) {
+        var frame = panel.frame
+        frame.size = size
+
+        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().setFrame(frame, display: true)
+            }
+        } else {
+            panel.setFrame(frame, display: true)
         }
     }
 
