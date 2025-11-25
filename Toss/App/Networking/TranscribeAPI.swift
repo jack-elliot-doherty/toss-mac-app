@@ -1,5 +1,16 @@
 import Foundation
 
+struct TranscriptionResponse: Decodable {
+    let text: String
+    let segments: [TranscriptionSegment]
+}
+
+struct TranscriptionSegment: Decodable {
+    let start: Double
+    let end: Double
+    let text: String
+}
+
 final class TranscribeAPI {
     static let shared = TranscribeAPI()
 
@@ -128,15 +139,13 @@ final class TranscribeAPI {
         task.resume()
     }
 
-    // In TranscribeAPI.swift - add this method
-
     func transcribeMeetingChunk(
         meetingId: UUID,
         chunkIndex: Int,
         speaker: MeetingSpeaker,
         fileURL: URL,
         token: String? = nil,
-        completion: @escaping (Result<String, Error>) -> Void
+        completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/chunks")
             .appending(queryItems: [
@@ -226,20 +235,27 @@ final class TranscribeAPI {
                 }
             }
 
-            // Parse response
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let text = json["text"] as? String
-            {
-                NSLog("[TranscribeAPI] chunk #%d transcribed: %d chars", chunkIndex, text.count)
-                completion(.success(text))
-                return
-            }
+            do {
+                // Try to decode the full verbose JSON response
+                let result = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
+                NSLog("[TranscribeAPI] transcribed: %d chars", result.text.count)
+                // Return ONLY the text string, matching the function signature
+                completion(.success(result))
+            } catch {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                    let text = json["text"] as? String
+                {
+                    NSLog("[TranscribeAPI] chunk #%d transcribed: %d chars", chunkIndex, text.count)
+                    completion(.success(TranscriptionResponse(text: text, segments: [])))
+                    return
+                }
 
-            completion(
-                .failure(
-                    NSError(
-                        domain: "TranscribeAPI", code: 3,
-                        userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])))
+                completion(
+                    .failure(
+                        NSError(
+                            domain: "TranscribeAPI", code: 3,
+                            userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])))
+            }
         }
         task.resume()
     }

@@ -57,7 +57,7 @@ protocol MeetingRepositoryProtocol {
     func getMeeting(id: UUID) -> MeetingModel?
     func appendChunk(
         meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
-    ) -> MeetingChunkModel
+    ) -> MeetingChunkModel?  // Optional since we might want to remove a duplicate chunk
     func listMeetings() -> [MeetingModel]
     func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
@@ -150,14 +150,36 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
 
     func appendChunk(
         meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
-    ) -> MeetingChunkModel {
+    ) -> MeetingChunkModel? {
         return queue.sync {
+
+            // Deduplication Logic
+            if speaker == .user {
+                if isDuplicate(transcript: transcript, startedAt: startedAt, meetingId: meetingId) {
+                    return nil  // Drop this chunk
+                }
+            }
+
+            // If we are adding a REMOTE chunk, we technically should re-check
+            // past USER chunks to retroactive-delete them, but that's harder with append-only.
+            // For now, just forward-filtering is a huge win.
+
             let chunk = MeetingChunkModel(
                 id: UUID(), meetingId: meetingId, chunkIndex: index, transcript: transcript,
                 startedAt: startedAt, speaker: speaker)
             var arr = chunks[meetingId] ?? []
             arr.append(chunk)
+
+            // Keep sorted
+            arr.sort { $0.startedAt < $1.startedAt }
+
             chunks[meetingId] = arr
+
+            // Backward check: New REMOTE chunk vs existing USER chunks
+            if speaker == .remote {
+                retroactiveDedupe(newRemoteChunk: chunk, meetingId: meetingId)
+            }
+
             save()
             return chunk
         }
@@ -202,4 +224,74 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             save()
         }
     }
+
+    // text cleaning for fuzzy match
+    private func normalize(_ text: String) -> Set<String> {
+        let cleaned = text.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+        return Set(cleaned)
+    }
+
+    private func retroactiveDedupe(newRemoteChunk: MeetingChunkModel, meetingId: UUID) {
+        guard var arr = chunks[meetingId] else { return }
+
+        var indicesToRemove: [Int] = []
+
+        // Look for user chunks that happened around the same time
+        for (i, existing) in arr.enumerated() {
+            if existing.speaker == .user
+                && abs(existing.startedAt.timeIntervalSince(newRemoteChunk.startedAt)) < 5.0
+            {
+
+                // Check overlap
+                let userWords = normalize(existing.transcript)
+                let remoteWords = normalize(newRemoteChunk.transcript)
+                let common = userWords.intersection(remoteWords)
+
+                if Double(common.count) / Double(userWords.count) > 0.6 {
+                    NSLog(
+                        "[MeetingRepo] Retro-dropped user chunk #\(existing.chunkIndex): matches new remote chunk"
+                    )
+                    indicesToRemove.append(i)
+                }
+            }
+        }
+
+        // Remove duplicates (reverse order to keep indices valid)
+        for i in indicesToRemove.reversed() {
+            arr.remove(at: i)
+        }
+        chunks[meetingId] = arr
+    }
+
+    // Check overlap
+    private func isDuplicate(transcript: String, startedAt: Date, meetingId: UUID) -> Bool {
+        guard let chunks = chunks[meetingId] else { return false }
+
+        // Look for remote chunks within ±5 seconds
+        let candidates = chunks.filter { existing in
+            existing.speaker == .remote
+                && abs(existing.startedAt.timeIntervalSince(startedAt)) < 5.0
+        }
+
+        let userWords = normalize(transcript)
+        if userWords.isEmpty { return false }  // Keep silence/noise? Or drop?
+
+        for candidate in candidates {
+            let remoteWords = normalize(candidate.transcript)
+            let common = userWords.intersection(remoteWords)
+
+            // If > 60% of user words are in the remote chunk → it's bleed
+            if Double(common.count) / Double(userWords.count) > 0.6 {
+                NSLog(
+                    "[MeetingRepo] Dropped duplicate user chunk: '\(transcript)' matches remote: '\(candidate.transcript)'"
+                )
+                return true
+            }
+        }
+
+        return false
+    }
+
 }

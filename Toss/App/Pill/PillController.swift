@@ -491,16 +491,27 @@ final class PillController {
                 guard let self = self else { return }
 
                 switch result {
-                case .success(let text):
+                case .success(let transcriptionResponse):
                     // Save chunk transcript to repository
-                    _ = self.meetingRepository.appendChunk(
+                    let savedChunk = self.meetingRepository.appendChunk(
                         meetingId: meetingId,
                         index: index,
-                        transcript: text,
+                        transcript: transcriptionResponse.text,
                         startedAt: startedAt,
                         speaker: speaker
                     )
-                    NSLog("[PillController] Chunk #\(index) transcribed: \(text.prefix(40))...")
+
+                    if savedChunk != nil {
+                        // chunk was kept
+                        NSLog(
+                            "[PillController] Chunk #\(index) kept: \(transcriptionResponse.text.prefix(40))..."
+                        )
+                    } else {
+                        // chunk was dropped as duplicate
+                        NSLog(
+                            "[PillController] Chunk #\(index) dropped as duplicate: \(transcriptionResponse.text.prefix(40))..."
+                        )
+                    }
 
                 case .failure(let error):
                     NSLog("[PillController] Chunk upload error: \(error)")

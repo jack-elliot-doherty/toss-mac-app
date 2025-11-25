@@ -10,9 +10,7 @@ final class MeetingRecorder {
         let startedAt: Date
     }
 
-    private var echoGate = EchoGate()
-
-    private let chunkDuration: TimeInterval = 15.0
+    private let chunkDuration: TimeInterval = 10.0
 
     // Audio pipeline
     private let engine = AVAudioEngine()
@@ -178,22 +176,8 @@ final class MeetingRecorder {
             self?.onLevelUpdate?(uiLevel)
         }
 
-        // --- Remote level & dominance ---
-        let decision = echoGate.decide(remoteRMS: currentRemoteLevel(), micRMS: micRMS)
-
-        switch decision {
-        case .echoOnly:
-            // Zero mic samples so ASR sees silence
-            for ch in 0..<channels {
-                let samples = channelData[ch]
-                vDSP_vclr(samples, 1, vDSP_Length(frames))
-            }
-
-        case .userOrOverlap:
-            // Mark this chunk as having user speech if mic is reasonably loud
-            if micRMS > 0.04 {
-                chunkHasUserSpeech = true
-            }
+        if micRMS > 0.005 {
+            chunkHasUserSpeech = true
         }
 
         // --- Convert to 16kHz mono and write (unchanged) ---
@@ -280,57 +264,5 @@ final class MeetingRecorder {
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         isRunning = false
-    }
-}
-
-// Outside the class (file‑private helpers)
-private enum MicDecision {
-    case echoOnly
-    case userOrOverlap
-}
-
-private struct EchoGate {
-    // If system audio RMS is above this, remote is speaking → mute mic
-    var remoteActiveThreshold: Float = 0.02
-
-    // Holdover: keep mic muted briefly after remote stops
-    private var mutedFramesRemaining: Int = 0
-    private let holdoverFrames: Int = 2  // ~40ms
-
-    // Track the "expected bleed level" when remote was active
-    private var lastRemoteRMS: Float = 0
-
-    // If mic is this much louder than expected bleed, user is talking
-    let userSpeechMultiplier: Float = 2.0
-
-    mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {
-        // Update remote tracking
-        if remoteRMS > remoteActiveThreshold {
-            lastRemoteRMS = remoteRMS
-        }
-
-        // Simple binary logic: if remote is clearly playing, mute mic
-        if remoteRMS > remoteActiveThreshold {
-            mutedFramesRemaining = holdoverFrames
-            return .echoOnly
-        }
-
-        // During holdover period (intersection zone)
-        if mutedFramesRemaining > 0 {
-            mutedFramesRemaining -= 1
-
-            // BUT: if mic is significantly louder than expected bleed,
-            // user has started talking → let it through
-            let expectedBleed = lastRemoteRMS * 0.3  // Bleed is typically ~30% of remote level
-            if micRMS > expectedBleed * userSpeechMultiplier && micRMS > 0.05 {
-                // User is speaking over the tail, accept some bleed
-                return .userOrOverlap
-            }
-
-            return .echoOnly
-        }
-
-        // Remote is silent → record mic at full volume
-        return .userOrOverlap
     }
 }

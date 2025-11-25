@@ -11,7 +11,7 @@ final class SystemAudioRecorder: NSObject {
         let startedAt: Date
     }
 
-    private let chunkDuration: TimeInterval = 15
+    private let chunkDuration: TimeInterval = 10.0
     private let streamQueue = DispatchQueue(label: "ai.toss.system-audio.stream")
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -25,7 +25,7 @@ final class SystemAudioRecorder: NSObject {
     private var currentStart: Date?
     private var chunkEnergy: Float = 0
     private var chunkFrames: Int = 0
-    private let silenceRmsThreshold: Float = 0.01
+    private let silenceRmsThreshold: Float = 0.03
     private var chunkIndex = 0
     private var timer: DispatchSourceTimer?
 
