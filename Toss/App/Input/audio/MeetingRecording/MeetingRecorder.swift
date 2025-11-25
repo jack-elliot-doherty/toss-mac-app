@@ -19,8 +19,6 @@ final class MeetingRecorder {
     private var inputFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
 
-    // Ducking
-    private var ducking = DuckingProcessor()
     private var remoteLevelRMS: Float = 0
     private let remoteLevelLock = NSLock()
 
@@ -181,8 +179,7 @@ final class MeetingRecorder {
         }
 
         // --- Remote level & dominance ---
-        let remote = currentRemoteLevel()
-        let decision = echoGate.decide(remoteRMS: remote, micRMS: micRMS)
+        let decision = echoGate.decide(remoteRMS: currentRemoteLevel(), micRMS: micRMS)
 
         switch decision {
         case .echoOnly:
@@ -196,15 +193,6 @@ final class MeetingRecorder {
             // Mark this chunk as having user speech if mic is reasonably loud
             if micRMS > 0.04 {
                 chunkHasUserSpeech = true
-            }
-
-            let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
-            if gain < 0.999 {
-                var g = gain
-                for ch in 0..<channels {
-                    let samples = channelData[ch]
-                    vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(frames))
-                }
             }
         }
 
@@ -295,58 +283,6 @@ final class MeetingRecorder {
     }
 }
 
-private struct DuckingProcessor {
-    var remoteThreshold: Float = 0.05  // Was 0.02 - don't duck too early
-    var micQuietThreshold: Float = 0.05  // Was 0.10
-
-    // Gains - less aggressive
-    let fullGain: Float = 1.0
-    let mildDuckGain: Float = 0.5  // Was 0.25
-    let strongDuckGain: Float = 0.2  // Was 0.05
-    let muteGain: Float = 0.05  // Was 0.001
-
-    // Envelope speeds
-    let duckAttack: Float = 0.7  // Was 0.95 - duck slower
-    let unduckRelease: Float = 0.15  // Was 0.05 - unduck faster
-
-    private(set) var currentGain: Float = 1.0
-
-    mutating func gain(remoteLevel: Float, micLevel: Float) -> Float {
-        let target: Float
-
-        if remoteLevel <= remoteThreshold {
-            target = fullGain
-        } else {
-            if micLevel < micQuietThreshold {
-                target = muteGain
-            } else {
-                let safeMic = max(micLevel, 1e-4)
-                let dominance = remoteLevel / safeMic
-
-                if dominance >= 3 {  // Was 6
-                    target = strongDuckGain
-                } else if dominance >= 1.5 {  // Was 2.5
-                    target = mildDuckGain
-                } else {
-                    target = 0.4  // Was 0.6
-                }
-            }
-        }
-
-        let diff = target - currentGain
-        if abs(diff) < 0.001 {
-            currentGain = target
-            return currentGain
-        }
-
-        let step = diff < 0 ? duckAttack : unduckRelease
-        currentGain += diff * step
-        currentGain = min(fullGain, max(muteGain, currentGain))
-
-        return currentGain
-    }
-}
-
 // Outside the class (file‑private helpers)
 private enum MicDecision {
     case echoOnly
@@ -354,49 +290,47 @@ private enum MicDecision {
 }
 
 private struct EchoGate {
-    // If remote is above this, we consider "remote is speaking"
-    var remoteSpeechThreshold: Float = 0.03
+    // If system audio RMS is above this, remote is speaking → mute mic
+    var remoteActiveThreshold: Float = 0.02
 
-    // If dominance (remote/mic) exceeds this, it's definitely echo
-    // Raised from 1.5 to 3.0 - only gate when remote is 3x louder
-    var hardGateDominance: Float = 3.0
+    // Holdover: keep mic muted briefly after remote stops
+    private var mutedFramesRemaining: Int = 0
+    private let holdoverFrames: Int = 2  // ~40ms
 
-    // If mic is below this AND remote is speaking, always gate
-    // Lowered from 0.12 to 0.05 - only gate truly quiet mic
-    var micFloorThreshold: Float = 0.05
+    // Track the "expected bleed level" when remote was active
+    private var lastRemoteRMS: Float = 0
 
-    // Track recent remote activity for "holdover" gating
-    private var remoteWasLoudFrames: Int = 0
-    // Reduced from 8 to 3 - shorter holdover
-    private let holdoverFrames: Int = 3
+    // If mic is this much louder than expected bleed, user is talking
+    let userSpeechMultiplier: Float = 2.0
 
     mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {
-        let safeMic = max(micRMS, 1e-4)
-        let dominance = remoteRMS / safeMic
-
-        // Track if remote was recently loud (for holdover)
-        if remoteRMS > remoteSpeechThreshold {
-            remoteWasLoudFrames = holdoverFrames
-        } else if remoteWasLoudFrames > 0 {
-            remoteWasLoudFrames -= 1
+        // Update remote tracking
+        if remoteRMS > remoteActiveThreshold {
+            lastRemoteRMS = remoteRMS
         }
 
-        let remoteActive = remoteRMS > remoteSpeechThreshold || remoteWasLoudFrames > 0
-
-        // CASE 1: Remote is VERY dominant → definitely echo
-        // Only gate if remote is 3x+ louder than mic
-        if remoteActive && dominance > hardGateDominance {
+        // Simple binary logic: if remote is clearly playing, mute mic
+        if remoteRMS > remoteActiveThreshold {
+            mutedFramesRemaining = holdoverFrames
             return .echoOnly
         }
 
-        // CASE 2: Remote is active and mic is nearly silent
-        // Only gate if mic is truly quiet (likely just bleed)
-        if remoteActive && micRMS < micFloorThreshold {
+        // During holdover period (intersection zone)
+        if mutedFramesRemaining > 0 {
+            mutedFramesRemaining -= 1
+
+            // BUT: if mic is significantly louder than expected bleed,
+            // user has started talking → let it through
+            let expectedBleed = lastRemoteRMS * 0.3  // Bleed is typically ~30% of remote level
+            if micRMS > expectedBleed * userSpeechMultiplier && micRMS > 0.05 {
+                // User is speaking over the tail, accept some bleed
+                return .userOrOverlap
+            }
+
             return .echoOnly
         }
 
-        // Removed CASE 3 (holdover decay check) - was too aggressive
-
+        // Remote is silent → record mic at full volume
         return .userOrOverlap
     }
 }
