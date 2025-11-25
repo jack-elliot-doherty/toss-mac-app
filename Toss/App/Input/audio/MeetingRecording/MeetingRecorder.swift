@@ -63,7 +63,6 @@ final class MeetingRecorder {
         guard !isRunning else { return }
 
         let inputNode = engine.inputNode
-        try? inputNode.setVoiceProcessingEnabled(true)
         let inputFormat = inputNode.inputFormat(forBus: 0)
         self.inputFormat = inputFormat
 
