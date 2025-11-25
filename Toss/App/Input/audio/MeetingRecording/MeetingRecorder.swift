@@ -30,6 +30,18 @@ final class MeetingRecorder {
     private var chunkIndex: Int = 0
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
 
+    // Echo cancellation ring buffer (~2 seconds at 16kHz)
+    private let remoteRingSize = 16000 * 2
+    private var remoteRing = [Float](repeating: 0, count: 16000 * 2)
+    private var remoteRingIndex = 0
+    private let remoteRingLock = NSLock()
+
+    // Echo detection thresholds
+    private let echoCorrelationThreshold: Float = 0.55
+    private let echoRemoteLevelThreshold: Float = 0.015
+    private let echoMaxDelaySamples = 800  // ~50ms at 16kHz
+    private let echoDelayStep = 80
+
     // Target format: 16kHz Mono Float32
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
@@ -51,6 +63,7 @@ final class MeetingRecorder {
         guard !isRunning else { return }
 
         let inputNode = engine.inputNode
+        try? inputNode.setVoiceProcessingEnabled(true)
         let inputFormat = inputNode.inputFormat(forBus: 0)
         self.inputFormat = inputFormat
 
@@ -145,6 +158,59 @@ final class MeetingRecorder {
         return level
     }
 
+    func ingestRemoteBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let channel = buffer.floatChannelData?[0] else { return }
+        let frames = Int(buffer.frameLength)
+        if frames == 0 { return }
+
+        remoteRingLock.lock()
+        defer { remoteRingLock.unlock() }
+
+        for i in 0..<frames {
+            remoteRing[remoteRingIndex] = channel[i]
+            remoteRingIndex = (remoteRingIndex + 1) % remoteRingSize
+        }
+    }
+
+    private func echoCorrelation(for micBuffer: AVAudioPCMBuffer) -> Float {
+        guard let mic = micBuffer.floatChannelData?[0] else { return 0 }
+        let n = Int(micBuffer.frameLength)
+        if n == 0 || n > remoteRingSize { return 0 }
+
+        let segmentSize = n + echoMaxDelaySamples
+
+        remoteRingLock.lock()
+        var remoteSegment = [Float](repeating: 0, count: segmentSize)
+        var idx = (remoteRingIndex - segmentSize + remoteRingSize) % remoteRingSize
+        for i in 0..<segmentSize {
+            remoteSegment[i] = remoteRing[idx]
+            idx = (idx + 1) % remoteRingSize
+        }
+        remoteRingLock.unlock()
+
+        var maxCorr: Float = 0
+
+        for offset in stride(from: 0, through: echoMaxDelaySamples, by: echoDelayStep) {
+            if offset + n > segmentSize { break }
+
+            var dot: Float = 0
+            var micEnergy: Float = 0
+            var remoteEnergy: Float = 0
+
+            remoteSegment.withUnsafeBufferPointer { ptr in
+                vDSP_dotpr(mic, 1, ptr.baseAddress! + offset, 1, &dot, vDSP_Length(n))
+                vDSP_svesq(mic, 1, &micEnergy, vDSP_Length(n))
+                vDSP_svesq(ptr.baseAddress! + offset, 1, &remoteEnergy, vDSP_Length(n))
+            }
+
+            let denom = sqrt(micEnergy * remoteEnergy) + 1e-6
+            let corr = dot / denom
+            maxCorr = max(maxCorr, abs(corr))
+        }
+
+        return maxCorr
+    }
+
     // MARK: - Tap handler
 
     private func handleInputBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -155,14 +221,13 @@ final class MeetingRecorder {
         guard format.commonFormat == .pcmFormatFloat32,
             let channelData = buffer.floatChannelData
         else {
-            // on macOS this should be Float32.
             return
         }
 
         let channels = Int(format.channelCount)
         let frames = Int(buffer.frameLength)
 
-        // Mic RMS
+        // Mic RMS on original buffer
         var sum: Float = 0
         for ch in 0..<channels {
             let samples = channelData[ch]
@@ -176,11 +241,7 @@ final class MeetingRecorder {
             self?.onLevelUpdate?(uiLevel)
         }
 
-        if micRMS > 0.005 {
-            chunkHasUserSpeech = true
-        }
-
-        // --- Convert to 16kHz mono and write (unchanged) ---
+        // Convert to 16k mono
         guard let file = currentChunkFile else { return }
 
         let ratio = targetFormat.sampleRate / format.sampleRate
@@ -206,6 +267,29 @@ final class MeetingRecorder {
 
         if outBuffer.frameLength == 0 { return }
 
+        // Echo detection
+        let remoteLevel = currentRemoteLevel()
+
+        // Only compute correlation if remote is audible
+        if remoteLevel > echoRemoteLevelThreshold {
+            let corr = echoCorrelation(for: outBuffer)
+
+            let isEcho =
+                micRMS < remoteLevel * 2.0  // mic not dramatically louder
+                && corr > echoCorrelationThreshold
+
+            if isEcho {
+                // This frame is mostly echo - skip writing
+                return
+            }
+        }
+
+        // Mark chunk as having user speech
+        if micRMS > 0.005 {
+            chunkHasUserSpeech = true
+        }
+
+        // Write to file
         ioQueue.async {
             do {
                 try file.write(from: outBuffer)

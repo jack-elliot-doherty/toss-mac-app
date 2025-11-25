@@ -33,6 +33,7 @@ final class SystemAudioRecorder: NSObject {
     var onChunkReady: ((URL, Int, Date) -> Void)?
     var onError: ((Error) -> Void)?
     var onRemoteLevel: ((Float) -> Void)?
+    var onRemoteAudioFrame: ((AVAudioPCMBuffer) -> Void)?
 
     func start() async throws {
         guard !isRunning else { return }
@@ -232,6 +233,14 @@ extension SystemAudioRecorder: SCStreamOutput {
             NSLog("[SystemAudioRecorder] Conversion error: \(convertError)")
             return
         }
+
+        // Emit 16kHz mono buffer for echo cancellation
+        if let copy = outputBuffer.deepCopy() {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                self?.onRemoteAudioFrame?(copy)
+            }
+        }
+
         do {
             try file.write(from: outputBuffer)
         } catch {
@@ -278,5 +287,18 @@ extension AVAudioPCMBuffer {
         }
         let rms = sqrtf(sum / max(1, Float(count)))
         return min(1, rms)
+    }
+
+    func deepCopy() -> AVAudioPCMBuffer? {
+        guard let copy = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCapacity) else {
+            return nil
+        }
+        copy.frameLength = frameLength
+        if let src = floatChannelData, let dst = copy.floatChannelData {
+            for ch in 0..<Int(format.channelCount) {
+                memcpy(dst[ch], src[ch], Int(frameLength) * MemoryLayout<Float>.size)
+            }
+        }
+        return copy
     }
 }

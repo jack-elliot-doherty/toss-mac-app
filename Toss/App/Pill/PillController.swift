@@ -371,6 +371,11 @@ final class PillController {
         systemRecorder.onRemoteLevel = { [weak recorder] level in
             recorder?.updateRemoteLevel(level)
         }
+
+        systemRecorder.onRemoteAudioFrame = { [weak meetingRecorder] buffer in
+            meetingRecorder?.ingestRemoteBuffer(buffer)
+        }
+
         systemRecorder.onChunkReady = { [weak self] url, index, startedAt in
             guard let self, self.activeMeetingId != nil else { return }
             self.send(.meetingChunkReady(.remote, url, index, startedAt))
