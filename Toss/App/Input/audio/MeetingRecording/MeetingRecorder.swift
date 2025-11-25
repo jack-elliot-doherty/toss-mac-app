@@ -19,6 +19,8 @@ final class MeetingRecorder {
     private var inputFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
 
+    // Ducking
+    private var ducking = DuckingProcessor()
     private var remoteLevelRMS: Float = 0
     private let remoteLevelLock = NSLock()
 
@@ -195,6 +197,15 @@ final class MeetingRecorder {
             if micRMS > 0.02 {
                 chunkHasUserSpeech = true
             }
+
+            let gain = ducking.gain(remoteLevel: remote, micLevel: micRMS)
+            if gain < 0.999 {
+                var g = gain
+                for ch in 0..<channels {
+                    let samples = channelData[ch]
+                    vDSP_vsmul(samples, 1, &g, samples, 1, vDSP_Length(frames))
+                }
+            }
         }
 
         // --- Convert to 16kHz mono and write (unchanged) ---
@@ -284,7 +295,67 @@ final class MeetingRecorder {
     }
 }
 
+private struct DuckingProcessor {
+    // Remote threshold: only duck when remote is clearly audible
+    var remoteThreshold: Float = 0.08
 
+    // When mic is very quiet (likely just echo), duck it hard
+    var micQuietThreshold: Float = 0.03
+
+    // Gains
+    let fullGain: Float = 1.0
+    let mildDuckGain: Float = 0.4  // light overlap
+    let strongDuckGain: Float = 0.15  // clear remote dominance
+    let muteGain: Float = 0.01  // essentially mute
+
+    // Envelope speeds
+    let duckAttack: Float = 0.85  // duck fast
+    let unduckRelease: Float = 0.1  // unduck slowly
+
+    private(set) var currentGain: Float = 1.0
+
+    mutating func gain(remoteLevel: Float, micLevel: Float) -> Float {
+        let target: Float
+
+        if remoteLevel <= remoteThreshold {
+            // No remote speech
+            target = fullGain
+        } else {
+            // Remote is speaking
+            if micLevel < micQuietThreshold {
+                // Mic is very quiet → likely just echo/bleed
+                target = muteGain
+            } else {
+                // Mic has some energy
+                let safeMic = max(micLevel, 1e-4)
+                let dominance = remoteLevel / safeMic
+
+                if dominance >= 6 {
+                    // Remote >> mic: strong duck
+                    target = strongDuckGain
+                } else if dominance >= 2.5 {
+                    // Remote clearly louder: medium duck
+                    target = mildDuckGain
+                } else {
+                    // Overlap or user louder: light duck
+                    target = 0.6
+                }
+            }
+        }
+
+        let diff = target - currentGain
+        if abs(diff) < 0.001 {
+            currentGain = target
+            return currentGain
+        }
+
+        let step = diff < 0 ? duckAttack : unduckRelease
+        currentGain += diff * step
+        currentGain = min(fullGain, max(muteGain, currentGain))
+
+        return currentGain
+    }
+}
 
 // Outside the class (file‑private helpers)
 private enum MicDecision {
@@ -294,8 +365,8 @@ private enum MicDecision {
 
 private struct EchoGate {
     // Tune these based on logs
-    var remoteSpeechThreshold: Float = 0.03
-    var micQuietThreshold: Float = 0.08
+   var remoteSpeechThreshold: Float = 0.03  
+    var micQuietThreshold: Float = 0.08     
     var dominanceThreshold: Float = 2.5
 
     mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {

@@ -29,7 +29,6 @@
 		DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234A2EB23FCE000207F0 /* PillView.swift */; };
 		DA36237E2EB23FCE000207F0 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36235F2EB23FCE000207F0 /* Assets.xcassets */; };
 		DA3623802EB23FCE000207F0 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */; };
-		DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */; };
 		DA3623852EB3FF10000207F0 /* PillController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623822EB3FF10000207F0 /* PillController.swift */; };
 		DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623832EB3FF10000207F0 /* PillStateMachine.swift */; };
 		DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623602EB23FCE000207F0 /* AuthManager.swift */; };
@@ -95,7 +94,6 @@
 		DA36234B2EB23FCE000207F0 /* PillViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillViewModel.swift; sourceTree = "<group>"; };
 		DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastPanelController.swift; sourceTree = "<group>"; };
 		DA36234F2EB23FCE000207F0 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "digital-click-357350.mp3"; sourceTree = "<group>"; };
 		DA3623532EB23FCE000207F0 /* HistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryRepository.swift; sourceTree = "<group>"; };
 		DA3623552EB23FCE000207F0 /* Accessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Accessibility.swift; sourceTree = "<group>"; };
 		DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXFocusHelper.swift; sourceTree = "<group>"; };
@@ -213,14 +211,6 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		DA3623522EB23FCE000207F0 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				DA3623512EB23FCE000207F0 /* digital-click-357350.mp3 */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
@@ -265,7 +255,6 @@
 				DA3623462EB23FCE000207F0 /* Networking */,
 				DA36234E2EB23FCE000207F0 /* Overlay */,
 				DA3623502EB23FCE000207F0 /* Preview Content */,
-				DA3623522EB23FCE000207F0 /* Resources */,
 				DA3623542EB23FCE000207F0 /* Sections */,
 				DA3623592EB23FCE000207F0 /* System */,
 				DA36235B2EB23FCE000207F0 /* Updates */,
@@ -478,7 +467,6 @@
 			files = (
 				DA36237E2EB23FCE000207F0 /* Assets.xcassets in Resources */,
 				DA3623802EB23FCE000207F0 /* Preview Assets.xcassets in Resources */,
-				DA3623812EB23FCE000207F0 /* digital-click-357350.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
