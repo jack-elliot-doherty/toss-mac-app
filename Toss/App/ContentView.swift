@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import SwiftUI
 
 struct Breadcrumb: Identifiable, Equatable {
@@ -982,11 +983,15 @@ struct HomeView: View {
 }
 
 struct SettingsView: View {
+    @StateObject private var launchAtLogin = LaunchAtLogin.shared
     @ObservedObject private var ob = OnboardingManager.shared
     @ObservedObject private var auth = AuthManager.shared
 
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Launch at login", isOn: $launchAtLogin.isEnabled)
+            }
             Section("Account") {
                 if auth.isAuthenticated {
                     HStack {

@@ -194,7 +194,7 @@ final class MeetingRecorder {
 
         case .userOrOverlap:
             // Mark this chunk as having user speech if mic is reasonably loud
-            if micRMS > 0.02 {
+            if micRMS > 0.10 {
                 chunkHasUserSpeech = true
             }
 
@@ -296,21 +296,18 @@ final class MeetingRecorder {
 }
 
 private struct DuckingProcessor {
-    // Remote threshold: only duck when remote is clearly audible
-    var remoteThreshold: Float = 0.08
+    var remoteThreshold: Float = 0.02  // Was 0.08 - start ducking earlier
+    var micQuietThreshold: Float = 0.10  // Was 0.03 - treat more as "quiet"
 
-    // When mic is very quiet (likely just echo), duck it hard
-    var micQuietThreshold: Float = 0.03
-
-    // Gains
+    // Gains - more aggressive
     let fullGain: Float = 1.0
-    let mildDuckGain: Float = 0.4  // light overlap
-    let strongDuckGain: Float = 0.15  // clear remote dominance
-    let muteGain: Float = 0.01  // essentially mute
+    let mildDuckGain: Float = 0.25  // Was 0.4
+    let strongDuckGain: Float = 0.05  // Was 0.15
+    let muteGain: Float = 0.001  // Was 0.01
 
     // Envelope speeds
-    let duckAttack: Float = 0.85  // duck fast
-    let unduckRelease: Float = 0.1  // unduck slowly
+    let duckAttack: Float = 0.95  // Was 0.85 - duck faster
+    let unduckRelease: Float = 0.05  // Was 0.1 - unduck slower
 
     private(set) var currentGain: Float = 1.0
 
@@ -318,27 +315,20 @@ private struct DuckingProcessor {
         let target: Float
 
         if remoteLevel <= remoteThreshold {
-            // No remote speech
             target = fullGain
         } else {
-            // Remote is speaking
             if micLevel < micQuietThreshold {
-                // Mic is very quiet → likely just echo/bleed
                 target = muteGain
             } else {
-                // Mic has some energy
                 let safeMic = max(micLevel, 1e-4)
                 let dominance = remoteLevel / safeMic
 
-                if dominance >= 6 {
-                    // Remote >> mic: strong duck
+                if dominance >= 3 {  // Was 6
                     target = strongDuckGain
-                } else if dominance >= 2.5 {
-                    // Remote clearly louder: medium duck
+                } else if dominance >= 1.5 {  // Was 2.5
                     target = mildDuckGain
                 } else {
-                    // Overlap or user louder: light duck
-                    target = 0.6
+                    target = 0.4  // Was 0.6
                 }
             }
         }
@@ -364,21 +354,47 @@ private enum MicDecision {
 }
 
 private struct EchoGate {
-    // Tune these based on logs
-   var remoteSpeechThreshold: Float = 0.03  
-    var micQuietThreshold: Float = 0.08     
-    var dominanceThreshold: Float = 2.5
+    // If remote is above this, we consider "remote is speaking"
+    var remoteSpeechThreshold: Float = 0.02
+
+    // If dominance (remote/mic) exceeds this, it's definitely echo
+    var hardGateDominance: Float = 1.5
+
+    // If mic is below this AND remote is speaking, always gate
+    var micFloorThreshold: Float = 0.12
+
+    // Track recent remote activity for "holdover" gating
+    private var remoteWasLoudFrames: Int = 0
+    private let holdoverFrames: Int = 8  // ~160ms at 1024 samples/48kHz
 
     mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {
         let safeMic = max(micRMS, 1e-4)
         let dominance = remoteRMS / safeMic
 
-        if remoteRMS > remoteSpeechThreshold && micRMS < micQuietThreshold
-            && dominance > dominanceThreshold
-        {
-            return .echoOnly
-        } else {
-            return .userOrOverlap
+        // Track if remote was recently loud (for holdover)
+        if remoteRMS > remoteSpeechThreshold {
+            remoteWasLoudFrames = holdoverFrames
+        } else if remoteWasLoudFrames > 0 {
+            remoteWasLoudFrames -= 1
         }
+
+        let remoteActive = remoteRMS > remoteSpeechThreshold || remoteWasLoudFrames > 0
+
+        // CASE 1: Remote is clearly dominant → definitely echo
+        if remoteActive && dominance > hardGateDominance {
+            return .echoOnly
+        }
+
+        // CASE 2: Remote is active and mic isn't loud enough to be real speech
+        if remoteActive && micRMS < micFloorThreshold {
+            return .echoOnly
+        }
+
+        // CASE 3: Remote just stopped but mic is still picking up decay
+        if remoteWasLoudFrames > 0 && micRMS < micFloorThreshold * 1.5 {
+            return .echoOnly
+        }
+
+        return .userOrOverlap
     }
 }
