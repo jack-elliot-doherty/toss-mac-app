@@ -280,6 +280,7 @@ final class MeetingRecorder {
 
             if isEcho {
                 // This frame is mostly echo - skip writing
+                NSLog("[MeetingRecorder] Echo detected - skipping frame")
                 return
             }
         }
