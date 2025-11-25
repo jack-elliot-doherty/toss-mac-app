@@ -94,6 +94,7 @@ final class SystemAudioRecorder: NSObject {
     }
 
     private func startNewChunk() {
+        resetChunkStats()
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("system_chunk_\(chunkIndex)_\(UUID().uuidString).wav")
         do {
