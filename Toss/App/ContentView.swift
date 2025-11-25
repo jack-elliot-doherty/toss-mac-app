@@ -607,7 +607,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 header
 
-                QuickActionsCard()
+                // QuickActionsCard()
 
                 LastDictationSection(
                     last: dictations.first,
