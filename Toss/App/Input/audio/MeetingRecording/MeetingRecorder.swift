@@ -194,7 +194,7 @@ final class MeetingRecorder {
 
         case .userOrOverlap:
             // Mark this chunk as having user speech if mic is reasonably loud
-            if micRMS > 0.10 {
+            if micRMS > 0.04 {
                 chunkHasUserSpeech = true
             }
 
@@ -296,18 +296,18 @@ final class MeetingRecorder {
 }
 
 private struct DuckingProcessor {
-    var remoteThreshold: Float = 0.02  // Was 0.08 - start ducking earlier
-    var micQuietThreshold: Float = 0.10  // Was 0.03 - treat more as "quiet"
+    var remoteThreshold: Float = 0.05  // Was 0.02 - don't duck too early
+    var micQuietThreshold: Float = 0.05  // Was 0.10
 
-    // Gains - more aggressive
+    // Gains - less aggressive
     let fullGain: Float = 1.0
-    let mildDuckGain: Float = 0.25  // Was 0.4
-    let strongDuckGain: Float = 0.05  // Was 0.15
-    let muteGain: Float = 0.001  // Was 0.01
+    let mildDuckGain: Float = 0.5  // Was 0.25
+    let strongDuckGain: Float = 0.2  // Was 0.05
+    let muteGain: Float = 0.05  // Was 0.001
 
     // Envelope speeds
-    let duckAttack: Float = 0.95  // Was 0.85 - duck faster
-    let unduckRelease: Float = 0.05  // Was 0.1 - unduck slower
+    let duckAttack: Float = 0.7  // Was 0.95 - duck slower
+    let unduckRelease: Float = 0.15  // Was 0.05 - unduck faster
 
     private(set) var currentGain: Float = 1.0
 
@@ -355,17 +355,20 @@ private enum MicDecision {
 
 private struct EchoGate {
     // If remote is above this, we consider "remote is speaking"
-    var remoteSpeechThreshold: Float = 0.02
+    var remoteSpeechThreshold: Float = 0.03
 
     // If dominance (remote/mic) exceeds this, it's definitely echo
-    var hardGateDominance: Float = 1.5
+    // Raised from 1.5 to 3.0 - only gate when remote is 3x louder
+    var hardGateDominance: Float = 3.0
 
     // If mic is below this AND remote is speaking, always gate
-    var micFloorThreshold: Float = 0.12
+    // Lowered from 0.12 to 0.05 - only gate truly quiet mic
+    var micFloorThreshold: Float = 0.05
 
     // Track recent remote activity for "holdover" gating
     private var remoteWasLoudFrames: Int = 0
-    private let holdoverFrames: Int = 8  // ~160ms at 1024 samples/48kHz
+    // Reduced from 8 to 3 - shorter holdover
+    private let holdoverFrames: Int = 3
 
     mutating func decide(remoteRMS: Float, micRMS: Float) -> MicDecision {
         let safeMic = max(micRMS, 1e-4)
@@ -380,20 +383,19 @@ private struct EchoGate {
 
         let remoteActive = remoteRMS > remoteSpeechThreshold || remoteWasLoudFrames > 0
 
-        // CASE 1: Remote is clearly dominant → definitely echo
+        // CASE 1: Remote is VERY dominant → definitely echo
+        // Only gate if remote is 3x+ louder than mic
         if remoteActive && dominance > hardGateDominance {
             return .echoOnly
         }
 
-        // CASE 2: Remote is active and mic isn't loud enough to be real speech
+        // CASE 2: Remote is active and mic is nearly silent
+        // Only gate if mic is truly quiet (likely just bleed)
         if remoteActive && micRMS < micFloorThreshold {
             return .echoOnly
         }
 
-        // CASE 3: Remote just stopped but mic is still picking up decay
-        if remoteWasLoudFrames > 0 && micRMS < micFloorThreshold * 1.5 {
-            return .echoOnly
-        }
+        // Removed CASE 3 (holdover decay check) - was too aggressive
 
         return .userOrOverlap
     }
