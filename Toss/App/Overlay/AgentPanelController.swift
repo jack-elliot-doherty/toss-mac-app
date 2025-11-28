@@ -26,7 +26,7 @@ final class AgentPanelController {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.styleMask.insert(.fullSizeContentView)
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
 
         panel.isFloatingPanel = true
         panel.level = .statusBar
@@ -128,12 +128,20 @@ final class AgentPanelController {
             targetFrame = panel.frame
         }
 
+        let currentFrame = panel.frame
+        if abs(currentFrame.height - targetFrame.height) < 1
+            && abs(currentFrame.origin.x - targetFrame.origin.x) < 1
+            && abs(currentFrame.origin.y - targetFrame.origin.y) < 1
+        {
+            return
+        }
+
         let delta = abs(panel.frame.height - targetFrame.height)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        if delta > 1 && !reduceMotion {
+        if delta > 5 && !reduceMotion {  // increased threshold
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.18
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                ctx.duration = 0.2  // slightly smoother
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().setFrame(targetFrame, display: true)
             }
         } else {

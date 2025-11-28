@@ -61,6 +61,7 @@
 		DAEEBF282ED265E1009DE3CF /* AppGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF272ED265E1009DE3CF /* AppGlass.swift */; };
 		DAEEBF2A2ED5109D009DE3CF /* AudioCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */; };
 		DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF2B2ED5F065009DE3CF /* LaunchAtLogin.swift */; };
+		DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -136,6 +137,7 @@
 		DAEEBF272ED265E1009DE3CF /* AppGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGlass.swift; sourceTree = "<group>"; };
 		DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCompressor.swift; sourceTree = "<group>"; };
 		DAEEBF2B2ED5F065009DE3CF /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -216,6 +218,7 @@
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */,
 				DA36239B2EBB77CB000207F0 /* HistoryView.swift */,
 				DA3623532EB23FCE000207F0 /* HistoryRepository.swift */,
 			);
@@ -527,6 +530,7 @@
 				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
+				DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DAEB723F2EBD5E79006A17C7 /* TossApp.swift in Sources */,
 				DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */,

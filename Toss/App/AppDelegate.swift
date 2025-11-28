@@ -209,7 +209,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls { _ = AuthManager.shared.handleDeepLink(url: url) }
+        for url in urls {
+            // Handle integration callbacks (Slack OAuth)
+            if IntegrationsManager.shared.handleDeepLink(url: url) {
+                continue
+            }
+            // Handle auth callbacks
+            _ = AuthManager.shared.handleDeepLink(url: url)
+        }
     }
 
     private func cacheTranscript(_ text: String) -> ThreadModel {

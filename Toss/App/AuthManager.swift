@@ -12,7 +12,12 @@ final class AuthManager: ObservableObject {
     @Published private(set) var userEmail: String?
     @Published private(set) var userImageURL: URL?
 
-    private let keychainService = "ai.toss.mac"
+    // For dev builds, use a different keychain service
+    #if DEBUG
+        private let keychainService = "ai.toss.mac.dev"
+    #else
+        private let keychainService = "ai.toss.mac"
+    #endif
     private let tokenAccount = "access_token"
     private let refreshAccount = "refresh_token"
     private var pendingAuthState: String?

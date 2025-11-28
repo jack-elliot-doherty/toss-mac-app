@@ -28,91 +28,18 @@ final class AgentViewModel: ObservableObject {
     func startConversation(with initialMessage: String) {
         threadId = UUID()
 
-        // Add user message
-        let userMsg = DisplayMessage(
-            id: UUID(),
-            role: .user,
-            content: initialMessage,
-            timestamp: Date()
-        )
-        messages.append(userMsg)
-
         // Send to agent
-        sendToAgent(initialMessage)
+        Task {
+            await sendMessageStreaming(initialMessage)
+        }
     }
 
     func sendMessage(_ text: String) {
         guard !text.isEmpty else { return }
 
-        let userMsg = DisplayMessage(
-            id: UUID(),
-            role: .user,
-            content: text,
-            timestamp: Date()
-        )
-        messages.append(userMsg)
-
-        NotificationCenter.default.post(
-            name: NSNotification.Name("AgentMessagesChanged"), object: nil)
-
-        sendToAgent(text)
-
-    }
-
-    private func sendToAgent(_ message: String) {
-        isProcessing = true
-        errorMessage = nil
-
-        // Build history for context
-        let history = messages.dropLast().map { msg in
-            AgentRequest.ChatMessage(
-                role: msg.role.rawValue,
-                content: msg.content
-            )
+        Task {
+            await sendMessageStreaming(text)
         }
-
-        let token = auth.accessToken
-
-        api.sendMessage(
-            message, threadId: threadId?.uuidString, history: Array(history), token: token
-        ) { [weak self] result in
-            Task { @MainActor in
-                guard let self = self else { return }
-                self.isProcessing = false
-
-                switch result {
-                case .success(let response):
-                    let assistantMsg = DisplayMessage(
-                        id: UUID(),
-                        role: .assistant,
-                        content: response.response,
-                        timestamp: Date()
-                    )
-                    self.messages.append(assistantMsg)
-
-                    // Handle actions if any
-                    if !response.actions.isEmpty {
-                        NSLog(
-                            "[AgentViewModel] Actions to perform: %@",
-                            response.actions.joined(separator: ", "))
-                        // TODO: Execute actions
-                    }
-
-                case .failure(let error):
-                    self.errorMessage = error.localizedDescription
-                    NSLog("[AgentViewModel] Error: %@", error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    func clearConversation() {
-        messages.removeAll()
-        pendingToolCalls.removeAll()
-        threadId = nil
-        isProcessing = false
-        errorMessage = nil
-        currentAssistantMessage = nil
     }
 
     // MARK: - Streaming Support
@@ -148,6 +75,30 @@ final class AgentViewModel: ObservableObject {
         isProcessing = false
     }
 
+    func clearConversation() {
+        messages.removeAll()
+        pendingToolCalls.removeAll()
+        threadId = nil
+        isProcessing = false
+        errorMessage = nil
+        currentAssistantMessage = nil
+    }
+
+    private struct StreamRequest: Codable {
+        let messages: [Message]
+
+        struct Message: Codable {
+            let id: String
+            let role: String
+            let parts: [Part]
+        }
+
+        struct Part: Codable {
+            let type: String
+            let text: String
+        }
+    }
+
     private func streamFromAgent(messages: [[String: String]]) async throws {
         guard let token = auth.accessToken else {
             throw NSError(
@@ -161,8 +112,29 @@ final class AgentViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let body = ["messages": messages]
-        request.httpBody = try JSONEncoder().encode(body)
+        // Map the dictionary array to the encodable struct
+        let requestMessages = messages.map { dict in
+            StreamRequest.Message(
+                id: UUID().uuidString,
+                role: dict["role"] ?? "user",
+                parts: [
+                    StreamRequest.Part(
+                        type: "text",
+                        text: dict["content"] ?? ""
+                    )
+                ]
+            )
+        }
+
+        let payload = StreamRequest(messages: requestMessages)
+        let jsonData = try JSONEncoder().encode(payload)
+
+        // Debug log to verify payload
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            NSLog("[AgentViewModel] JSON Body: %@", jsonString)
+        }
+
+        request.httpBody = jsonData
 
         // Stream events
         for try await event in streamParser.streamEvents(from: request) {
@@ -292,10 +264,44 @@ final class AgentViewModel: ObservableObject {
         mutableToolCall.status = .executing
         pendingToolCalls[index] = mutableToolCall
 
-        // Send approval to server to continue stream
+        // Send approval to server to execute tool manually
         do {
-            try await sendToolApproval(toolCallId: toolCall.id, approved: true)
+            let args = toolCall.arguments
+            try await sendToolApproval(
+                toolCallId: toolCall.id,
+                toolName: toolCall.name,
+                arguments: args,
+                approved: true
+            )
             NSLog("[AgentViewModel] Sent approval for: \(toolCall.name)")
+
+            // Since we executed manually, mark complete
+            // Wait a bit to show "executing" state
+            try? await Task.sleep(nanoseconds: 500_000_000)
+
+            if let idx = self.pendingToolCalls.firstIndex(where: { $0.id == toolCall.id }) {
+                var completedCall = self.pendingToolCalls[idx]
+                completedCall.status = .completed(result: "Executed")
+                self.pendingToolCalls[idx] = completedCall
+
+                // Remove after delay
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    if let i = self.pendingToolCalls.firstIndex(where: { $0.id == toolCall.id }) {
+                        self.pendingToolCalls.remove(at: i)
+                    }
+                }
+            }
+
+            // Add system message
+            let msg = DisplayMessage(
+                id: UUID(),
+                role: .system,
+                content: "✅ Action completed",
+                timestamp: Date()
+            )
+            messages.append(msg)
+
         } catch {
             errorMessage = "Failed to approve tool: \(error.localizedDescription)"
             // Revert status
@@ -312,10 +318,15 @@ final class AgentViewModel: ObservableObject {
         // Remove from UI
         pendingToolCalls.remove(at: index)
 
-        // Send rejection to server
+        // Send rejection to server (just logging)
         Task {
             do {
-                try await sendToolApproval(toolCallId: toolCall.id, approved: false)
+                try await sendToolApproval(
+                    toolCallId: toolCall.id,
+                    toolName: toolCall.name,
+                    arguments: [:],
+                    approved: false
+                )
                 NSLog("[AgentViewModel] Sent rejection for: \(toolCall.name)")
             } catch {
                 errorMessage = "Failed to reject tool: \(error.localizedDescription)"
@@ -323,7 +334,12 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
-    private func sendToolApproval(toolCallId: String, approved: Bool) async throws {
+    private func sendToolApproval(
+        toolCallId: String,
+        toolName: String,
+        arguments: [String: AnyCodable],
+        approved: Bool
+    ) async throws {
         guard let token = auth.accessToken else {
             throw NSError(
                 domain: "AgentViewModel", code: 401,
@@ -336,11 +352,15 @@ final class AgentViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let body =
-            [
-                "toolCallId": toolCallId,
-                "approved": approved,
-            ] as [String: Any]
+        // Convert arguments to pure JSON dictionary
+        let argsDict = arguments.mapValues { $0.value }
+
+        let body: [String: Any] = [
+            "toolCallId": toolCallId,
+            "toolName": toolName,
+            "arguments": argsDict,
+            "approved": approved,
+        ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
