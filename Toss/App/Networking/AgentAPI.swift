@@ -30,6 +30,49 @@ final class AgentAPI {
         self.baseURL = baseURL
     }
 
+    /// Stream messages from the agent using SSE (AI SDK v6 protocol)
+    func streamMessage(
+        _ message: String,
+        threadId: String? = nil,
+        history: [AgentRequest.ChatMessage]? = nil,
+        token: String?
+    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+        let url = baseURL.appendingPathComponent("/agent/chat")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")  // Important for SSE
+
+        if let token = token, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        // Construct prompt with system context if needed
+        // Or just rely on the server's system prompt
+        var messages: [AgentRequest.ChatMessage] = []
+        if let history = history {
+            messages.append(contentsOf: history)
+        }
+        messages.append(AgentRequest.ChatMessage(role: "user", content: message))
+
+        let payload = ["messages": messages]
+
+        do {
+            request.httpBody = try JSONEncoder().encode(payload)
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: error)
+            }
+        }
+
+        NSLog("[AgentAPI] Streaming message: \"%@\"", message)
+
+        // Use the existing parser's helper
+        // Note: You might need to instantiate parser here or use a static helper
+        let parser = AgentStreamParser()
+        return parser.streamEvents(from: request)
+    }
+
     func sendMessage(
         _ message: String,
         threadId: String? = nil,
@@ -37,7 +80,7 @@ final class AgentAPI {
         token: String?,
         completion: @escaping (Result<AgentResponse, Error>) -> Void
     ) {
-        let url = baseURL.appendingPathComponent("/agent/message")
+        let url = baseURL.appendingPathComponent("/agent/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

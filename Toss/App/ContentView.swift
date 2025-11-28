@@ -267,7 +267,7 @@ struct ContentView: View {
             EmptyView()
         // ActivityView()
         case .integrations:
-            EmptyView()
+            IntegrationsView()
         // IntegrationsView()
         case .settings, .none:
             OnboardingGate()

@@ -1,5 +1,95 @@
 import SwiftUI
 
+struct MeetingParticipant: Codable, Identifiable {
+    var id: String { email }
+    let name: String?
+    let email: String
+    let avatarUrl: String?
+    let responseStatus: String?
+    let companyName: String?
+    let companyLogo: String?
+}
+
+struct UpcomingMeeting: Codable, Identifiable {
+    let id: UUID
+    let title: String
+    let startedAt: Date
+    let endedAt: Date?
+    let joinUrl: String?
+    let participants: [MeetingParticipant]
+
+    // Computed helpers
+    var startTimeFormatted: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: startedAt)
+    }
+
+    var relativeTime: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: startedAt, relativeTo: Date())
+    }
+}
+
+@MainActor
+final class MeetingsManager: ObservableObject {
+    static let shared = MeetingsManager()
+
+    @Published var upcomingMeetings: [UpcomingMeeting] = []
+    @Published var isLoading = false
+    @Published var error: String?
+
+    func fetchUpcoming() async {
+        guard let token = AuthManager.shared.accessToken else { return }
+        guard let url = URL(string: "\(Config.serverURL)/meetings/upcoming") else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            isLoading = true
+            let (data, response) = try await URLSession.shared.data(for: request)
+            isLoading = false
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                let decoder = JSONDecoder()
+                // Handle custom date format if needed, usually ISO8601 is default
+                decoder.dateDecodingStrategy = .iso8601
+
+                struct Response: Codable {
+                    let meetings: [UpcomingMeeting]
+                }
+
+                let result = try decoder.decode(Response.self, from: data)
+                self.upcomingMeetings = result.meetings
+            }
+        } catch {
+            isLoading = false
+            NSLog("[MeetingsManager] Fetch error: %@", error.localizedDescription)
+        }
+    }
+
+    func syncCalendar() async {
+        guard let token = AuthManager.shared.accessToken else { return }
+        guard let url = URL(string: "\(Config.serverURL)/meetings/sync") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                // Refetch after sync
+                await fetchUpcoming()
+            }
+        } catch {
+            NSLog("[MeetingsManager] Sync error: %@", error.localizedDescription)
+        }
+    }
+}
+
 struct MeetingView: View {
     let meetingId: UUID
     @ObservedObject var repository: PersistentMeetingRepository
@@ -434,6 +524,9 @@ struct MeetingsListView: View {
     @Binding var navigationPath: NavigationPath
     @State private var selectedMeeting: UUID?
 
+    // Add Manager
+    @StateObject private var meetingsManager = MeetingsManager.shared
+
     var meetings: [MeetingModel] {
         repository.listMeetings()
     }
@@ -458,6 +551,52 @@ struct MeetingsListView: View {
         NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
+
+                    // --- NEW: Upcoming Section ---
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            Text("Upcoming")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                                .textCase(.uppercase)
+
+                            Spacer()
+
+                            Button {
+                                Task { await meetingsManager.syncCalendar() }
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.secondaryText)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        if meetingsManager.upcomingMeetings.isEmpty {
+                            // Empty State / Connect CTA
+                            // You can check IntegrationsManager.shared.googleStatus.connected here if you want
+                            // For now, a simple card
+                            HStack {
+                                Text("No upcoming meetings found.")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                Spacer()
+                            }
+                            .padding()
+                            .background(AppTheme.cardBackground)
+                            .cornerRadius(12)
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(meetingsManager.upcomingMeetings) { meeting in
+                                        UpcomingMeetingCard(meeting: meeting)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // -----------------------------
+
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Calls")
                             .font(.system(size: 24, weight: .bold))
@@ -510,6 +649,9 @@ struct MeetingsListView: View {
             }
         }
         .onAppear {
+            // Fetch upcoming on appear
+            Task { await meetingsManager.fetchUpcoming() }
+
             if let meetingId = pendingMeetingId {
                 navigationPath.append(meetingId)
                 selectedMeeting = meetingId
@@ -633,7 +775,99 @@ struct MeetingsListView: View {
     }
 }
 
-// MARK: - Summary rendering
+private struct UpcomingMeetingCard: View {
+    let meeting: UpcomingMeeting
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(meeting.startTimeFormatted)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(AppTheme.accent)
+                    Text(meeting.relativeTime)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                Spacer()
+                if meeting.joinUrl != nil {
+                    Image(systemName: "video.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+            }
+
+            Text(meeting.title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(AppTheme.primaryText)
+                .lineLimit(2)
+                .frame(height: 40, alignment: .topLeading)
+
+            // Participants
+            HStack(spacing: -8) {
+                ForEach(meeting.participants.prefix(4)) { p in
+                    if let url = p.avatarUrl, let u = URL(string: url) {
+                        AsyncImage(url: u) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle().fill(Color.gray)
+                        }
+                        .frame(width: 24, height: 24)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+                    } else {
+                        Circle()
+                            .fill(Color.blue.opacity(0.5))
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Text(p.name?.prefix(1) ?? p.email.prefix(1))
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                            .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+                    }
+                }
+                if meeting.participants.count > 4 {
+                    Circle()
+                        .fill(AppTheme.elevatedBackground)
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Text("+\(meeting.participants.count - 4)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(AppTheme.secondaryText)
+                        )
+                        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+                }
+            }
+
+            HStack {
+                if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
+                    Link("Join", destination: url)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(.blue)
+                }
+
+                Button("Record") {
+                    // TODO: Start recording
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(AppTheme.accent)
+            }
+        }
+        .padding(16)
+        .frame(width: 220)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+}
 
 private struct SummarySection: Identifiable {
     let id = UUID()

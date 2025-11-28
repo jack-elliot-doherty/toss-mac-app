@@ -55,8 +55,10 @@ struct ToolResultData: Codable {
 
 // MARK: - Stream Parser
 
-@MainActor
 class AgentStreamParser {
+
+    // Cache for tool inputs received before approval request
+    private var pendingToolInputs: [String: (name: String, args: [String: Any])] = [:]
 
     /// Parse a line from the data stream (format: "INDEX:JSON")
     func parse(_ line: String) -> AgentStreamEvent? {
@@ -92,6 +94,16 @@ class AgentStreamParser {
 
     private func parseByType(type: String, data: Data, json: [String: Any]) -> AgentStreamEvent? {
         switch type {
+        case "text-delta":
+            if let delta = json["textDelta"] as? String {
+                return .textDelta(delta)
+            }
+
+        case "text-chunk":
+            if let text = json["text"] as? String {
+                return .textChunk(text)
+            }
+
         case "agent-step":
             // Text content from agent
             if let step = json["step"] as? [String: Any],
@@ -116,6 +128,27 @@ class AgentStreamParser {
                 return .toolCallAwaitingApproval(toolCall)
             }
 
+        case "tool-approval-request":
+            // New V6 event for approval
+            if let toolCallId = json["toolCallId"] as? String,
+                let cached = pendingToolInputs[toolCallId]
+            {
+                // Convert [String: Any] -> [String: AnyCodable]
+                let args = cached.args.mapValues { AnyCodable($0) }
+
+                let toolCall = ToolCall(
+                    id: toolCallId,
+                    name: cached.name,
+                    arguments: args,
+                    status: .awaitingApproval
+                )
+                return .toolCallAwaitingApproval(toolCall)
+            } else {
+                NSLog(
+                    "[AgentStreamParser] tool-approval-request missing cached inputs for id: \(json["toolCallId"] ?? "nil")"
+                )
+            }
+
         case "tool-call-approved":
             // Server confirmed tool was approved
             if let toolCallId = json["toolCallId"] as? String {
@@ -134,10 +167,45 @@ class AgentStreamParser {
                 return .toolResult(id: decoded.toolCallId, result: decoded.result)
             }
 
+        case "tool-output-available":
+            // Tool output (generic)
+            if let toolCallId = json["toolCallId"] as? String,
+                let output = json["output"]
+            {
+                // Serialize output to string for consistency
+                let resultString: String
+                if let data = try? JSONSerialization.data(withJSONObject: output),
+                    let str = String(data: data, encoding: .utf8)
+                {
+                    resultString = str
+                } else {
+                    resultString = String(describing: output)
+                }
+                return .toolResult(id: toolCallId, result: resultString)
+            }
+
         case "agent-step-finish":
             if let stepNumber = json["stepNumber"] as? Int {
                 return .agentStepFinish(stepNumber: stepNumber)
             }
+
+        case "tool-input-available":
+            // Cache tool input for potential approval request
+            if let toolCallId = json["toolCallId"] as? String,
+                let toolName = json["toolName"] as? String,
+                let input = json["input"] as? [String: Any]
+            {
+                pendingToolInputs[toolCallId] = (name: toolName, args: input)
+            }
+            return nil
+
+        case "tool-input-start", "tool-input-delta":
+            // Tool use in progress - ignore or handle for UI typing indicator
+            return nil
+
+        case "start", "start-step", "finish-step", "finish":
+            // Lifecycle events - ignore for now
+            return nil
 
         case "error":
             if let message = json["message"] as? String {
@@ -163,39 +231,32 @@ extension AgentStreamParser {
     /// Create an async stream from URLSession data
     func streamEvents(from urlRequest: URLRequest) -> AsyncThrowingStream<AgentStreamEvent, Error> {
         AsyncThrowingStream { continuation in
-            let task = URLSession.shared.dataTask(with: urlRequest) { data, response, error in
-                if let error = error {
-                    continuation.finish(throwing: error)
-                    return
-                }
+            Task {
+                do {
+                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
 
-                guard let data = data else {
-                    continuation.finish()
-                    return
-                }
+                    guard let httpResponse = response as? HTTPURLResponse,
+                        httpResponse.statusCode == 200
+                    else {
+                        // Check for error body if possible, or just throw
+                        continuation.finish(throwing: URLError(.badServerResponse))
+                        return
+                    }
 
-                // Parse the SSE stream
-                if let text = String(data: data, encoding: .utf8) {
-                    let lines = text.components(separatedBy: "\n")
-                    for line in lines {
+                    for try await line in bytes.lines {
+                        if !line.isEmpty { NSLog("[Stream] Line: %@", line) }
                         if let event = self.parse(line) {
                             continuation.yield(event)
-
                             if case .done = event {
                                 continuation.finish()
                                 return
                             }
                         }
                     }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
                 }
-
-                continuation.finish()
-            }
-
-            task.resume()
-
-            continuation.onTermination = { @Sendable _ in
-                task.cancel()
             }
         }
     }
