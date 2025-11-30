@@ -64,6 +64,7 @@
 		DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */; };
 		DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */; };
 		DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF332EDCF7A7009DE3CF /* Sentry */; };
+		DAEEBF372EDD07C2009DE3CF /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF362EDD07C2009DE3CF /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -148,6 +149,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DAEEBF372EDD07C2009DE3CF /* PostHog in Frameworks */,
 				DA3623A22EBBDAC1000207F0 /* Sparkle in Frameworks */,
 				DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */,
 			);
@@ -388,6 +390,7 @@
 			packageProductDependencies = (
 				DA3623A12EBBDAC1000207F0 /* Sparkle */,
 				DAEEBF332EDCF7A7009DE3CF /* Sentry */,
+				DAEEBF362EDD07C2009DE3CF /* PostHog */,
 			);
 			productName = Alma;
 			productReference = DAA0F0982EAABCD3002CA0FA /* Toss.app */;
@@ -468,6 +471,7 @@
 			packageReferences = (
 				DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				DAEEBF322EDCF7A7009DE3CF /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				DAEEBF352EDD07C2009DE3CF /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAA0F0992EAABCD3002CA0FA /* Products */;
@@ -912,6 +916,14 @@
 				minimumVersion = 8.57.3;
 			};
 		};
+		DAEEBF352EDD07C2009DE3CF /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.35.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -924,6 +936,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DAEEBF322EDCF7A7009DE3CF /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		DAEEBF362EDD07C2009DE3CF /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DAEEBF352EDD07C2009DE3CF /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

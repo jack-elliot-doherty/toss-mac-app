@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import PostHog
 import Sentry
 import Sparkle
 
@@ -49,6 +50,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // For more information, visit: https://docs.sentry.io/platforms/apple/data-management/data-collected/
             options.sendDefaultPii = true
         }
+
+        let POSTHOG_API_KEY = "phc_eclzkTVIbtcxa3WAXBLAP6OUzytVyTzoJPF6tMKmskH"
+        let POSTHOG_HOST = "https://us.i.posthog.com"
+
+        let config = PostHogConfig(apiKey: POSTHOG_API_KEY, host: POSTHOG_HOST)
+
+        PostHogSDK.shared.setup(config)
+        PostHogSDK.shared.capture("Test Event")
+
         NSApp.setActivationPolicy(.regular)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem
@@ -227,6 +237,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // Handle auth callbacks
             _ = AuthManager.shared.handleDeepLink(url: url)
         }
+
     }
 
     private func cacheTranscript(_ text: String) -> ThreadModel {
