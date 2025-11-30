@@ -34,9 +34,9 @@ final class MeetingsApi {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+
+        request = request.configured(token: token)
+
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: String] = ["transcript": trimmed]
@@ -139,9 +139,9 @@ final class MeetingsApi {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+
+        request = request.configured(token: token)
+
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: String] = ["transcript": trimmed]

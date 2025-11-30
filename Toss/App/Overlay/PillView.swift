@@ -1,8 +1,6 @@
 import Combine
 import SwiftUI
 
-// MARK: - Style
-
 private enum PillStyle {
     static let corner: CGFloat = 16
     static let fill = Color.black.opacity(0.92)  // deeper black

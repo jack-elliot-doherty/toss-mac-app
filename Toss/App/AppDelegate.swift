@@ -1,5 +1,6 @@
 import Cocoa
 import Foundation
+import Sentry
 import Sparkle
 
 @MainActor
@@ -39,6 +40,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SentrySDK.start { options in
+            options.dsn =
+                "https://a26dd5e1ec6aac34508dc372eae29c87@o4510456233197568.ingest.us.sentry.io/4510456234442752"
+            options.debug = true  // Enabling debug when first installing is always helpful
+
+            // Adds IP for users.
+            // For more information, visit: https://docs.sentry.io/platforms/apple/data-management/data-collected/
+            options.sendDefaultPii = true
+        }
         NSApp.setActivationPolicy(.regular)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.statusItem = statusItem

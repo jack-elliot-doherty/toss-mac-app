@@ -124,7 +124,7 @@ final class PillPanelController {
 
             // FIRST: Resize the panel to the target size (without animation)
             // This happens before the visual transition
-            setSizeKeepingCurrentOrigin(to: targetSize, animated: true)
+            setSizeAndCenter(to: targetSize, animated: true)
 
             // THEN: Set the visual state to trigger the SwiftUI transition
             // The panel is already the right size, so the content just animates in place
