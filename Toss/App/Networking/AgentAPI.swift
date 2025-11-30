@@ -40,12 +40,11 @@ final class AgentAPI {
         let url = baseURL.appendingPathComponent("/agent/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+
+        request = request.configured(token: token)
+
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")  // Important for SSE
-
-        if let token = token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
 
         // Construct prompt with system context if needed
         // Or just rely on the server's system prompt
@@ -83,11 +82,11 @@ final class AgentAPI {
         let url = baseURL.appendingPathComponent("/agent/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        // Apply standard headers
+        request = request.configured(token: token)
+
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let payload = AgentRequest(message: message, threadId: threadId, history: history)
 

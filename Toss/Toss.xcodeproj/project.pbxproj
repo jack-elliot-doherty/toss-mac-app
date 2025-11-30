@@ -62,6 +62,8 @@
 		DAEEBF2A2ED5109D009DE3CF /* AudioCompressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */; };
 		DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF2B2ED5F065009DE3CF /* LaunchAtLogin.swift */; };
 		DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */; };
+		DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */; };
+		DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF332EDCF7A7009DE3CF /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -138,6 +140,7 @@
 		DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCompressor.swift; sourceTree = "<group>"; };
 		DAEEBF2B2ED5F065009DE3CF /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
+		DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLRequest+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +149,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA3623A22EBBDAC1000207F0 /* Sparkle in Frameworks */,
+				DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -181,6 +185,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */,
 				DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */,
 				DA3623902EB95D39000207F0 /* AgentAPI.swift */,
 				DA3623452EB23FCE000207F0 /* TranscribeAPI.swift */,
@@ -382,6 +387,7 @@
 			name = Toss;
 			packageProductDependencies = (
 				DA3623A12EBBDAC1000207F0 /* Sparkle */,
+				DAEEBF332EDCF7A7009DE3CF /* Sentry */,
 			);
 			productName = Alma;
 			productReference = DAA0F0982EAABCD3002CA0FA /* Toss.app */;
@@ -461,6 +467,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				DAEEBF322EDCF7A7009DE3CF /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAA0F0992EAABCD3002CA0FA /* Products */;
@@ -529,6 +536,7 @@
 				DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */,
 				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
+				DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */,
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
 				DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
@@ -896,6 +904,14 @@
 				minimumVersion = 2.8.0;
 			};
 		};
+		DAEEBF322EDCF7A7009DE3CF /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.57.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -903,6 +919,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DA3623A02EBBDAC1000207F0 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		DAEEBF332EDCF7A7009DE3CF /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DAEEBF322EDCF7A7009DE3CF /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

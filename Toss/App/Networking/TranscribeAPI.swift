@@ -33,9 +33,9 @@ final class TranscribeAPI {
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+
+        request = request.configured(token: token)
+
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue(
             "multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -157,9 +157,8 @@ final class TranscribeAPI {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+
+        request = request.configured(token: token)
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue(
