@@ -280,7 +280,10 @@ struct MeetingView: View {
         case .overview:
             overviewView
         case .transcript:
-            MeetingTranscriptView(chunks: chunks)
+            MeetingTranscriptView(
+                chunks: chunks,
+                meetingStartTime: meeting?.startTime ?? Date()
+            )
         }
     }
 
@@ -402,13 +405,13 @@ struct MeetingView: View {
     }
 
     private var summaryToggle: some View {
-        HStack(spacing: 16) {
-            togglePill(title: "My Notes", isSelected: !showingAISummary) {
+        HStack(spacing: 8) {
+            toggleChip(title: "My Notes", icon: "note.text", isSelected: !showingAISummary) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     showingAISummary = false
                 }
             }
-            togglePill(title: "Summary", isSelected: showingAISummary) {
+            toggleChip(title: "Summary", icon: "sparkles", isSelected: showingAISummary) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     showingAISummary = true
                 }
@@ -416,13 +419,23 @@ struct MeetingView: View {
         }
     }
 
-    private func togglePill(title: String, isSelected: Bool, action: @escaping () -> Void)
-        -> some View
-    {
+    private func toggleChip(
+        title: String, icon: String, isSelected: Bool, action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                .foregroundColor(isSelected ? .white : AppTheme.secondaryText.opacity(0.5))
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(isSelected ? .white : AppTheme.secondaryText.opacity(0.6))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -498,7 +511,9 @@ struct MeetingView: View {
 
 private struct MeetingTranscriptView: View {
     let chunks: [MeetingChunkModel]
+    let meetingStartTime: Date  // Add this
     @State private var didCopyTranscript = false
+    @State private var showingTimeline = false  // false = Transcript, true = Timeline
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -508,62 +523,122 @@ private struct MeetingTranscriptView: View {
                     subtitle: "Transcript entries appear here automatically once available."
                 )
             } else {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text("Transcript")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(AppTheme.secondaryText)
-                        Spacer()
-                        Button {
-                            copyTranscript()
-                        } label: {
-                            Label(
-                                didCopyTranscript ? "Copied" : "Copy transcript",
-                                systemImage: didCopyTranscript ? "checkmark" : "doc.on.doc"
-                            )
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white.opacity(didCopyTranscript ? 0.18 : 0.1))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    ForEach(chunks) { chunk in
-                        HStack(alignment: .top, spacing: 12) {
-                            if chunk.speaker == .user {
-                                speakerBadge(text: "You", accent: .blue)
-                            } else {
-                                speakerBadge(text: "Them", accent: .green)
-                            }
+                // Header row: toggle on left, copy on right
+                HStack(spacing: 12) {
+                    transcriptToggle
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(chunk.startedAt, style: .time)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(AppTheme.secondaryText)
-                                Text(chunk.transcript)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(AppTheme.primaryText)
-                                    .lineSpacing(4)
-                                    .textSelection(.enabled)
-                            }
+                    Spacer()
 
-                            Spacer(minLength: 0)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color.white.opacity(0.02))
-                        )
+                    Button {
+                        copyTranscript()
+                    } label: {
+                        Image(systemName: didCopyTranscript ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 12, weight: .medium))
                     }
+                    .buttonStyle(.plain)
+                    .foregroundColor(didCopyTranscript ? .green : AppTheme.secondaryText)
                 }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
 
+                // Content
+                if showingTimeline {
+                    timelineView
+                } else {
+                    transcriptListView
+                }
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var transcriptToggle: some View {
+        HStack(spacing: 8) {
+            toggleChip(title: "Transcript", icon: "text.alignleft", isSelected: !showingTimeline) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showingTimeline = false
+                }
+            }
+            toggleChip(title: "Timeline", icon: "clock", isSelected: showingTimeline) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showingTimeline = true
+                }
+            }
+        }
+    }
+
+    private func toggleChip(
+        title: String, icon: String, isSelected: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                Text(title)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(isSelected ? .white : AppTheme.secondaryText.opacity(0.6))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var transcriptListView: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ForEach(chunks) { chunk in
+                VStack(alignment: .leading, spacing: 6) {
+                    // Header: avatar + name + timestamp
+                    HStack(spacing: 8) {
+                        // Avatar circle with initial
+                        Circle()
+                            .fill(chunk.speaker == .user ? Color.blue : Color.green)
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Text(chunk.speaker == .user ? "Y" : "C")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white)
+                            )
+
+                        // Name
+                        Text(chunk.speaker == .user ? "You" : "Colleague")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+
+                        // Timestamp
+                        Text(formatTime(chunk.startedAt))
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+                    }
+
+                    // Transcript text - indented to align with name
+                    Text(chunk.transcript)
+                        .font(.system(size: 15))
+                        .foregroundColor(AppTheme.primaryText.opacity(0.9))
+                        .lineSpacing(4)
+                        .textSelection(.enabled)
+                        .padding(.leading, 32)  // Align with text after avatar
+                }
+            }
+        }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        // Calculate elapsed seconds from meeting start
+        let elapsed = max(0, date.timeIntervalSince(meetingStartTime))
+        let minutes = Int(elapsed) / 60
+        let seconds = Int(elapsed) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    private var timelineView: some View {
+        // Placeholder for timeline view - you can implement this later
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Timeline view coming soon")
+                .font(.system(size: 14))
+                .foregroundColor(AppTheme.secondaryText)
         }
     }
 
