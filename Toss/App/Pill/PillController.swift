@@ -493,7 +493,7 @@ final class PillController {
             meetingId: meetingId,
             chunkIndex: index,
             speaker: speaker,
-            fileURL: url,
+            fileURL: url
         ) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
