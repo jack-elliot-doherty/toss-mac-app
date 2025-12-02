@@ -20,4 +20,9 @@ extension URLRequest {
 
         return request
     }
+
+    /// Execute this request with automatic auth handling
+    func execute() async throws -> (Data, URLResponse) {
+        try await APIClient.shared.perform(self)
+    }
 }

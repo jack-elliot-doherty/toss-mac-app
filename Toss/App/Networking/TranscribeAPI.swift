@@ -14,27 +14,20 @@ struct TranscriptionSegment: Decodable {
 final class TranscribeAPI {
     static let shared = TranscribeAPI()
 
-    private let session: URLSession
     private let baseURL: URL
 
-    init(
-        session: URLSession = .shared,
-        baseURL: URL = URL(string: Config.serverURL)!
-    ) {
-        self.session = session
+    init(baseURL: URL = URL(string: Config.serverURL)!) {
         self.baseURL = baseURL
     }
 
     func transcribe(
-        fileURL: URL, token: String? = nil, retryCount: Int = 0,
+        fileURL: URL,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/transcribe")
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-
-        request = request.configured(token: token)
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue(
@@ -57,7 +50,7 @@ final class TranscribeAPI {
         append("\r\n--\(boundary)--\r\n")
         request.httpBody = body
 
-        let task = session.dataTask(with: request) { data, response, error in
+        APIClient.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 NSLog("[TranscribeAPI] network error: %@", error.localizedDescription)
                 completion(.failure(error))
@@ -74,21 +67,6 @@ final class TranscribeAPI {
             }
             if let http = response as? HTTPURLResponse {
                 NSLog("[TranscribeAPI] response status %d", http.statusCode)
-                // Handle http status code
-
-                // Handle error status codes
-                if http.statusCode == 401 {
-                    completion(
-                        .failure(
-                            NSError(
-                                domain: "TranscribeAPI",
-                                code: 401,
-                                userInfo: [
-                                    NSLocalizedDescriptionKey: "Unauthorized - Please sign in"
-                                ]
-                            )))
-                    return
-                }
 
                 if http.statusCode >= 400 {
                     // Try to parse error message from JSON
@@ -116,7 +94,6 @@ final class TranscribeAPI {
                             )))
                     return
                 }
-
             }
 
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -136,7 +113,6 @@ final class TranscribeAPI {
                         domain: "TranscribeAPI", code: 3,
                         userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])))
         }
-        task.resume()
     }
 
     func transcribeMeetingChunk(
@@ -144,7 +120,6 @@ final class TranscribeAPI {
         chunkIndex: Int,
         speaker: MeetingSpeaker,
         fileURL: URL,
-        token: String? = nil,
         completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/chunks")
@@ -157,8 +132,6 @@ final class TranscribeAPI {
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-
-        request = request.configured(token: token)
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue(
@@ -182,7 +155,7 @@ final class TranscribeAPI {
         append("\r\n--\(boundary)--\r\n")
         request.httpBody = body
 
-        let task = session.dataTask(with: request) { data, response, error in
+        APIClient.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 NSLog("[TranscribeAPI] chunk upload error: %@", error.localizedDescription)
                 completion(.failure(error))
@@ -200,17 +173,6 @@ final class TranscribeAPI {
 
             if let http = response as? HTTPURLResponse {
                 NSLog("[TranscribeAPI] chunk response status %d", http.statusCode)
-
-                if http.statusCode == 401 {
-                    completion(
-                        .failure(
-                            NSError(
-                                domain: "TranscribeAPI", code: 401,
-                                userInfo: [
-                                    NSLocalizedDescriptionKey: "Unauthorized - Please sign in"
-                                ])))
-                    return
-                }
 
                 if http.statusCode >= 400 {
                     if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -238,7 +200,6 @@ final class TranscribeAPI {
                 // Try to decode the full verbose JSON response
                 let result = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
                 NSLog("[TranscribeAPI] transcribed: %d chars", result.text.count)
-                // Return ONLY the text string, matching the function signature
                 completion(.success(result))
             } catch {
                 if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -256,7 +217,5 @@ final class TranscribeAPI {
                             userInfo: [NSLocalizedDescriptionKey: "Unexpected response"])))
             }
         }
-        task.resume()
     }
-
 }

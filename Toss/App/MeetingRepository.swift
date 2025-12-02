@@ -66,8 +66,9 @@ protocol MeetingRepositoryProtocol {
 }
 
 final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
-    @Published private var meetings: [UUID: MeetingModel] = [:]
-    @Published private var chunks: [UUID: [MeetingChunkModel]] = [:]
+    // Remove @Published from these - we'll manually notify
+    private var meetings: [UUID: MeetingModel] = [:]
+    private var chunks: [UUID: [MeetingChunkModel]] = [:]
     private let queue = DispatchQueue(label: "meeting.repo.queue", qos: .userInitiated)
     private let fileURL: URL
 
@@ -122,16 +123,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     }
 
     func createMeeting(id: UUID, title: String) -> MeetingModel {
-        return queue.sync {
+        let meeting = queue.sync { () -> MeetingModel in
             let now = Date()
             let meeting = MeetingModel(
                 id: id, title: title, startTime: now, endTime: nil, createdAt: now,
                 updatedAt: now)
             meetings[meeting.id] = meeting
             chunks[meeting.id] = []
-            save()
             return meeting
         }
+        // Notify AFTER releasing the lock
+        save()
+        return meeting
     }
 
     func endMeeting(id: UUID) {
@@ -140,8 +143,8 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             meeting.endTime = Date()
             meeting.updatedAt = Date()
             meetings[id] = meeting
-            save()
         }
+        save()
     }
 
     func getMeeting(id: UUID) -> MeetingModel? {
@@ -151,7 +154,7 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     func appendChunk(
         meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
     ) -> MeetingChunkModel? {
-        return queue.sync {
+        let result = queue.sync { () -> MeetingChunkModel? in
 
             // Deduplication Logic
             if speaker == .user {
@@ -180,9 +183,13 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 retroactiveDedupe(newRemoteChunk: chunk, meetingId: meetingId)
             }
 
-            save()
             return chunk
         }
+        // Only save if we actually added a chunk
+        if result != nil {
+            save()
+        }
+        return result
     }
 
     func listMeetings() -> [MeetingModel] {
@@ -211,8 +218,8 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             meeting.title = title
             meeting.updatedAt = Date()
             meetings[meetingId] = meeting
-            save()
         }
+        save()
     }
 
     func updateMeetingNotes(meetingId: UUID, notes: String) {
@@ -221,8 +228,8 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             meeting.notes = notes
             meeting.updatedAt = Date()
             meetings[meetingId] = meeting
-            save()
         }
+        save()
     }
 
     // text cleaning for fuzzy match

@@ -65,6 +65,7 @@
 		DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */; };
 		DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF332EDCF7A7009DE3CF /* Sentry */; };
 		DAEEBF372EDD07C2009DE3CF /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF362EDD07C2009DE3CF /* PostHog */; };
+		DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF382EDF1148009DE3CF /* APIClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +143,7 @@
 		DAEEBF2B2ED5F065009DE3CF /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLRequest+Extensions.swift"; sourceTree = "<group>"; };
+		DAEEBF382EDF1148009DE3CF /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -187,6 +189,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DAEEBF382EDF1148009DE3CF /* APIClient.swift */,
 				DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */,
 				DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */,
 				DA3623902EB95D39000207F0 /* AgentAPI.swift */,
@@ -551,6 +554,7 @@
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
 				DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */,
 				DA3623932EBB4616000207F0 /* SoundFeedback.swift in Sources */,
+				DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */,
 				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,

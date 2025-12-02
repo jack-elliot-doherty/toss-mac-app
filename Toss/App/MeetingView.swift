@@ -68,52 +68,22 @@ final class MeetingsManager: ObservableObject {
     }
 
     func fetchUpcoming() async {
-        guard let token = AuthManager.shared.accessToken else { return }
-        guard let url = URL(string: "\(Config.serverURL)/meetings/upcoming") else { return }
-
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
         do {
             isLoading = true
-            let (data, response) = try await URLSession.shared.data(for: request)
+            upcomingMeetings = try await MeetingsApi.shared.fetchUpcoming()
             isLoading = false
-
-            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                let decoder = JSONDecoder()
-                // Handle custom date format if needed, usually ISO8601 is default
-                decoder.dateDecodingStrategy = .iso8601
-
-                struct Response: Codable {
-                    let meetings: [UpcomingMeeting]
-                }
-
-                let result = try decoder.decode(Response.self, from: data)
-                self.upcomingMeetings = result.meetings
-            }
         } catch {
             isLoading = false
             NSLog("[MeetingsManager] Fetch error: %@", error.localizedDescription)
         }
 
         scheduleUpcomingAlerts()
-
     }
 
     func syncCalendar() async {
-        guard let token = AuthManager.shared.accessToken else { return }
-        guard let url = URL(string: "\(Config.serverURL)/meetings/sync") else { return }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                // Refetch after sync
-                await fetchUpcoming()
-            }
+            try await MeetingsApi.shared.syncCalendar()
+            await fetchUpcoming()
         } catch {
             NSLog("[MeetingsManager] Sync error: %@", error.localizedDescription)
         }
@@ -300,12 +270,10 @@ struct MeetingView: View {
         guard !trimmed.isEmpty else { return }
 
         isRegeneratingSummary = true
-        let token = auth.accessToken
 
         MeetingsApi.shared.generateOverview(
             for: meetingId,
-            transcript: trimmed,
-            token: token
+            transcript: trimmed
         ) { [weak repository] result in
             DispatchQueue.main.async {
                 self.isRegeneratingSummary = false

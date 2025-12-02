@@ -265,8 +265,7 @@ final class PillController {
 
     @MainActor
     private func startUpload(with url: URL) {
-        let token = auth.accessToken
-        transcriber.transcribe(fileURL: url, token: token) { [weak self] result in
+        transcriber.transcribe(fileURL: url) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
 
@@ -444,13 +443,11 @@ final class PillController {
         meetingRepository.endMeeting(id: meetingId)
 
         let fullTranscript = meetingRepository.getFullTranscript(meetingId: meetingId)
-        let token = auth.accessToken
 
         // Auto‑title
         MeetingsApi.shared.generateTitle(
             for: meetingId,
-            transcript: fullTranscript,
-            token: token
+            transcript: fullTranscript
         ) { [weak self] result in
             Task { @MainActor in
                 switch result {
@@ -465,8 +462,7 @@ final class PillController {
         // Auto-summary
         MeetingsApi.shared.generateOverview(
             for: meetingId,
-            transcript: fullTranscript,
-            token: token
+            transcript: fullTranscript
         ) { [weak self] result in
             Task { @MainActor in
                 switch result {
@@ -491,11 +487,6 @@ final class PillController {
         startedAt: Date
     ) {
         // // Upload the meeting chunk to the server
-        guard let token = auth.accessToken else {
-            NSLog("[PillController] No auth token for chunk upload")
-            return
-        }
-
         NSLog("[PillController] Uploading chunk #\(index)...")
 
         transcriber.transcribeMeetingChunk(
@@ -503,7 +494,6 @@ final class PillController {
             chunkIndex: index,
             speaker: speaker,
             fileURL: url,
-            token: token
         ) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }

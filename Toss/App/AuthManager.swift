@@ -307,7 +307,7 @@ final class AuthManager: ObservableObject {
     }
 
     @discardableResult
-    private func refreshAccessToken() async -> Bool {
+    func refreshAccessToken() async -> Bool {
         guard let refresh = refreshToken, !refresh.isEmpty else { return false }
         guard let url = URL(string: "\(Config.serverURL)/auth/refresh") else { return false }
         var req = URLRequest(url: url)
