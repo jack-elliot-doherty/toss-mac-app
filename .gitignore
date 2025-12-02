@@ -2,8 +2,10 @@
 DerivedData/
 build/
 .xcuserdata/
+.xcuserstate/
 .xccheckout
 .xcarchive
 .ipa
 .dSYM
 Toss.xcodeproj/xcuserdata/
+Toss.xcodeproj/xcuserstate/
