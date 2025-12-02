@@ -168,6 +168,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pillViewModel.onRequestStop = { [weak self] in self?.pillController.send(.stopButton) }
         pillViewModel.onRequestCancel = { [weak self] in self?.pillController.send(.cancelButton) }
 
+        pillViewModel.onJoinAndRecordUpcoming = { [weak pillController] meeting in
+            pillController?.send(.joinAndRecordUpcoming(meeting))
+        }
+        pillViewModel.onDismissUpcomingMeeting = { [weak pillController] in
+            pillController?.send(.dismissUpcomingMeeting)
+        }
+
         pillViewModel.onHoverEnter = { [weak self] in self?.pillController.send(.pillHoverEnter) }
         pillViewModel.onHoverExit = { [weak self] in self?.pillController.send(.pillHoverExit) }
         pillViewModel.onPillClicked = { [weak self] in self?.pillController.send(.pillClicked) }
@@ -200,6 +207,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillController.send(.meetingDetected)
         }
         meetingDetector.start()
+
+        MeetingsManager.shared.pillController = pillController
 
         NSLog("[AppDelegate] Meeting detection enabled")
     }

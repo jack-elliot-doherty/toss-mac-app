@@ -21,6 +21,7 @@ enum PillState: Equatable {
     case idle
     case hovered
     case meetingDetected  // Were now going to have the pill transform rather than show a toast
+    case upcomingMeeting(UpcomingMeeting)
     case listening(PillMode)  // audio capture running, waveform shown
     case transcribing(PillMode)  // audio capture stopped, uploading/awaiting text transcription
     case meetingRecording(UUID, isPaused: Bool)
@@ -60,6 +61,11 @@ enum PillEvent: Equatable {
     // async results
     case transcriptionSucceeded(text: String)
     case transcriptionFailed(text: String)
+
+    // upcoming meeting events
+    case upcomingMeetingAlert(UpcomingMeeting)
+    case joinAndRecordUpcoming(UpcomingMeeting)
+    case dismissUpcomingMeeting
 }
 
 // Things the machine asks the outside world to do
@@ -102,6 +108,11 @@ enum PillEffect: Equatable {
     case resumeMeetingRecording
     case uploadMeetingChunk(UUID, MeetingSpeaker, URL, Int, Date)
     case openMeetingView(UUID)  // when the pill body is clicked during meeting state will open the meeting view for that meeting
+
+    // upcoming meeting effects
+    case setVisualStateUpcomingMeeting(UpcomingMeeting)
+    case scheduleUpcomingMeetingTimeout(TimeInterval)
+    case openURL(URL)
 
 }
 
@@ -171,6 +182,14 @@ struct PillStateMachine {
         case (.idle, .pillHoverEnter):
             state = .hovered
             effects += [.setVisualStateHovered]
+
+        case (.idle, .upcomingMeetingAlert(let meeting)),
+            (.hovered, .upcomingMeetingAlert(let meeting)):
+            state = .upcomingMeeting(meeting)
+            effects += [
+                .setVisualStateUpcomingMeeting(meeting),
+                .scheduleUpcomingMeetingTimeout(30),  // 30 sec to respond
+            ]
 
         case (.hovered, .pillHoverExit):
             state = .idle
@@ -247,6 +266,25 @@ struct PillStateMachine {
                 .startMeetingRecording(meetingId),
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
+
+        case (.upcomingMeeting(let meeting), .joinAndRecordUpcoming):
+            let meetingId = UUID()
+            state = .meetingRecording(meetingId, isPaused: false)
+            effects += [
+                .startMeetingRecording(meetingId),
+                .setVisualStateMeetingRecording(meetingId, isPaused: false),
+            ]
+            if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
+                effects += [.openURL(url)]
+            }
+
+        case (.upcomingMeeting, .meetingDetectionExpired):
+            state = .idle
+            effects += [.setVisualStateIdle]
+
+        case (.upcomingMeeting, .dismissUpcomingMeeting):
+            state = .idle
+            effects += [.setVisualStateIdle]
 
         // - LISTENING
         case (.listening(let mode), .fnUp):

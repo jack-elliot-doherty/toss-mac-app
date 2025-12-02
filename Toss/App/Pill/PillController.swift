@@ -147,6 +147,19 @@ final class PillController {
                 viewModel.meetingRecording(meetingId, isPaused: isPaused)
                 pillPanel.setState(.meetingRecording(meetingId, isPaused: isPaused))
 
+            case .setVisualStateUpcomingMeeting(let meeting):
+                viewModel.upcomingMeeting(meeting)
+                pillPanel.setState(.upcomingMeeting(meeting))
+
+            case .scheduleUpcomingMeetingTimeout(let timeout):
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    self.send(.meetingDetectionExpired)
+                }
+
+            case .openURL(let url):
+                NSWorkspace.shared.open(url)
+
             case .pauseMeetingRecording:
                 handlePauseMeetingRecording()
 

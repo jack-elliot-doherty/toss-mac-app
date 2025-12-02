@@ -13,6 +13,7 @@ enum PillVisualState: Equatable {
     case meetingDetected
     case listening(PillMode)
     case transcribing(PillMode)
+    case upcomingMeeting(UpcomingMeeting)
     case meetingRecording(UUID, isPaused: Bool)
 }
 
@@ -37,6 +38,9 @@ final class PillViewModel: ObservableObject {
     var onQuickActionRecordMeeting: (() -> Void)?
     var onQuickActionDictation: (() -> Void)?
     var onStopMeetingRecording: (() -> Void)?
+
+    var onJoinAndRecordUpcoming: ((UpcomingMeeting) -> Void)?
+    var onDismissUpcomingMeeting: (() -> Void)?
 
     var agentModeEnabled: Bool {
         if case .listening(.command) = visualState { return true }
@@ -65,6 +69,10 @@ final class PillViewModel: ObservableObject {
 
     func hovered() {
         visualState = .hovered
+    }
+
+    func upcomingMeeting(_ meeting: UpcomingMeeting) {
+        visualState = .upcomingMeeting(meeting)
     }
 
     func updateLevelRMS(_ value: Float) {

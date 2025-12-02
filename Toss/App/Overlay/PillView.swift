@@ -52,6 +52,8 @@ struct PillView: View {
                 transcribing(mode: mode)
             case .meetingDetected:
                 meetingDetected
+            case .upcomingMeeting(let meeting):
+                upcomingMeetingView(meeting: meeting)
             case .meetingRecording(let meetingId, let isPaused):
                 meetingRecording(meetingId: meetingId, isPaused: isPaused)
 
@@ -240,6 +242,72 @@ struct PillView: View {
             }
         }
         .padding(.horizontal, PillStyle.padXActive + 2)  // tiny widen vs listening
+        .padding(.vertical, PillStyle.padYActive)
+    }
+
+    private func upcomingMeetingView(meeting: UpcomingMeeting) -> some View {
+        HStack(spacing: PillStyle.spacing) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(meeting.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Text("Starting \(meeting.relativeTime)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            // Join button (if URL exists)
+            if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Join")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color.blue.opacity(0.8)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Record button
+            Button {
+                viewModel.onJoinAndRecordUpcoming?(meeting)
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "record.circle")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Record")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(Color.red.opacity(0.9)))
+            }
+            .buttonStyle(.plain)
+
+            // Dismiss X
+            Button {
+                viewModel.onDismissUpcomingMeeting?()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, PillStyle.padXActive)
         .padding(.vertical, PillStyle.padYActive)
     }
 

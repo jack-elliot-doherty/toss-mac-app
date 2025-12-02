@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct MeetingParticipant: Codable, Identifiable {
+struct MeetingParticipant: Codable, Identifiable, Equatable {
     var id: String { email }
     let name: String?
     let email: String
@@ -10,7 +10,7 @@ struct MeetingParticipant: Codable, Identifiable {
     let companyLogo: String?
 }
 
-struct UpcomingMeeting: Codable, Identifiable {
+struct UpcomingMeeting: Codable, Identifiable, Equatable {
     let id: UUID
     let title: String
     let startedAt: Date
@@ -40,6 +40,33 @@ final class MeetingsManager: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
+    private var scheduledAlerts: [UUID: Task<Void, Never>] = [:]
+    weak var pillController: PillController?
+
+    func scheduleUpcomingAlerts() {
+        // Cancel existing
+        scheduledAlerts.values.forEach { $0.cancel() }
+        scheduledAlerts.removeAll()
+
+        let now = Date()
+        let alertBefore: TimeInterval = 60  // 1 minute before
+
+        for meeting in upcomingMeetings {
+            let alertTime = meeting.startedAt.addingTimeInterval(-alertBefore)
+            guard alertTime > now else { continue }
+
+            let delay = alertTime.timeIntervalSince(now)
+
+            scheduledAlerts[meeting.id] = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard !Task.isCancelled else { return }
+                self?.pillController?.send(.upcomingMeetingAlert(meeting))
+            }
+        }
+
+        NSLog("[MeetingsManager] Scheduled \(scheduledAlerts.count) upcoming meeting alerts")
+    }
+
     func fetchUpcoming() async {
         guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/meetings/upcoming") else { return }
@@ -68,6 +95,9 @@ final class MeetingsManager: ObservableObject {
             isLoading = false
             NSLog("[MeetingsManager] Fetch error: %@", error.localizedDescription)
         }
+
+        scheduleUpcomingAlerts()
+
     }
 
     func syncCalendar() async {
