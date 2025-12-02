@@ -158,6 +158,7 @@ final class MeetingsApi {
     func generateOverview(
         for meetingId: UUID,
         transcript: String,
+        userNotes: String = "",  // Add this parameter
         completion: @escaping (Result<String, Error>) -> Void
     ) {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -174,7 +175,12 @@ final class MeetingsApi {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: String] = ["transcript": trimmed]
+        // Include userNotes in the body
+        var body: [String: String] = ["transcript": trimmed]
+        if !userNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            body["userNotes"] = userNotes
+        }
+
         do {
             request.httpBody = try JSONEncoder().encode(body)
         } catch {

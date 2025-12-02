@@ -49,6 +49,7 @@
 		DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */; };
 		DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */; };
 		DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */; };
+		DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */; };
 		DAD483E72EBCE56A001C5902 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD483E62EBCE56A001C5902 /* Config.swift */; };
 		DAEB72382EBD5739006A17C7 /* TossUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */; };
 		DAEB72392EBD5739006A17C7 /* TossTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72332EBD5739006A17C7 /* TossTests.swift */; };
@@ -132,6 +133,7 @@
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		DAD483E62EBCE56A001C5902 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		DAEB72332EBD5739006A17C7 /* TossTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossTests.swift; sourceTree = "<group>"; };
 		DAEB72352EBD5739006A17C7 /* TossUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossUITests.swift; sourceTree = "<group>"; };
@@ -228,6 +230,7 @@
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */,
 				DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */,
 				DA36239B2EBB77CB000207F0 /* HistoryView.swift */,
 				DA3623532EB23FCE000207F0 /* HistoryRepository.swift */,
@@ -544,6 +547,7 @@
 				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */,
+				DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */,
 				DA7827982EBE94720040ED92 /* MeetingRepository.swift in Sources */,
 				DAEEBF2F2ED7CB88009DE3CF /* IntegrationsView.swift in Sources */,
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,

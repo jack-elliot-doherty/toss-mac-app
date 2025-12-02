@@ -362,7 +362,9 @@ final class PillController {
 
         _ = meetingRepository.createMeeting(
             id: meetingId,
-            title: "Untitled Meeting"
+            title: "Untitled Meeting",
+            // TODO: this could be calendar if the user is joining a meeting from the calendar or the pill state
+            source: .adhoc
         )
 
         // create the meeting recorder on demand
@@ -559,11 +561,16 @@ final class PillController {
         )
     }
 
-    // MARK: - Logging helpers
+    // Add this public method
+    func endActiveRecordingIfNeeded() {
+        if let meetingId = activeMeetingId {
+            NSLog("[PillController] Force-ending active meeting on app termination: \(meetingId)")
+            handleStopMeetingRecording()
+        }
+    }
 
     private func machineStateDebug() -> String {
         // Helpful when reading logs
         return "\(machine)"
     }
-
 }

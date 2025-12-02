@@ -41,6 +41,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Clean up any orphaned meetings from previous crash/force quit
+        meetingRepository.cleanupOrphanedMeetings()
+
         SentrySDK.start { options in
             options.dsn =
                 "https://a26dd5e1ec6aac34508dc372eae29c87@o4510456233197568.ingest.us.sentry.io/4510456234442752"
@@ -280,6 +283,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // End any active meeting recording gracefully
+        pillController.endActiveRecordingIfNeeded()
+
         hotkey.stop()
         _ = recorder.stop()
         meetingDetector.stop()

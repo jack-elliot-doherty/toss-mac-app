@@ -257,14 +257,18 @@ struct ContentView: View {
         case .home:
             HomeView(
                 onViewAllDictations: { selectSidebarItem(.activity) },
-                onViewAllMeetings: { selectSidebarItem(.meetings) }
+                onViewAllMeetings: { selectSidebarItem(.meetings) },
+                onMeetingTap: { meetingId in
+                    pendingMeetingId = meetingId
+                    selectSidebarItem(.meetings)
+                }
             )
         case .meetings:
             MeetingsListView(
                 repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
                 navigationPath: $meetingsNavigationPath)
         case .activity:
-            EmptyView()
+            ActivityView()
         // ActivityView()
         case .integrations:
             IntegrationsView()
@@ -318,7 +322,10 @@ struct ContentView: View {
                         .system(size: 16, weight: index == crumbs.count - 1 ? .semibold : .regular)
                     )
                     .foregroundColor(
-                        index == crumbs.count - 1 ? AppTheme.primaryText : AppTheme.secondaryText)
+                        index == crumbs.count - 1 ? AppTheme.primaryText : AppTheme.secondaryText
+                    )
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
         }
     }
@@ -389,7 +396,13 @@ struct ContentView: View {
     }
 
     private func selectSidebarItem(_ item: SidebarItem, pushToHistory: Bool = true) {
+        // Reset navigation path when clicking Meetings (even if already selected)
+        if item == .meetings {
+            meetingsNavigationPath = NavigationPath()
+        }
+
         guard selection != item else { return }
+
         selection = item
         if pushToHistory {
             if historyIndex < navigationHistory.count - 1 {
@@ -598,9 +611,10 @@ struct HomeView: View {
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var recentMeetings: [MeetingModel] = []
 
-    // Callbacks you can later wire to "Activity" and "Calls"
+    // Callbacks
     var onViewAllDictations: () -> Void = {}
     var onViewAllMeetings: () -> Void = {}
+    var onMeetingTap: (UUID) -> Void = { _ in }  // Add this
 
     var body: some View {
         ScrollView {
@@ -616,7 +630,8 @@ struct HomeView: View {
 
                 RecentMeetingsSection(
                     meetings: Array(recentMeetings.prefix(3)),
-                    onViewAll: onViewAllMeetings
+                    onViewAll: onViewAllMeetings,
+                    onMeetingTap: onMeetingTap  // Add this
                 )
             }
             .padding(.horizontal, 32)
@@ -700,6 +715,7 @@ struct HomeView: View {
     private struct LastDictationSection: View {
         let last: MessageModel?
         let onViewAll: () -> Void
+        @State private var copied = false
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -716,39 +732,64 @@ struct HomeView: View {
                 }
 
                 if let last {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(last.content)
-                            .font(.system(size: 15))
-                            .foregroundColor(AppTheme.primaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        HStack(spacing: 10) {
-                            Text(last.createdAt, style: .time)
-                                .font(.system(size: 12))
-                                .foregroundColor(AppTheme.secondaryText)
-
-                            Text("Auto‑saved")
-                                .font(.system(size: 12))
-                                .foregroundColor(AppTheme.secondaryText.opacity(0.8))
-
-                            Spacer()
-
-                            Button {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(last.content, forType: .string)
-                            } label: {
-                                Label("Copy", systemImage: "doc.on.doc")
-                                    .font(.system(size: 12, weight: .medium))
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(last.content, forType: .string)
+                        withAnimation {
+                            copied = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation {
+                                copied = false
                             }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(AppTheme.elevatedBackground)
-                            .cornerRadius(10)
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(last.content)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .multilineTextAlignment(.leading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Text("Click to copy")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+                            }
+
+                            VStack(alignment: .trailing, spacing: 4) {
+                                if copied {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11))
+                                        Text("Copied")
+                                            .font(.system(size: 12, weight: .medium))
+                                    }
+                                    .foregroundColor(.green)
+                                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                                } else {
+                                    Text(formattedTime(last.createdAt))
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                }
+                            }
+                            .frame(width: 70, alignment: .trailing)
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(AppTheme.cardBackground.opacity(0.5))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { hovering in
+                        if hovering {
+                            NSCursor.pointingHand.push()
+                        } else {
+                            NSCursor.pop()
                         }
                     }
-                    .padding(18)
-                    .appGlass(.card, radius: 20)
                 } else {
                     Text("No dictations yet. Hold your hotkey and speak to create your first one.")
                         .font(.system(size: 13))
@@ -756,11 +797,18 @@ struct HomeView: View {
                 }
             }
         }
+
+        private func formattedTime(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "h:mm a"
+            return formatter.string(from: date)
+        }
     }
 
     private struct RecentMeetingsSection: View {
         let meetings: [MeetingModel]
         let onViewAll: () -> Void
+        let onMeetingTap: (UUID) -> Void  // Add this
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -781,9 +829,14 @@ struct HomeView: View {
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.secondaryText)
                 } else {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 0) {
                         ForEach(meetings) { meeting in
-                            MeetingRow(meeting: meeting)
+                            Button {
+                                onMeetingTap(meeting.id)
+                            } label: {
+                                MeetingRow(meeting: meeting)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -793,36 +846,71 @@ struct HomeView: View {
         private struct MeetingRow: View {
             let meeting: MeetingModel
 
+            private var isRecording: Bool {
+                meeting.endTime == nil
+            }
+
             var body: some View {
-                HStack(alignment: .center, spacing: 12) {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppTheme.accent)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle().fill(AppTheme.elevatedBackground)
+                HStack(spacing: 12) {
+                    // Icon based on meeting source
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(AppTheme.secondaryText.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Image(
+                                systemName: meeting.source == .calendar
+                                    ? "calendar" : "doc.text.fill"
+                            )
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.secondaryText.opacity(0.7))
                         )
 
-                    VStack(alignment: .leading, spacing: 4) {
+                    // Title + optional REC badge
+                    HStack(spacing: 8) {
                         Text(meeting.title.isEmpty ? "Untitled meeting" : meeting.title)
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(1)
 
-                        HStack(spacing: 12) {
-                            Text(meeting.startTime, style: .time)
-                            if let end = meeting.endTime {
-                                let minutes = Int(end.timeIntervalSince(meeting.startTime) / 60)
-                                Text("\(minutes)m")
+                        if isRecording {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 6, height: 6)
+                                Text("REC")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.red)
                             }
                         }
-                        .font(.system(size: 12))
-                        .foregroundColor(AppTheme.secondaryText)
                     }
 
                     Spacer()
+
+                    // User avatar
+                    Circle()
+                        .fill(Color.gray.opacity(0.3))
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(AppTheme.secondaryText)
+                        )
+
+                    // Time - fixed width, right-aligned
+                    Text(formattedTime(meeting.startTime))
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .frame(width: 70, alignment: .trailing)
                 }
-                .padding(14)
-                .appGlass(.card, radius: 18)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
+            }
+
+            private func formattedTime(_ date: Date) -> String {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "h:mm a"
+                return formatter.string(from: date)
             }
         }
     }

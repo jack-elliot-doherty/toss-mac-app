@@ -129,6 +129,8 @@ struct MeetingView: View {
 
     @State private var isRegeneratingSummary = false
     @State private var didCopySummary = false
+    @State private var showingAISummary = false  // false = user notes, true = AI summary
+    @State private var editableUserNotes: String = ""
 
     private enum MeetingDetailTab: String, CaseIterable {
         case overview = "Overview"
@@ -178,15 +180,15 @@ struct MeetingView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(alignment: .leading, spacing: 32) {
                 header
                 tabSection
             }
-            .frame(maxWidth: 960)  // matches Aside-style width
+            .frame(maxWidth: 960, alignment: .leading)  // Content left-aligned within 960px block
             .padding(.horizontal, 32)
             .padding(.top, 28)
             .padding(.bottom, 60)
-            .frame(maxWidth: .infinity)  // center when window wider
+            .frame(maxWidth: .infinity, alignment: .center)  // Center the block in the window
         }
         .onAppear(perform: configureChrome)
         .onDisappear { pageChrome.clearOverride() }
@@ -194,36 +196,29 @@ struct MeetingView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(meetingTitle)
-                .font(.system(size: 36, weight: .bold))
+                .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
 
-            HStack(spacing: 28) {
-                metaColumn(title: "Created", value: createdAtString)
-                Spacer()
+            // Horizontal metadata with colon
+            HStack(spacing: 6) {
+                Text("Created:")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+                Text(createdAtString)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(AppTheme.primaryText)
             }
 
-            Divider()
-                .background(Color.white.opacity(0.12))
+            // Removed Divider
         }
     }
 
     private var tabSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 18) {  // Add spacing back
             tabSwitcher
             tabContent
-        }
-    }
-
-    private func metaColumn(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(AppTheme.secondaryText)
-            Text(value)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(AppTheme.primaryText)
         }
     }
 
@@ -296,17 +291,21 @@ struct MeetingView: View {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        let userNotes = meeting?.userNotes ?? ""
+
         isRegeneratingSummary = true
 
         MeetingsApi.shared.generateOverview(
             for: meetingId,
-            transcript: trimmed
+            transcript: trimmed,
+            userNotes: userNotes
         ) { [weak repository] result in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.isRegeneratingSummary = false
                 switch result {
                 case .success(let summary):
                     repository?.updateMeetingNotes(meetingId: self.meetingId, notes: summary)
+                    self.showingAISummary = true
                 case .failure(let error):
                     NSLog("[MeetingView] Regenerate summary failed: \(error)")
                 }
@@ -326,59 +325,147 @@ struct MeetingView: View {
         }
     }
 
+    private var isRecording: Bool {
+        meeting?.endTime == nil
+    }
+
+    private var hasAISummary: Bool {
+        !(meeting?.notes ?? "").isEmpty
+    }
+
     private var overviewView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header row: title + actions
-            HStack(spacing: 10) {
-                Text("Summary")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppTheme.secondaryText)
+        VStack(alignment: .leading, spacing: 16) {
+            // Toggle on the left + actions on the right
+            HStack(spacing: 12) {
+                // Mode toggle (only show if we have AI summary)
+                if hasAISummary {
+                    summaryToggle
+                }
 
                 Spacer()
 
                 // Regenerate
-                Button {
-                    regenerateSummary()
-                } label: {
-                    Image(
-                        systemName: isRegeneratingSummary
-                            ? "arrow.clockwise.circle.fill" : "arrow.clockwise.circle"
-                    )
-                    .font(.system(size: 14, weight: .semibold))
+                if showingAISummary || !hasAISummary {
+                    Button {
+                        regenerateSummary()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
+                            .rotationEffect(.degrees(isRegeneratingSummary ? 360 : 0))
+                            .animation(
+                                isRegeneratingSummary
+                                    ? .linear(duration: 1).repeatForever(autoreverses: false)
+                                    : .default, value: isRegeneratingSummary)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(AppTheme.secondaryText)
+                    .disabled(isRegeneratingSummary)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(AppTheme.secondaryText)
-                .disabled(isRegeneratingSummary)
 
                 // Copy
                 Button {
-                    copySummary()
+                    if showingAISummary {
+                        copySummary()
+                    } else {
+                        copyUserNotes()
+                    }
                 } label: {
-                    Image(systemName: didCopySummary ? "checkmark.square" : "square.on.square")
-                        .font(.system(size: 14, weight: .semibold))
+                    Image(systemName: didCopySummary ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 12, weight: .medium))
                 }
                 .buttonStyle(.plain)
-                .foregroundColor(AppTheme.secondaryText)
-                .disabled((meeting?.notes ?? "").isEmpty)
+                .foregroundColor(didCopySummary ? .green : AppTheme.secondaryText)
             }
 
-            if let notes = meeting?.notes, !notes.isEmpty {
+            // Content area
+            if showingAISummary && hasAISummary {
                 VStack(alignment: .leading, spacing: 12) {
-                    MarkdownSummaryView(markdown: notes)
+                    MarkdownSummaryView(markdown: meeting?.notes ?? "")
                 }
-                .padding(20)
-            } else if isRegeneratingSummary {
+            } else if isRegeneratingSummary && !hasAISummary {
                 Text("Generating summary…")
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.secondaryText)
             } else {
-                Text("No AI summary yet. Generate notes after the meeting ends.")
+                userNotesEditor
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            editableUserNotes = meeting?.userNotes ?? ""
+        }
+        .onChange(of: meeting?.userNotes) { _, newValue in
+            if editableUserNotes != newValue {
+                editableUserNotes = newValue ?? ""
+            }
+        }
+    }
+
+    private var summaryToggle: some View {
+        HStack(spacing: 16) {
+            togglePill(title: "My Notes", isSelected: !showingAISummary) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showingAISummary = false
+                }
+            }
+            togglePill(title: "Summary", isSelected: showingAISummary) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    showingAISummary = true
+                }
+            }
+        }
+    }
+
+    private func togglePill(title: String, isSelected: Bool, action: @escaping () -> Void)
+        -> some View
+    {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                .foregroundColor(isSelected ? .white : AppTheme.secondaryText.opacity(0.5))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var userNotesEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextEditor(text: $editableUserNotes)
+                .font(.system(size: 14))
+                .foregroundColor(AppTheme.primaryText)
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .frame(minHeight: 200)
+                .onChange(of: editableUserNotes) { _, newValue in
+                    saveUserNotes(newValue)
+                }
+
+            if isRecording {
+                Text(
+                    "Jot down key points, action items, questions... These will guide the AI summary."
+                )
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+            } else if !hasAISummary && (meeting?.userNotes ?? "").isEmpty {
+                Text("No notes taken during this meeting.")
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.secondaryText)
             }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func saveUserNotes(_ notes: String) {
+        // Save immediately (or you can add debouncing with a separate state variable)
+        repository.updateMeetingUserNotes(meetingId: meetingId, userNotes: notes)
+    }
+
+    private func copyUserNotes() {
+        guard let notes = meeting?.userNotes, !notes.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(notes, forType: .string)
+        didCopySummary = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            didCopySummary = false
+        }
     }
 
     private func configureChrome() {
@@ -548,7 +635,8 @@ struct MeetingsListView: View {
     @Binding var pendingMeetingId: UUID?
     @Binding var navigationPath: NavigationPath
     @State private var selectedMeeting: UUID?
-    @State private var refreshTrigger = false  // Add this
+    @State private var refreshTrigger = false
+    @State private var showUpcomingPopover = false
 
     // Add Manager
     @StateObject private var meetingsManager = MeetingsManager.shared
@@ -588,7 +676,7 @@ struct MeetingsListView: View {
                             Spacer()
 
                             Button {
-                                Task { await meetingsManager.syncCalendar() }
+                                showUpcomingPopover = true
                             } label: {
                                 Text("Show more")
                                     .font(.system(size: 13))
@@ -654,42 +742,6 @@ struct MeetingsListView: View {
                             }
                         }
                     }
-                    // -----------------------------
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Calls")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(AppTheme.primaryText)
-                        Text("Your recent recordings")
-                            .font(.system(size: 13))
-                            .foregroundColor(AppTheme.secondaryText)
-                    }
-
-                    LazyVStack(alignment: .leading, spacing: 28, pinnedViews: []) {
-                        ForEach(meetingSections) { section in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(section.title)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(AppTheme.secondaryText)
-                                    .textCase(.uppercase)
-
-                                VStack(spacing: 12) {
-                                    ForEach(section.meetings) { meeting in
-                                        NavigationLink(value: meeting.id) {
-                                            meetingCard(
-                                                meeting, isSelected: selectedMeeting == meeting.id)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .simultaneousGesture(
-                                            TapGesture().onEnded {
-                                                selectedMeeting = meeting.id
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 .padding(.vertical, 32)
                 .padding(.horizontal, 28)
@@ -724,6 +776,28 @@ struct MeetingsListView: View {
         }
         // Make computed properties depend on refreshTrigger
         .id(refreshTrigger)
+        .overlay {
+            if showUpcomingPopover {
+                // Invisible tap target to dismiss (no dim)
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showUpcomingPopover = false
+                    }
+
+                // Centered dialog
+                UpcomingMeetingsPopover(
+                    meetings: meetingsManager.upcomingMeetings,
+                    onDismiss: { showUpcomingPopover = false }
+                )
+                .background(AppTheme.cardBackground)
+                .cornerRadius(16)
+                .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showUpcomingPopover)
     }
 
     private func meetingCard(_ meeting: MeetingModel, isSelected: Bool) -> some View {
@@ -836,11 +910,30 @@ struct MeetingsListView: View {
 
     private func meetingRow(_ meeting: MeetingModel) -> some View {
         HStack(spacing: 12) {
-            // Folder/calendar icon
-            Image(systemName: "folder.fill")
-                .font(.system(size: 16))
-                .foregroundColor(AppTheme.secondaryText.opacity(0.5))
-                .frame(width: 24)
+            // Icon based on meeting source
+            Group {
+                if meeting.source == .calendar {
+                    // Calendar icon for synced meetings
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(AppTheme.secondaryText.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Image(systemName: "calendar")
+                                .font(.system(size: 14))
+                                .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                        )
+                } else {
+                    // Document/page icon for ad-hoc meetings
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(AppTheme.secondaryText.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Image(systemName: "doc.text.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                        )
+                }
+            }
 
             // Title + optional status badge
             HStack(spacing: 8) {
@@ -856,22 +949,21 @@ struct MeetingsListView: View {
 
             Spacer()
 
-            // Right side: user info + time
-            HStack(spacing: 8) {
-                // User avatar placeholder
-                Circle()
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Image(systemName: "person.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(AppTheme.secondaryText)
-                    )
+            // User avatar - fixed width column
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 20, height: 20)
+                .overlay(
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(AppTheme.secondaryText)
+                )
 
-                Text(formattedTime(meeting.startTime))
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.secondaryText)
-            }
+            // Time - fixed width column, right-aligned
+            Text(formattedTime(meeting.startTime))
+                .font(.system(size: 13))
+                .foregroundColor(AppTheme.secondaryText)
+                .frame(width: 70, alignment: .trailing)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
@@ -992,6 +1084,152 @@ private struct UpcomingMeetingCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(AppTheme.subtleStroke, lineWidth: 1)
         )
+    }
+
+    private func participantAvatar(_ p: MeetingParticipant) -> some View {
+        Group {
+            if let url = p.avatarUrl, let u = URL(string: url) {
+                AsyncImage(url: u) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Circle().fill(Color.gray.opacity(0.3))
+                }
+            } else {
+                Circle()
+                    .fill(Color.blue.opacity(0.6))
+                    .overlay(
+                        Text(
+                            p.name?.prefix(1).uppercased() ?? String(p.email.prefix(1)).uppercased()
+                        )
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                    )
+            }
+        }
+        .frame(width: 22, height: 22)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+    }
+}
+
+private struct UpcomingMeetingsPopover: View {
+    let meetings: [UpcomingMeeting]
+    let onDismiss: () -> Void
+
+    private var groupedMeetings: [(date: String, meetings: [UpcomingMeeting])] {
+        let grouped = Dictionary(grouping: meetings) { meeting in
+            dateGroupKey(meeting.startedAt)
+        }
+        return grouped.map { (date: $0.key, meetings: $0.value) }
+            .sorted { lhs, rhs in
+                lhs.meetings.first?.startedAt ?? .distantPast < rhs.meetings.first?.startedAt
+                    ?? .distantPast
+            }
+    }
+
+    private func dateGroupKey(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE, MMM d"
+        return formatter.string(from: date).uppercased()
+    }
+
+    private func timeString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with close button
+            HStack {
+                Text("Upcoming Meetings")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Spacer()
+
+                Button {
+                    onDismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .frame(width: 28, height: 28)
+                        .background(AppTheme.elevatedBackground)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(groupedMeetings, id: \.date) { group in
+                        VStack(alignment: .leading, spacing: 8) {
+                            // Date header
+                            Text(group.date)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                                .padding(.horizontal, 16)
+
+                            // Meetings for this date
+                            ForEach(group.meetings) { meeting in
+                                meetingRow(meeting)
+
+                                if meeting.id != group.meetings.last?.id {
+                                    Divider()
+                                        .background(AppTheme.subtleStroke)
+                                        .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+            }
+        }
+        .frame(width: 480, height: 500)
+    }
+
+    private func meetingRow(_ meeting: UpcomingMeeting) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(meeting.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+                    .lineLimit(1)
+
+                Text(timeString(meeting.startedAt))
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            Spacer()
+
+            // Participants
+            if !meeting.participants.isEmpty {
+                HStack(spacing: -6) {
+                    ForEach(meeting.participants.prefix(2)) { p in
+                        participantAvatar(p)
+                    }
+                    if meeting.participants.count > 2 {
+                        Text("+\(meeting.participants.count - 2)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .padding(.leading, 8)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     private func participantAvatar(_ p: MeetingParticipant) -> some View {

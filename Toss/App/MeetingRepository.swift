@@ -6,6 +6,11 @@ enum MeetingSpeaker: String, Codable, CaseIterable {
     case remote
 }
 
+enum MeetingSource: String, Codable {
+    case calendar  // Synced from Google Calendar
+    case adhoc  // Manually started (Slack huddle, quick record, etc.)
+}
+
 struct MeetingModel: Identifiable, Equatable, Codable {
     let id: UUID
     var title: String
@@ -13,7 +18,38 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var endTime: Date?
     var createdAt: Date
     var updatedAt: Date
-    var notes: String = ""
+    var notes: String = ""  // AI-generated summary
+    var userNotes: String = ""  // User's live notes during the meeting (Granola-style)
+    var source: MeetingSource = .adhoc
+
+    // Custom decoder for backwards compatibility with existing data
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        startTime = try container.decode(Date.self, forKey: .startTime)
+        endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        userNotes = try container.decodeIfPresent(String.self, forKey: .userNotes) ?? ""
+        source = try container.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .adhoc
+    }
+
+    init(
+        id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
+        notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc
+    ) {
+        self.id = id
+        self.title = title
+        self.startTime = startTime
+        self.endTime = endTime
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.notes = notes
+        self.userNotes = userNotes
+        self.source = source
+    }
 }
 
 struct MeetingChunkModel: Identifiable, Equatable, Codable {
@@ -52,7 +88,7 @@ struct MeetingChunkModel: Identifiable, Equatable, Codable {
 }
 
 protocol MeetingRepositoryProtocol {
-    func createMeeting(id: UUID, title: String) -> MeetingModel
+    func createMeeting(id: UUID, title: String, source: MeetingSource) -> MeetingModel
     func endMeeting(id: UUID)
     func getMeeting(id: UUID) -> MeetingModel?
     func appendChunk(
@@ -63,6 +99,9 @@ protocol MeetingRepositoryProtocol {
     func getFullTranscript(meetingId: UUID) -> String
     func updateMeetingTitle(meetingId: UUID, title: String)
     func updateMeetingNotes(meetingId: UUID, notes: String)
+    func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
+    func cleanupOrphanedMeetings()
+    func endMeetingIfActive(id: UUID)
 }
 
 final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
@@ -122,12 +161,12 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         }
     }
 
-    func createMeeting(id: UUID, title: String) -> MeetingModel {
+    func createMeeting(id: UUID, title: String, source: MeetingSource = .adhoc) -> MeetingModel {
         let meeting = queue.sync { () -> MeetingModel in
             let now = Date()
             let meeting = MeetingModel(
                 id: id, title: title, startTime: now, endTime: nil, createdAt: now,
-                updatedAt: now)
+                updatedAt: now, source: source)
             meetings[meeting.id] = meeting
             chunks[meeting.id] = []
             return meeting
@@ -232,6 +271,16 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         save()
     }
 
+    func updateMeetingUserNotes(meetingId: UUID, userNotes: String) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.userNotes = userNotes
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
     // text cleaning for fuzzy match
     private func normalize(_ text: String) -> Set<String> {
         let cleaned = text.lowercased()
@@ -301,4 +350,41 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         return false
     }
 
+    /// Called on app launch to close any meetings that were left open due to crash/force quit
+    func cleanupOrphanedMeetings() {
+        queue.sync {
+            let now = Date()
+            var didChange = false
+
+            for (id, meeting) in meetings {
+                // If meeting has no endTime and started more than 1 minute ago, close it
+                if meeting.endTime == nil && now.timeIntervalSince(meeting.startTime) > 60 {
+                    var updated = meeting
+                    updated.endTime = meeting.updatedAt  // Use last update time as end time
+                    updated.updatedAt = now
+                    meetings[id] = updated
+                    didChange = true
+                    NSLog("[Meetings] Cleaned up orphaned meeting: \(meeting.title)")
+                }
+            }
+
+            if didChange {
+                // Trigger save outside sync
+            }
+        }
+        if meetings.values.contains(where: { $0.endTime == nil }) == false {
+            save()
+        }
+    }
+
+    /// Force-end a specific meeting (used on app termination)
+    func endMeetingIfActive(id: UUID) {
+        queue.sync {
+            guard var meeting = meetings[id], meeting.endTime == nil else { return }
+            meeting.endTime = Date()
+            meeting.updatedAt = Date()
+            meetings[id] = meeting
+        }
+        save()
+    }
 }
