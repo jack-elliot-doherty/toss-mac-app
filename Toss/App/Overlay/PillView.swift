@@ -261,39 +261,20 @@ struct PillView: View {
                     .foregroundColor(.white.opacity(0.7))
             }
 
-            // Join button (if URL exists)
-            if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "video.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                        Text("Join")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.blue.opacity(0.8)))
-                }
-                .buttonStyle(.plain)
-            }
-
-            // Record button
+            // Single Join & Record button
             Button {
                 viewModel.onJoinAndRecordUpcoming?(meeting)
             } label: {
                 HStack(spacing: 4) {
-                    Image(systemName: "record.circle")
+                    Image(systemName: "video.fill")
                         .font(.system(size: 10, weight: .semibold))
-                    Text("Record")
+                    Text("Join & Start")
                         .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color.red.opacity(0.9)))
+                .background(Capsule().fill(Color.blue))
             }
             .buttonStyle(.plain)
 

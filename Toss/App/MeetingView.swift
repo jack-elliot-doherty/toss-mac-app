@@ -26,9 +26,36 @@ struct UpcomingMeeting: Codable, Identifiable, Equatable {
     }
 
     var relativeTime: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        return formatter.localizedString(for: startedAt, relativeTo: Date())
+        let now = Date()
+        let seconds = startedAt.timeIntervalSince(now)
+
+        // Past events
+        if seconds < 0 {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.unitsStyle = .full
+            return formatter.localizedString(for: startedAt, relativeTo: now)
+        }
+
+        // Round UP to nearest minute (ceiling)
+        let minutes = Int(ceil(seconds / 60))
+
+        if minutes < 1 {
+            return "now"
+        } else if minutes == 1 {
+            return "in 1 minute"
+        } else if minutes < 60 {
+            return "in \(minutes) minutes"
+        } else {
+            let hours = Int(ceil(Double(minutes) / 60))
+            if hours == 1 {
+                return "in 1 hour"
+            } else if hours < 24 {
+                return "in \(hours) hours"
+            } else {
+                let days = Int(ceil(Double(hours) / 24))
+                return days == 1 ? "in 1 day" : "in \(days) days"
+            }
+        }
     }
 }
 
@@ -521,6 +548,7 @@ struct MeetingsListView: View {
     @Binding var pendingMeetingId: UUID?
     @Binding var navigationPath: NavigationPath
     @State private var selectedMeeting: UUID?
+    @State private var refreshTrigger = false  // Add this
 
     // Add Manager
     @StateObject private var meetingsManager = MeetingsManager.shared
@@ -550,30 +578,26 @@ struct MeetingsListView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
 
-                    // --- NEW: Upcoming Section ---
+                    // --- Upcoming Section ---
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             Text("Upcoming")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(AppTheme.secondaryText)
-                                .textCase(.uppercase)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(AppTheme.primaryText)
 
                             Spacer()
 
                             Button {
                                 Task { await meetingsManager.syncCalendar() }
                             } label: {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 12))
+                                Text("Show more")
+                                    .font(.system(size: 13))
                                     .foregroundColor(AppTheme.secondaryText)
                             }
                             .buttonStyle(.plain)
                         }
 
                         if meetingsManager.upcomingMeetings.isEmpty {
-                            // Empty State / Connect CTA
-                            // You can check IntegrationsManager.shared.googleStatus.connected here if you want
-                            // For now, a simple card
                             HStack {
                                 Text("No upcoming meetings found.")
                                     .font(.system(size: 13))
@@ -588,6 +612,43 @@ struct MeetingsListView: View {
                                 HStack(spacing: 12) {
                                     ForEach(meetingsManager.upcomingMeetings) { meeting in
                                         UpcomingMeetingCard(meeting: meeting)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // -----------------------------
+
+                    // --- Calls Section ---
+                    Text("Calls")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                        .padding(.top, 8)
+
+                    LazyVStack(alignment: .leading, spacing: 24, pinnedViews: []) {
+                        ForEach(meetingSections) { section in
+                            VStack(alignment: .leading, spacing: 8) {
+                                // Section header with date on right
+                                HStack {
+                                    Text(section.title)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.secondaryText)
+
+                                    Spacer()
+
+                                    if let firstMeeting = section.meetings.first {
+                                        Text(fullDateString(firstMeeting.startTime))
+                                            .font(.system(size: 13))
+                                            .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                                    }
+                                }
+
+                                VStack(spacing: 0) {
+                                    ForEach(section.meetings) { meeting in
+                                        NavigationLink(value: meeting.id) {
+                                            meetingRow(meeting)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
@@ -655,7 +716,14 @@ struct MeetingsListView: View {
                 selectedMeeting = meetingId
                 pendingMeetingId = nil
             }
+        }.onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+        ) { _ in
+            // Toggle to force SwiftUI to re-evaluate computed properties
+            refreshTrigger.toggle()
         }
+        // Make computed properties depend on refreshTrigger
+        .id(refreshTrigger)
     }
 
     private func meetingCard(_ meeting: MeetingModel, isSelected: Bool) -> some View {
@@ -766,6 +834,67 @@ struct MeetingsListView: View {
         }
     }
 
+    private func meetingRow(_ meeting: MeetingModel) -> some View {
+        HStack(spacing: 12) {
+            // Folder/calendar icon
+            Image(systemName: "folder.fill")
+                .font(.system(size: 16))
+                .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+                .frame(width: 24)
+
+            // Title + optional status badge
+            HStack(spacing: 8) {
+                Text(meeting.title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.primaryText)
+                    .lineLimit(1)
+
+                if isRecording(meeting) {
+                    statusBadge("REC", color: .red)
+                }
+            }
+
+            Spacer()
+
+            // Right side: user info + time
+            HStack(spacing: 8) {
+                // User avatar placeholder
+                Circle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 20, height: 20)
+                    .overlay(
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(AppTheme.secondaryText)
+                    )
+
+                Text(formattedTime(meeting.startTime))
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 4)
+        .contentShape(Rectangle())
+    }
+
+    private func statusBadge(_ text: String, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(color)
+        }
+    }
+
+    private func fullDateString(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
+    }
+
     private struct MeetingSection: Identifiable {
         var id: String { title }
         let title: String
@@ -776,94 +905,118 @@ struct MeetingsListView: View {
 private struct UpcomingMeetingCard: View {
     let meeting: UpcomingMeeting
 
+    private var isLive: Bool {
+        let now = Date()
+        return meeting.startedAt <= now && (meeting.endedAt ?? .distantFuture) > now
+    }
+
+    private var smartTimeString: String {
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+
+        if calendar.isDateInToday(meeting.startedAt) {
+            formatter.dateFormat = "h:mm a"
+            return formatter.string(from: meeting.startedAt)
+        } else if calendar.isDateInTomorrow(meeting.startedAt) {
+            formatter.dateFormat = "h:mm a"
+            return "Tomorrow \(formatter.string(from: meeting.startedAt))"
+        } else {
+            formatter.dateFormat = "EEEE h:mm a"
+            return formatter.string(from: meeting.startedAt)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(meeting.startTimeFormatted)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(AppTheme.accent)
-                    Text(meeting.relativeTime)
-                        .font(.system(size: 11))
-                        .foregroundColor(AppTheme.secondaryText)
+            // Title
+            Text(meeting.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppTheme.primaryText)
+                .lineLimit(1)
+
+            // Time or LIVE badge
+            if isLive {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                    Text("LIVE")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.green)
                 }
-                Spacer()
-                if meeting.joinUrl != nil {
-                    Image(systemName: "video.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(AppTheme.secondaryText)
-                }
+            } else {
+                Text(smartTimeString)
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
             }
 
-            Text(meeting.title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppTheme.primaryText)
-                .lineLimit(2)
-                .frame(height: 40, alignment: .topLeading)
+            Spacer()
 
-            // Participants
-            HStack(spacing: -8) {
-                ForEach(meeting.participants.prefix(4)) { p in
-                    if let url = p.avatarUrl, let u = URL(string: url) {
-                        AsyncImage(url: u) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            Circle().fill(Color.gray)
+            // Bottom row: participants + Start button
+            HStack {
+                // Participants
+                if !meeting.participants.isEmpty {
+                    HStack(spacing: -6) {
+                        ForEach(meeting.participants.prefix(3)) { p in
+                            participantAvatar(p)
                         }
-                        .frame(width: 24, height: 24)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
-                    } else {
-                        Circle()
-                            .fill(Color.blue.opacity(0.5))
-                            .frame(width: 24, height: 24)
-                            .overlay(
-                                Text(p.name?.prefix(1) ?? p.email.prefix(1))
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                            )
-                            .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+                        if meeting.participants.count > 3 {
+                            Text("+\(meeting.participants.count - 3)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(AppTheme.secondaryText)
+                                .padding(.leading, 8)
+                        }
                     }
                 }
-                if meeting.participants.count > 4 {
-                    Circle()
-                        .fill(AppTheme.elevatedBackground)
-                        .frame(width: 24, height: 24)
-                        .overlay(
-                            Text("+\(meeting.participants.count - 4)")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(AppTheme.secondaryText)
-                        )
-                        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
-                }
-            }
 
-            HStack {
-                if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
-                    Link("Join", destination: url)
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(.blue)
-                }
+                Spacer()
 
-                Button("Record") {
-                    // TODO: Start recording
+                // Start button
+                Button("Start") {
+                    // TODO: implement join & record
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .tint(AppTheme.accent)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.primaryText)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(AppTheme.elevatedBackground)
+                .cornerRadius(6)
+                .buttonStyle(.plain)
             }
         }
         .padding(16)
-        .frame(width: 220)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                )
+        .frame(width: 180, height: 140)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppTheme.subtleStroke, lineWidth: 1)
         )
+    }
+
+    private func participantAvatar(_ p: MeetingParticipant) -> some View {
+        Group {
+            if let url = p.avatarUrl, let u = URL(string: url) {
+                AsyncImage(url: u) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Circle().fill(Color.gray.opacity(0.3))
+                }
+            } else {
+                Circle()
+                    .fill(Color.blue.opacity(0.6))
+                    .overlay(
+                        Text(
+                            p.name?.prefix(1).uppercased() ?? String(p.email.prefix(1)).uppercased()
+                        )
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                    )
+            }
+        }
+        .frame(width: 22, height: 22)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
     }
 }
 
