@@ -9,3 +9,5 @@ build/
 .dSYM
 Toss.xcodeproj/xcuserdata/
 Toss.xcodeproj/xcuserstate/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
