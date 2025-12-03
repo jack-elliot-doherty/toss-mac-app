@@ -30,6 +30,16 @@ struct AgentView: View {
                         .transition(.opacity.combined(with: .scale))
                     }
 
+                    // Executing tool badges (read-only tools only)
+                    if !viewModel.executingTools.isEmpty {
+                        HStack(spacing: 8) {
+                            ForEach(viewModel.executingTools) { tool in
+                                ExecutingToolBadge(tool: tool)
+                            }
+                        }
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
+
                     // Only show thinking BEFORE streaming starts
                     if viewModel.isProcessing && !viewModel.isStreaming {
                         ProcessingRow()
@@ -242,5 +252,88 @@ private struct ToolApprovalCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.white.opacity(0.15), lineWidth: 1)
         )
+    }
+}
+
+private struct ExecutingToolBadge: View {
+    let tool: AgentViewModel.ExecutingTool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            toolIcon
+                .frame(width: 20, height: 20)
+
+            Text(actionText)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+
+            if tool.isComplete {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.green)
+            } else {
+                LoadingDots()
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var toolIcon: some View {
+        let name = tool.name.lowercased()
+        if name.contains("slack") {
+            Image(systemName: "number.square.fill")
+                .font(.system(size: 14))
+                .foregroundColor(.green)
+        } else if name.contains("linear") {
+            Image(systemName: "lineweight")
+                .font(.system(size: 14))
+                .foregroundColor(Color(red: 0.37, green: 0.42, blue: 0.82))
+        } else if name.contains("calendar") || name.contains("google") {
+            Image(systemName: "calendar")
+                .font(.system(size: 14))
+                .foregroundColor(.blue)
+        } else {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 14))
+                .foregroundColor(.white.opacity(0.7))
+        }
+    }
+
+    private var actionText: String {
+        let name = tool.name.lowercased()
+        if name.contains("slack") {
+            if name.contains("send") { return "Sending to Slack" }
+            if name.contains("search") { return "Searching Slack" }
+            return "Reading Slack"
+        }
+        if name.contains("linear") {
+            if name.contains("create") { return "Creating Linear issue" }
+            if name.contains("search") { return "Searching Linear" }
+            return "Reading Linear"
+        }
+        if name.contains("calendar") || name.contains("event") {
+            return "Reading Calendar"
+        }
+        return tool.name.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+}
+
+private struct LoadingDots: View {
+    @State private var dotCount = 0
+
+    var body: some View {
+        Text(String(repeating: "•", count: dotCount + 1))
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(.white.opacity(0.6))
+            .frame(width: 24, alignment: .leading)
+            .onAppear {
+                Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+                    dotCount = (dotCount + 1) % 3
+                }
+            }
     }
 }

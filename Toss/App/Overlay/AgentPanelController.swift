@@ -10,6 +10,7 @@ final class AgentPanelController {
     private let anchorOffset: CGFloat = 12
     private let hostingView: NSHostingView<AgentView>
     private var cancellables = Set<AnyCancellable>()
+    private var initialXPosition: CGFloat?  // NEW: Store the X position once
 
     init(viewModel: AgentViewModel, anchorFrameProvider: @escaping () -> NSRect?) {
         self.viewModel = viewModel
@@ -87,11 +88,13 @@ final class AgentPanelController {
     }
 
     func show(with initialMessage: String) {
+        // Reset X position for new session
+        initialXPosition = nil
+
         viewModel.startConversation(with: initialMessage)
 
-        // Initial sizing
+        // Initial sizing and positioning
         resizePanelToFitContent()
-        positionAboveAnchor()
 
         // Fade in animation
         panel.alphaValue = 0
@@ -114,23 +117,40 @@ final class AgentPanelController {
 
         let targetSize = NSSize(width: fixedWidth, height: finalHeight)
 
-        let targetFrame: NSRect
-        if let anchor = anchorFrameProvider() {
-            let x = anchor.midX - fixedWidth / 2
-            let y = anchor.maxY + anchorOffset
-            targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
-        } else if let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            let x = frame.midX - fixedWidth / 2
-            let y = frame.minY + 80
-            targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
+        // Calculate X position only once, then reuse it
+        let x: CGFloat
+        let y: CGFloat
+
+        if let storedX = initialXPosition {
+            // Reuse the initial X position
+            x = storedX
+            if let anchor = anchorFrameProvider() {
+                y = anchor.maxY + anchorOffset
+            } else if let screen = NSScreen.main {
+                y = screen.visibleFrame.minY + 80
+            } else {
+                y = panel.frame.origin.y
+            }
         } else {
-            targetFrame = panel.frame
+            // First time: calculate and store X position
+            if let anchor = anchorFrameProvider() {
+                x = anchor.midX - fixedWidth / 2
+                y = anchor.maxY + anchorOffset
+            } else if let screen = NSScreen.main {
+                let frame = screen.visibleFrame
+                x = frame.midX - fixedWidth / 2
+                y = frame.minY + 80
+            } else {
+                x = panel.frame.origin.x
+                y = panel.frame.origin.y
+            }
+            initialXPosition = x  // Store for future resizes
         }
+
+        let targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
 
         let currentFrame = panel.frame
         if abs(currentFrame.height - targetFrame.height) < 1
-            && abs(currentFrame.origin.x - targetFrame.origin.x) < 1
             && abs(currentFrame.origin.y - targetFrame.origin.y) < 1
         {
             return
@@ -138,9 +158,9 @@ final class AgentPanelController {
 
         let delta = abs(panel.frame.height - targetFrame.height)
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        if delta > 5 && !reduceMotion {  // increased threshold
+        if delta > 5 && !reduceMotion {
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2  // slightly smoother
+                ctx.duration = 0.2
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().setFrame(targetFrame, display: true)
             }
@@ -159,18 +179,5 @@ final class AgentPanelController {
                 self.panel.orderOut(nil)
                 self.viewModel.clearConversation()
             })
-    }
-
-    private func positionAboveAnchor() {
-        if let anchor = anchorFrameProvider() {
-            let x = anchor.midX - panel.frame.width / 2
-            let y = anchor.maxY + anchorOffset
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        } else if let screen = NSScreen.main {
-            let frame = screen.visibleFrame
-            let x = frame.midX - panel.frame.width / 2
-            let y = frame.minY + 80
-            panel.setFrameOrigin(NSPoint(x: x, y: y))
-        }
     }
 }

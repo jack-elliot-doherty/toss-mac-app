@@ -12,6 +12,7 @@ enum AgentStreamEvent {
     case agentStepFinish(stepNumber: Int)
     case done
     case error(String)
+    case toolExecuting(id: String, name: String)  // NEW: tool started executing
 }
 
 // MARK: - AI SDK v6 Data Stream Protocol
@@ -196,6 +197,7 @@ class AgentStreamParser {
                 let input = json["input"] as? [String: Any]
             {
                 pendingToolInputs[toolCallId] = (name: toolName, args: input)
+                return .toolExecuting(id: toolCallId, name: toolName)  // Emit event
             }
             return nil
 

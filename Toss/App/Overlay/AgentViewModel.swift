@@ -5,9 +5,16 @@ import SwiftUI
 final class AgentViewModel: ObservableObject {
     @Published var messages: [DisplayMessage] = []
     @Published var pendingToolCalls: [ToolCall] = []
+    @Published var executingTools: [ExecutingTool] = []  // For read-only tool badges
     @Published var isProcessing: Bool = false
     @Published var isStreaming: Bool = false  // NEW: true when receiving tokens
     @Published var errorMessage: String?
+
+    struct ExecutingTool: Identifiable, Equatable {
+        let id: String
+        let name: String
+        var isComplete: Bool = false
+    }
 
     struct DisplayMessage: Identifiable, Equatable {
         let id: UUID
@@ -82,6 +89,7 @@ final class AgentViewModel: ObservableObject {
     func clearConversation() {
         messages.removeAll()
         pendingToolCalls.removeAll()
+        executingTools.removeAll()  // Clear these too
         threadId = nil
         isProcessing = false
         isStreaming = false  // Reset this too
@@ -155,15 +163,23 @@ final class AgentViewModel: ObservableObject {
         case .textChunk(let chunk):  // NEW: Complete text chunks from agent steps
             appendToCurrentMessage(chunk)
 
+        case .toolExecuting(let id, let name):
+            // Tool started - show badge (may be removed if it needs approval)
+            if !executingTools.contains(where: { $0.id == id }) {
+                executingTools.append(ExecutingTool(id: id, name: name))
+            }
+
         case .toolCallAwaitingApproval(let toolCall):  // NEW: Native approval from v6
             NSLog("[AgentViewModel] Tool awaiting approval: \(toolCall.name)")
 
-            // Server is paused - always add to pending
+            // REMOVE from executing tools - it needs approval, not a badge
+            executingTools.removeAll { $0.id == toolCall.id }
+
+            // Add to pending approval (show card)
             var mutableToolCall = toolCall
             mutableToolCall.status = .awaitingApproval
             pendingToolCalls.append(mutableToolCall)
 
-            // Add system message indicating we're waiting
             let msg = DisplayMessage(
                 id: UUID(),
                 role: .system,
@@ -187,31 +203,21 @@ final class AgentViewModel: ObservableObject {
             }
 
         case .toolResult(let id, let result):
-            NSLog("[AgentViewModel] Tool result: \(id) - \(result)")
+            NSLog("[AgentViewModel] Tool result: \(id)")
 
-            // Remove from pending
-            if let index = pendingToolCalls.firstIndex(where: { $0.id == id }) {
-                var toolCall = pendingToolCalls[index]
-                toolCall.status = .completed(result: result)
-                pendingToolCalls[index] = toolCall
+            // Remove from pending approval cards
+            pendingToolCalls.removeAll { $0.id == id }
 
-                // Remove after brief display
+            // Mark executing tool as complete, then remove
+            if let index = executingTools.firstIndex(where: { $0.id == id }) {
+                executingTools[index].isComplete = true
+                let toolId = id
                 Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    if let idx = self.pendingToolCalls.firstIndex(where: { $0.id == id }) {
-                        self.pendingToolCalls.remove(at: idx)
-                    }
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    executingTools.removeAll { $0.id == toolId }
                 }
             }
-
-            // Add result message
-            let msg = DisplayMessage(
-                id: UUID(),
-                role: .system,
-                content: "✅ \(result)",
-                timestamp: Date()
-            )
-            messages.append(msg)
+        // Don't add raw JSON as system message
 
         case .agentStepFinish(let stepNumber):  // NEW: Agent step completed
             NSLog("[AgentViewModel] Agent step \(stepNumber) finished")

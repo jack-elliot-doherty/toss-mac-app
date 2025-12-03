@@ -19,6 +19,7 @@ struct MessageModel: Identifiable, Equatable, Codable {
     var status: MessageStatus
     var createdAt: Date
     var updatedAt: Date
+    var flaggedAt: Date?  // nil = not flagged, Date = when it was flagged
 }
 
 protocol HistoryRepositoryProtocol {
@@ -28,6 +29,7 @@ protocol HistoryRepositoryProtocol {
     func listThreads() -> [ThreadModel]
     func listMessages(threadId: UUID) -> [MessageModel]
     func clear()
+    func toggleMessageFlag(messageId: UUID)
 }
 
 final class PersistentHistoryRepository: HistoryRepositoryProtocol {
@@ -137,6 +139,23 @@ final class PersistentHistoryRepository: HistoryRepositoryProtocol {
             defaultThreadId = nil
             try? FileManager.default.removeItem(at: fileURL)
             NSLog("[History] Cleared all data")
+        }
+    }
+
+    func toggleMessageFlag(messageId: UUID) {
+        for (threadId, _) in threads {
+            if var messages = self.messages[threadId],
+                let index = messages.firstIndex(where: { $0.id == messageId })
+            {
+                if messages[index].flaggedAt != nil {
+                    messages[index].flaggedAt = nil
+                } else {
+                    messages[index].flaggedAt = Date()
+                }
+                self.messages[threadId] = messages
+                save()
+                return
+            }
         }
     }
 
