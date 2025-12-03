@@ -30,7 +30,8 @@ struct AgentView: View {
                         .transition(.opacity.combined(with: .scale))
                     }
 
-                    if viewModel.isProcessing {
+                    // Only show thinking BEFORE streaming starts
+                    if viewModel.isProcessing && !viewModel.isStreaming {
                         ProcessingRow()
                             .transition(.opacity)
                     }
@@ -141,14 +142,21 @@ private struct MessageBubble: View {
                 alignment: message.role == .user ? .trailing : .leading,
                 spacing: 4
             ) {
-                Text(message.content)
-                    .font(.system(size: 14))  // Slightly larger for readability
-                    .padding(.horizontal, message.role == .user ? 14 : 0)
-                    .padding(.vertical, message.role == .user ? 10 : 0)
-                    .background(bubbleBackground)  // Conditional background
-                    .foregroundColor(.white)
-                    // Add corner radius if it has a background
-                    .cornerRadius(message.role == .user ? 18 : 0)
+                // Use markdown for assistant, plain for user
+                if message.role == .assistant {
+                    Text(markdownAttributedString)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                        .textSelection(.enabled)
+                } else {
+                    Text(message.content)
+                        .font(.system(size: 14))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(bubbleBackground)
+                        .foregroundColor(.white)
+                        .cornerRadius(18)
+                }
             }
 
             if message.role == .assistant { Spacer() }
@@ -156,13 +164,28 @@ private struct MessageBubble: View {
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
+    private var markdownAttributedString: AttributedString {
+        do {
+            var result = try AttributedString(
+                markdown: message.content,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+            // Style bold text
+            for run in result.runs {
+                if run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true {
+                    result[run.range].foregroundColor = .white
+                }
+            }
+            return result
+        } catch {
+            return AttributedString(message.content)
+        }
+    }
+
     @ViewBuilder
     private var bubbleBackground: some View {
         if message.role == .user {
-            // User: Dark black/gray bubble
             Color.black.opacity(0.6)
         } else {
-            // Assistant: Transparent / No background
             Color.clear
         }
     }

@@ -6,6 +6,7 @@ final class AgentViewModel: ObservableObject {
     @Published var messages: [DisplayMessage] = []
     @Published var pendingToolCalls: [ToolCall] = []
     @Published var isProcessing: Bool = false
+    @Published var isStreaming: Bool = false  // NEW: true when receiving tokens
     @Published var errorMessage: String?
 
     struct DisplayMessage: Identifiable, Equatable {
@@ -26,6 +27,9 @@ final class AgentViewModel: ObservableObject {
     }
 
     func startConversation(with initialMessage: String) {
+        // Clear any previous session first
+        clearConversation()
+
         threadId = UUID()
 
         // Send to agent
@@ -80,6 +84,7 @@ final class AgentViewModel: ObservableObject {
         pendingToolCalls.removeAll()
         threadId = nil
         isProcessing = false
+        isStreaming = false  // Reset this too
         errorMessage = nil
         currentAssistantMessage = nil
     }
@@ -226,6 +231,11 @@ final class AgentViewModel: ObservableObject {
     }
 
     private func appendToCurrentMessage(_ delta: String) {
+        // Mark as streaming on first delta
+        if !isStreaming {
+            isStreaming = true
+        }
+
         if var current = currentAssistantMessage {
             // Update existing message
             current.content += delta
@@ -250,6 +260,7 @@ final class AgentViewModel: ObservableObject {
 
     private func finalizeCurrentMessage() {
         currentAssistantMessage = nil
+        isStreaming = false  // Reset when done
     }
 
     // MARK: - Tool Approval

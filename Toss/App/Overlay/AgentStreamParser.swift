@@ -95,7 +95,7 @@ class AgentStreamParser {
     private func parseByType(type: String, data: Data, json: [String: Any]) -> AgentStreamEvent? {
         switch type {
         case "text-delta":
-            if let delta = json["textDelta"] as? String {
+            if let delta = json["delta"] as? String {  // Changed from "textDelta" to "delta"
                 return .textDelta(delta)
             }
 
