@@ -88,6 +88,7 @@ struct ContentView: View {
     @State private var navigationHistory: [SidebarItem] = [.home]
     @State private var meetingsNavigationPath = NavigationPath()
     @State private var historyIndex: Int = 0
+    @State private var showUserMenu = false
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
             breadcrumb: [Breadcrumb(title: "Overview")],
@@ -468,65 +469,113 @@ struct ContentView: View {
     }
 
     private var sidebarAuth: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Group {
             if auth.isAuthenticated {
-                HStack(spacing: 10) {
-                    // Avatar
-                    if let url = auth.userImageURL {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .success(let image): image.resizable().scaledToFill()
-                            default: Color.gray.opacity(0.2)
+                userCardButton
+                    .popover(isPresented: $showUserMenu, arrowEdge: .top) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            // Current user row
+                            HStack(spacing: 10) {
+                                if let url = auth.userImageURL {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image): image.resizable().scaledToFill()
+                                        default: Color.gray.opacity(0.2)
+                                        }
+                                    }
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(auth.userName ?? "Signed in")
+                                        .font(.system(size: 13, weight: .semibold))
+                                    Text("Owner")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.primary)
                             }
+                            .padding(12)
+
+                            Divider()
+
+                            Button(action: {
+                                showUserMenu = false
+                                auth.signOut()
+                            }) {
+                                HStack {
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                    Text("Logout")
+                                    Spacer()
+                                }
+                                .padding(12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .frame(width: 28, height: 28)
-                        .clipShape(Circle())
-                    } else {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundColor(AppTheme.secondaryText)
+                        .frame(width: 220)
                     }
-
-                    // Name + email (single-line, truncated)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(auth.userName ?? "Signed in")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(AppTheme.primaryText)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-
-                        if let email = auth.userEmail {
-                            Text(email)
-                                .font(.system(size: 11))
-                                .foregroundColor(AppTheme.secondaryText)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
-                    }
-
-                    Spacer()
-
-                    // Compact sign-out icon
-                    Button(action: { auth.signOut() }) {
-                        Image(systemName: "arrow.right.square")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(AppTheme.accent)
-                }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppTheme.elevatedBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                )
-        )
         .onAppear { Task { await auth.refreshProfile() } }
+    }
+
+    private var userCardButton: some View {
+        Button(action: { showUserMenu.toggle() }) {
+            HStack(spacing: 10) {
+                // Avatar
+                if let url = auth.userImageURL {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image): image.resizable().scaledToFill()
+                        default: Color.gray.opacity(0.2)
+                        }
+                    }
+                    .frame(width: 28, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                // Name + email
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(auth.userName ?? "Signed in")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(1)
+
+                    if let email = auth.userEmail {
+                        Text(email)
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                // Chevron indicator
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppTheme.elevatedBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -915,156 +964,6 @@ struct HomeView: View {
         }
     }
 }
-
-// @MainActor
-// struct HomeView: View {
-//     @ObservedObject private var auth = AuthManager.shared
-//     @State private var dictations: [MessageModel] = []
-//     @State private var refreshTimer: Timer?
-
-//     var body: some View {
-//         ScrollView {
-//             VStack(alignment: .leading, spacing: 28) {
-//                 header
-
-//                 if dictations.isEmpty {
-//                     EmptyState()
-//                 } else {
-//                     VStack(alignment: .leading, spacing: 14) {
-//                         Text("Recent")
-//                             .font(.system(size: 13, weight: .semibold))
-//                             .foregroundColor(AppTheme.secondaryText)
-//                             .textCase(.uppercase)
-
-//                         VStack(spacing: 12) {
-//                             ForEach(dictations.prefix(50)) { message in
-//                                 DictationRow(message: message)
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//             .padding(.horizontal, 32)
-//             .padding(.vertical, 32)
-//         }
-//         .onAppear {
-//             loadHistory()
-//             // Refresh every 2 seconds to catch new dictations
-//             refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
-//                 loadHistory()
-//             }
-//         }
-//         .onDisappear {
-//             refreshTimer?.invalidate()
-//         }
-//     }
-
-//     private var header: some View {
-//         HStack(alignment: .center) {
-//             VStack(alignment: .leading, spacing: 6) {
-//                 Text("Welcome back, \(auth.userName ?? "there")")
-//                     .font(.system(size: 26, weight: .bold))
-//                     .foregroundColor(AppTheme.primaryText)
-//                 Text("\(dictations.count) dictation\(dictations.count == 1 ? "" : "s") today")
-//                     .font(.system(size: 14))
-//                     .foregroundColor(AppTheme.secondaryText)
-//             }
-
-//             Spacer()
-
-//             Button {
-//                 loadHistory()
-//             } label: {
-//                 Image(systemName: "arrow.clockwise")
-//                     .font(.system(size: 14, weight: .semibold))
-//                     .foregroundColor(AppTheme.primaryText)
-//                     .padding(10)
-//                     .background(AppTheme.cardBackground)
-//                     .cornerRadius(12)
-//             }
-//             .buttonStyle(.plain)
-//         }
-//     }
-
-//     private func loadHistory() {
-//         let t = History.shared.upsertThread(title: "Quick Dictations")
-//         dictations = History.shared.listMessages(threadId: t.id).reversed()  // newest first
-//     }
-
-//     private struct EmptyState: View {
-//         var body: some View {
-//             VStack(spacing: 10) {
-//                 Image(systemName: "waveform")
-//                     .font(.system(size: 32, weight: .regular))
-//                     .foregroundColor(AppTheme.secondaryText)
-//                 Text("No dictations yet")
-//                     .font(.system(size: 16, weight: .semibold))
-//                     .foregroundColor(AppTheme.primaryText)
-//                 Text("Hold your hotkey and speak to create your first dictation.")
-//                     .font(.system(size: 13))
-//                     .foregroundColor(AppTheme.secondaryText)
-//                     .multilineTextAlignment(.center)
-//             }
-//             .frame(maxWidth: .infinity)
-//             .padding(.vertical, 60)
-//             .appGlass(.card, radius: 24)
-//         }
-//     }
-
-//     private struct DictationRow: View {
-//         let message: MessageModel
-//         @State private var showCopied = false
-
-//         var body: some View {
-//             HStack(alignment: .top, spacing: 16) {
-//                 VStack(alignment: .leading, spacing: 4) {
-//                     Text(message.createdAt, style: .time)
-//                         .foregroundColor(AppTheme.secondaryText)
-//                         .font(.system(size: 12, weight: .medium))
-//                     Text(message.createdAt, style: .date)
-//                         .foregroundColor(AppTheme.secondaryText.opacity(0.8))
-//                         .font(.system(size: 11))
-//                 }
-//                 .frame(width: 70, alignment: .leading)
-
-//                 VStack(alignment: .leading, spacing: 12) {
-//                     Text(message.content)
-//                         .font(.system(size: 15))
-//                         .foregroundColor(AppTheme.primaryText)
-//                         .fixedSize(horizontal: false, vertical: true)
-
-//                     HStack(spacing: 10) {
-//                         Button {
-//                             NSPasteboard.general.clearContents()
-//                             NSPasteboard.general.setString(message.content, forType: .string)
-//                             showCopied = true
-//                             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-//                                 showCopied = false
-//                             }
-//                         } label: {
-//                             Label(
-//                                 showCopied ? "Copied" : "Copy",
-//                                 systemImage: showCopied ? "checkmark" : "doc.on.doc"
-//                             )
-//                             .font(.system(size: 12, weight: .medium))
-//                             .foregroundColor(showCopied ? .green : AppTheme.secondaryText)
-//                             .padding(.horizontal, 12)
-//                             .padding(.vertical, 6)
-//                             .background(AppTheme.elevatedBackground)
-//                             .cornerRadius(10)
-//                         }
-//                         .buttonStyle(.plain)
-//                         .help("Copy to clipboard")
-//                     }
-//                 }
-//                 .frame(maxWidth: .infinity, alignment: .leading)
-//                 .padding(18)
-//                 .appGlass(.card, radius: 20)
-//             }
-//             .padding(.vertical, 4)
-//         }
-//     }
-// }
 
 #Preview {
     ContentView()
