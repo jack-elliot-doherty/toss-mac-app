@@ -6,12 +6,12 @@ struct ActivityView: View {
     @State private var dictations: [MessageModel] = []
     @State private var copiedId: UUID?
     @State private var hoveredId: UUID?
-    @State private var feedbackMessage: MessageModel?  // NEW: which message is being reported
-    @State private var feedbackText: String = ""  // NEW: user's feedback text
+    @State private var feedbackMessage: MessageModel?
+    @State private var feedbackText: String = ""
+    @State private var showingRawId: UUID?  // NEW: which message is showing raw transcript
 
     var body: some View {
         ZStack {
-            // Existing ScrollView content
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // Header
@@ -25,20 +25,12 @@ struct ActivityView: View {
                         LazyVStack(alignment: .leading, spacing: 24, pinnedViews: []) {
                             ForEach(dictationSections) { section in
                                 VStack(alignment: .leading, spacing: 8) {
-                                    // Section header with date on right
-                                    HStack {
-                                        Text(section.title)
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(AppTheme.secondaryText)
+                                    // Section header
+                                    Text(section.title)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.secondaryText)
 
-                                        Spacer()
-
-                                        Text(section.dateString)
-                                            .font(.system(size: 13))
-                                            .foregroundColor(AppTheme.secondaryText.opacity(0.7))
-                                    }
-
-                                    VStack(spacing: 10) {
+                                    VStack(spacing: 2) {
                                         ForEach(section.messages) { message in
                                             dictationRow(message)
                                         }
@@ -80,82 +72,142 @@ struct ActivityView: View {
         .padding(.vertical, 60)
     }
 
+    // MARK: - WisprFlow-style Row
+
     private func dictationRow(_ message: MessageModel) -> some View {
-        Button {
-            copyToClipboard(message)
-        } label: {
-            HStack(alignment: .top, spacing: 12) {
-                // Content
-                VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: 16) {
+            // LEFT: Timestamp (fixed width)
+            Text(formattedTime(message.createdAt))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.secondaryText)
+                .frame(width: 70, alignment: .leading)
+
+            // MIDDLE: Content (flexible)
+            VStack(alignment: .leading, spacing: 6) {
+                // Show raw or formatted based on toggle
+                if showingRawId == message.id, let raw = message.rawTranscript {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Raw transcript")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.orange)
+                            .textCase(.uppercase)
+                        Text(raw)
+                            .font(.system(size: 14))
+                            .foregroundColor(AppTheme.primaryText.opacity(0.8))
+                            .multilineTextAlignment(.leading)
+                    }
+                } else {
                     Text(message.content)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14))
                         .foregroundColor(AppTheme.primaryText)
                         .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Subtle hint
-                    Text("Click to copy")
-                        .font(.system(size: 11))
-                        .foregroundColor(AppTheme.secondaryText.opacity(0.5))
                 }
-
-                Spacer()
-
-                // Feedback buttons - show on hover or if already rated
-                if hoveredId == message.id || message.flaggedAt != nil {
-                    flagButton(for: message)
-                        .transition(.opacity)
-                }
-
-                // Copied feedback or time
-                VStack(alignment: .trailing, spacing: 4) {
-                    if copiedId == message.id {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11))
-                            Text("Copied")
-                                .font(.system(size: 12, weight: .medium))
-                        }
-                        .foregroundColor(.green)
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    } else {
-                        Text(formattedTime(message.createdAt))
-                            .font(.system(size: 13))
-                            .foregroundColor(AppTheme.secondaryText)
-                    }
-                }
-                .frame(width: 70, alignment: .trailing)
             }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(AppTheme.cardBackground.opacity(0.5))
-            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // RIGHT: Action buttons (fixed width, always visible)
+            HStack(spacing: 8) {
+                // Copy button
+                Button {
+                    copyToClipboard(message, copyRaw: showingRawId == message.id)
+                } label: {
+                    Group {
+                        if copiedId == message.id {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.green)
+                        } else {
+                            Image(systemName: "doc.on.doc")
+                                .foregroundColor(
+                                    hoveredId == message.id
+                                        ? AppTheme.primaryText : AppTheme.secondaryText.opacity(0.5)
+                                )
+                        }
+                    }
+                    .font(.system(size: 12))
+                    .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(showingRawId == message.id ? "Copy raw transcript" : "Copy to clipboard")
+
+                // Raw transcript toggle (only show if rawTranscript exists)
+                if message.rawTranscript != nil {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            if showingRawId == message.id {
+                                showingRawId = nil
+                            } else {
+                                showingRawId = message.id
+                            }
+                        }
+                    } label: {
+                        Image(
+                            systemName: showingRawId == message.id
+                                ? "text.badge.checkmark" : "text.badge.minus"
+                        )
+                        .font(.system(size: 12))
+                        .foregroundColor(
+                            showingRawId == message.id
+                                ? .orange
+                                : (hoveredId == message.id
+                                    ? AppTheme.primaryText : AppTheme.secondaryText.opacity(0.5))
+                        )
+                        .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .help(
+                        showingRawId == message.id
+                            ? "Show AI formatted" : "View raw transcript (no AI editing)")
+                }
+
+                // Flag button
+                Button {
+                    feedbackText = ""
+                    feedbackMessage = message
+                } label: {
+                    Image(systemName: message.flaggedAt != nil ? "flag.fill" : "flag")
+                        .font(.system(size: 12))
+                        .foregroundColor(
+                            message.flaggedAt != nil
+                                ? .orange
+                                : (hoveredId == message.id
+                                    ? AppTheme.primaryText : AppTheme.secondaryText.opacity(0.5))
+                        )
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help(message.flaggedAt != nil ? "Already flagged" : "Report formatting issue")
+            }
+            .frame(width: 80, alignment: .trailing)  // Fixed width prevents layout shift
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(hoveredId == message.id ? AppTheme.cardBackground.opacity(0.5) : Color.clear)
+        )
         .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(.easeInOut(duration: 0.1)) {
                 hoveredId = hovering ? message.id : nil
-            }
-            if hovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
             }
         }
     }
 
-    private func copyToClipboard(_ message: MessageModel) {
+    private func copyToClipboard(_ message: MessageModel, copyRaw: Bool = false) {
+        let textToCopy: String
+        if copyRaw, let raw = message.rawTranscript {
+            textToCopy = raw
+        } else {
+            textToCopy = message.content
+        }
+
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(message.content, forType: .string)
+        NSPasteboard.general.setString(textToCopy, forType: .string)
 
         withAnimation {
             copiedId = message.id
         }
 
-        // Reset after 2 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
                 if copiedId == message.id {
@@ -221,35 +273,20 @@ struct ActivityView: View {
         return formatter.string(from: date)
     }
 
-    private func flagButton(for message: MessageModel) -> some View {
-        Button {
-            feedbackText = ""
-            feedbackMessage = message
-        } label: {
-            Image(systemName: message.flaggedAt != nil ? "flag.fill" : "flag")
-                .font(.system(size: 12))
-                .foregroundColor(
-                    message.flaggedAt != nil ? .orange : AppTheme.secondaryText.opacity(0.5))
-        }
-        .buttonStyle(.plain)
-        .help("Report bad formatting")
-    }
+    // MARK: - Feedback Modal (updated with raw/formatted comparison)
 
-    // NEW: Feedback modal
     private var feedbackModal: some View {
         ZStack {
-            // Dimmed background
             Color.black.opacity(0.4)
                 .ignoresSafeArea()
                 .onTapGesture {
                     feedbackMessage = nil
                 }
 
-            // Modal card
             VStack(alignment: .leading, spacing: 20) {
                 // Header
                 HStack {
-                    Text("Report to Improve Model")
+                    Text("Report Formatting Issue")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(AppTheme.primaryText)
 
@@ -265,21 +302,61 @@ struct ActivityView: View {
                     .buttonStyle(.plain)
                 }
 
-                // Description
-                Text(
-                    "Thanks for the feedback to help improve our model. Describe what you expected instead."
-                )
-                .font(.system(size: 14))
-                .foregroundColor(AppTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
+                // Show comparison if raw transcript exists
+                if let message = feedbackMessage {
+                    if let raw = message.rawTranscript, raw != message.content {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Raw transcript
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Raw transcript")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .textCase(.uppercase)
+                                Text(raw)
+                                    .font(.system(size: 13))
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.black.opacity(0.1))
+                                    )
+                            }
 
-                // Text input
+                            // Formatted
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("AI formatted")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                    .textCase(.uppercase)
+                                Text(message.content)
+                                    .font(.system(size: 13))
+                                    .padding(10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.blue.opacity(0.1))
+                                    )
+                            }
+                        }
+                    } else {
+                        Text("Content: \(message.content)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
+                    }
+                }
+
+                // Feedback input
+                Text("What should it have been?")
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.secondaryText)
+
                 TextEditor(text: $feedbackText)
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.primaryText)
                     .scrollContentBackground(.hidden)
                     .padding(12)
-                    .frame(height: 150)
+                    .frame(height: 100)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(AppTheme.secondaryText.opacity(0.3), lineWidth: 1)
@@ -291,14 +368,14 @@ struct ActivityView: View {
                     Button {
                         sendFeedback()
                     } label: {
-                        Text("Send report")
+                        Text("Send Feedback")
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
                             .background(
                                 Capsule()
-                                    .fill(Color.black)
+                                    .fill(Color.accentColor)
                             )
                     }
                     .buttonStyle(.plain)
@@ -310,7 +387,7 @@ struct ActivityView: View {
                 }
             }
             .padding(24)
-            .frame(width: 450)
+            .frame(width: 500)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(AppTheme.cardBackground)
@@ -324,20 +401,18 @@ struct ActivityView: View {
     private func sendFeedback() {
         guard let message = feedbackMessage else { return }
 
-        // Mark as flagged in local storage
         History.shared.toggleMessageFlag(messageId: message.id)
 
-        // Send to PostHog
         PostHogSDK.shared.capture(
             "dictation_feedback_submitted",
             properties: [
                 "message_id": message.id.uuidString,
-                "original_text": message.content,
+                "raw_transcript": message.rawTranscript ?? "",
+                "formatted_text": message.content,
                 "user_feedback": feedbackText,
                 "created_at": ISO8601DateFormatter().string(from: message.createdAt),
             ])
 
-        // Close modal and reload
         feedbackMessage = nil
         feedbackText = ""
         loadDictations()

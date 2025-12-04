@@ -111,8 +111,8 @@ final class PillController {
             case .startTranscription:
                 handleStartTranscription()
 
-            case .pasteText(let text):
-                handlePasteOrCopy(text)
+            case .pasteText(let text, let rawText):
+                handlePasteOrCopy(text, rawText: rawText)
 
             case .copyToClipboard(let text):
                 handleCopy(text)
@@ -272,8 +272,9 @@ final class PillController {
                 self.isTranscribing = false
 
                 switch result {
-                case .success(let text):
-                    self.send(.transcriptionSucceeded(text: text))
+                case .success(let response):
+                    self.send(
+                        .transcriptionSucceeded(text: response.text, rawText: response.rawText))
 
                 case .failure(let error):
                     let nsError = error as NSError
@@ -299,7 +300,7 @@ final class PillController {
         }
     }
 
-    private func handlePasteOrCopy(_ text: String) {
+    private func handlePasteOrCopy(_ text: String, rawText: String? = nil) {
 
         // Decide based on AX focus and trust; then use your PasteManager
 
@@ -322,7 +323,7 @@ final class PillController {
                 self.toast.show(title: "Paste error: \(e)", duration: 2.0)
             }
             // Cache to local history regardless
-            self.cacheTranscript(text)
+            self.cacheTranscript(text, rawText: rawText)
         }
     }
 
@@ -336,10 +337,15 @@ final class PillController {
         agentPanel.show(with: text)
     }
 
-    private func cacheTranscript(_ text: String) {
+    private func cacheTranscript(_ text: String, rawText: String? = nil) {
         let thread = History.shared.upsertThread(title: "Quick Dictations")
         _ = History.shared.appendMessage(
-            threadId: thread.id, role: .user, content: text, status: .final)
+            threadId: thread.id,
+            role: .user,
+            content: text,
+            rawTranscript: rawText,
+            status: .final
+        )
     }
 
     // MARK: - Meeting recording handlers

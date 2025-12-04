@@ -59,7 +59,7 @@ enum PillEvent: Equatable {
     case pillClicked  // clicking during meeting state will open app
 
     // async results
-    case transcriptionSucceeded(text: String)
+    case transcriptionSucceeded(text: String, rawText: String?)
     case transcriptionFailed(text: String)
 
     // upcoming meeting events
@@ -78,7 +78,7 @@ enum PillEffect: Equatable {
     case startTranscription  // using the last recorded audio buffer
 
     // routing/side effects on success
-    case pasteText(String)
+    case pasteText(String, rawText: String?)
     case copyToClipboard(String)
     case sendToAgent(String)
 
@@ -364,7 +364,7 @@ struct PillStateMachine {
             }
 
         // - TRANSCRIBING
-        case (.transcribing, .transcriptionSucceeded(let text)):
+        case (.transcribing, .transcriptionSucceeded(let text, let rawText)):
             let mode = currentMode
             state = .idle
             ctx.isCmdHeld = false
@@ -373,7 +373,7 @@ struct PillStateMachine {
             case .dictation:
                 // controller will decide  paste vs copy depending on if theres a focused text box
                 // We emit both options so the controller can decide but keep state machine pure
-                effects += [.pasteText(text)]
+                effects += [.pasteText(text, rawText: rawText)]
             case .command:
                 effects += [.sendToAgent(text)]
             case .meeting:

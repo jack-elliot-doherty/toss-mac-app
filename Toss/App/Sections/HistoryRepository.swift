@@ -15,17 +15,23 @@ struct MessageModel: Identifiable, Equatable, Codable {
     let id: UUID
     let threadId: UUID
     let role: MessageRole
-    var content: String
+    var content: String  // Formatted text
+    var rawTranscript: String?  // Raw Whisper output
     var status: MessageStatus
     var createdAt: Date
     var updatedAt: Date
-    var flaggedAt: Date?  // nil = not flagged, Date = when it was flagged
+    var flaggedAt: Date?
 }
 
 protocol HistoryRepositoryProtocol {
     func upsertThread(title: String) -> ThreadModel
-    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus)
-        -> MessageModel
+    func appendMessage(
+        threadId: UUID,
+        role: MessageRole,
+        content: String,
+        rawTranscript: String?,
+        status: MessageStatus
+    ) -> MessageModel
     func listThreads() -> [ThreadModel]
     func listMessages(threadId: UUID) -> [MessageModel]
     func clear()
@@ -100,9 +106,13 @@ final class PersistentHistoryRepository: HistoryRepositoryProtocol {
         }
     }
 
-    func appendMessage(threadId: UUID, role: MessageRole, content: String, status: MessageStatus)
-        -> MessageModel
-    {
+    func appendMessage(
+        threadId: UUID,
+        role: MessageRole,
+        content: String,
+        rawTranscript: String? = nil,
+        status: MessageStatus
+    ) -> MessageModel {
         return queue.sync {
             let now = Date()
             var thread =
@@ -114,8 +124,16 @@ final class PersistentHistoryRepository: HistoryRepositoryProtocol {
             thread.updatedAt = now
             threads[threadId] = thread
             let msg = MessageModel(
-                id: UUID(), threadId: threadId, role: role, content: content, status: status,
-                createdAt: now, updatedAt: now)
+                id: UUID(),
+                threadId: threadId,
+                role: role,
+                content: content,
+                rawTranscript: rawTranscript,
+                status: status,
+                createdAt: now,
+                updatedAt: now,
+                flaggedAt: nil  // Need to add this explicitly now
+            )
             var arr = messages[threadId] ?? []
             arr.append(msg)
             messages[threadId] = arr

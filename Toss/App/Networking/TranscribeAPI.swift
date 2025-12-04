@@ -2,7 +2,8 @@ import Foundation
 
 struct TranscriptionResponse: Decodable {
     let text: String
-    let segments: [TranscriptionSegment]
+    let rawText: String?  // Raw Whisper output, optional for backwards compat
+    let segments: [TranscriptionSegment]?
 }
 
 struct TranscriptionSegment: Decodable {
@@ -22,7 +23,7 @@ final class TranscribeAPI {
 
     func transcribe(
         fileURL: URL,
-        completion: @escaping (Result<String, Error>) -> Void
+        completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/transcribe")
         NSLog("[TranscribeAPI] POST %@", url.absoluteString)
@@ -96,15 +97,16 @@ final class TranscribeAPI {
                 }
             }
 
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let text = json["text"] as? String
-            {
-                NSLog("[TranscribeAPI] received text length %d", text.count)
-                completion(.success(text))
+            do {
+                let response = try JSONDecoder().decode(TranscriptionResponse.self, from: data)
+                NSLog("[TranscribeAPI] received text length %d", response.text.count)
+                completion(.success(response))
                 return
+            } catch {
+                NSLog("[TranscribeAPI] decode error: %@", error.localizedDescription)
             }
             if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                completion(.success(text))
+                completion(.success(TranscriptionResponse(text: text, rawText: nil, segments: [])))
                 return
             }
             completion(
@@ -206,7 +208,8 @@ final class TranscribeAPI {
                     let text = json["text"] as? String
                 {
                     NSLog("[TranscribeAPI] chunk #%d transcribed: %d chars", chunkIndex, text.count)
-                    completion(.success(TranscriptionResponse(text: text, segments: [])))
+                    completion(
+                        .success(TranscriptionResponse(text: text, rawText: nil, segments: [])))
                     return
                 }
 
