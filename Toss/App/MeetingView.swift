@@ -1217,7 +1217,7 @@ struct MeetingsListView: View {
                 )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(meeting.displayTitle)
+                Text(meeting.title)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.primaryText)
 
@@ -1340,7 +1340,7 @@ struct MeetingsListView: View {
 
             // Title + optional status badge
             HStack(spacing: 8) {
-                Text(meeting.displayTitle)
+                Text(meeting.title)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(AppTheme.primaryText)
                     .lineLimit(1)
@@ -1500,7 +1500,7 @@ private struct UpcomingMeetingCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Title
-            Text(meeting.title)
+            Text(meeting.displayTitle)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(AppTheme.primaryText)
                 .lineLimit(1)

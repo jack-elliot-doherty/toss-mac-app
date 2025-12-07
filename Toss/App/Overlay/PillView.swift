@@ -279,7 +279,7 @@ struct PillView: View {
                 .foregroundColor(.white)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(meeting.title)
+                Text(meeting.displayTitle)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
