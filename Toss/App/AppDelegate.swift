@@ -44,20 +44,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Clean up any orphaned meetings from previous crash/force quit
         meetingRepository.cleanupOrphanedMeetings()
 
+        MeetingSyncManager.shared.configure(repository: meetingRepository)
+
         // Process any pending meeting syncs from previous sessions
         Task { @MainActor in
             // First, sync any meetings that were updated but not synced
             let unsyncedMeetings = meetingRepository.getUnsyncedMeetings()
             if !unsyncedMeetings.isEmpty {
-                NSLog("[AppDelegate] Found \(unsyncedMeetings.count) unsynced meetings, queueing for sync")
+                NSLog(
+                    "[AppDelegate] Found \(unsyncedMeetings.count) unsynced meetings, queueing for sync"
+                )
                 for meeting in unsyncedMeetings {
                     await MeetingSyncManager.shared.syncMeeting(meeting.id)
                 }
             }
-            
+
             // Process any failed syncs from the retry queue
             await MeetingSyncManager.shared.processQueue()
-            
+
             // Start the periodic retry timer
             MeetingSyncManager.shared.startRetryTimer()
         }
