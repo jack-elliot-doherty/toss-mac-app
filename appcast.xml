@@ -2,6 +2,20 @@
 <rss xmlns:ns0="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <item>
+      <title>Version 1.2.32</title>
+      <description>&lt;![CDATA[
+                &lt;h2&gt;What's New in 1.2.32&lt;/h2&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;See release notes on GitHub&lt;/li&gt;
+                &lt;/ul&gt;
+            ]]&gt;</description>
+      <pubDate>Sun, 07 Dec 2025 17:51:30 +0000</pubDate>
+      <ns0:version>1.2.32</ns0:version>
+      <ns0:shortVersionString>1.2.32</ns0:shortVersionString>
+      <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
+      <enclosure url="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v1.2.32/Toss-1.2.32.dmg" ns0:edSignature="R62JeWfMLpxu82LiERy43KwdcF2cRBm/7dk0dc4/FDV+plQBdZRnRQ4LKB5AoIKaMrycUQH/MipPne/kyDN3Cg==" length="5270350" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>Version 1.2.31</title>
       <description>&lt;![CDATA[
                 &lt;h2&gt;What's New in 1.2.31&lt;/h2&gt;
