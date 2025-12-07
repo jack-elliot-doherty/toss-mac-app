@@ -52,6 +52,8 @@
 		DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */; };
 		DAD36B792EE260790040FA21 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B782EE260790040FA21 /* SubscriptionManager.swift */; };
 		DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */; };
+		DAD36B7D2EE5ABE40040FA21 /* ToolPreviewCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */; };
+		DAD36B7F2EE5B91E0040FA21 /* MeetingSyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7E2EE5B91E0040FA21 /* MeetingSyncManager.swift */; };
 		DAD483E72EBCE56A001C5902 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD483E62EBCE56A001C5902 /* Config.swift */; };
 		DAEB72382EBD5739006A17C7 /* TossUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72362EBD5739006A17C7 /* TossUITestsLaunchTests.swift */; };
 		DAEB72392EBD5739006A17C7 /* TossTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEB72332EBD5739006A17C7 /* TossTests.swift */; };
@@ -138,6 +140,8 @@
 		DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityView.swift; sourceTree = "<group>"; };
 		DAD36B782EE260790040FA21 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPreviewCards.swift; sourceTree = "<group>"; };
+		DAD36B7E2EE5B91E0040FA21 /* MeetingSyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingSyncManager.swift; sourceTree = "<group>"; };
 		DAD483E62EBCE56A001C5902 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		DAEB72332EBD5739006A17C7 /* TossTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossTests.swift; sourceTree = "<group>"; };
 		DAEB72352EBD5739006A17C7 /* TossUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TossUITests.swift; sourceTree = "<group>"; };
@@ -195,6 +199,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DAD36B7E2EE5B91E0040FA21 /* MeetingSyncManager.swift */,
 				DAEEBF382EDF1148009DE3CF /* APIClient.swift */,
 				DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */,
 				DAEEBF252ED1D2BE009DE3CF /* MeetingsAPI.swift */,
@@ -207,6 +212,7 @@
 		DA36234E2EB23FCE000207F0 /* Overlay */ = {
 			isa = PBXGroup;
 			children = (
+				DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */,
 				DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */,
 				DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */,
 				DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */,
@@ -550,6 +556,7 @@
 				DAEEBF2A2ED5109D009DE3CF /* AudioCompressor.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
 				DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */,
+				DAD36B7D2EE5ABE40040FA21 /* ToolPreviewCards.swift in Sources */,
 				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */,
@@ -563,6 +570,7 @@
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */,
+				DAD36B7F2EE5B91E0040FA21 /* MeetingSyncManager.swift in Sources */,
 				DA3623792EB23FCE000207F0 /* AppDelegate.swift in Sources */,
 				DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */,
 				DA3623932EBB4616000207F0 /* SoundFeedback.swift in Sources */,

@@ -12,11 +12,16 @@ struct MeetingParticipant: Codable, Identifiable, Equatable {
 
 struct UpcomingMeeting: Codable, Identifiable, Equatable {
     let id: UUID
-    let title: String
+    let title: String?
     let startedAt: Date
     let endedAt: Date?
     let joinUrl: String?
     let participants: [MeetingParticipant]
+
+    // Computed property for safe title access
+    var displayTitle: String {
+        title ?? "Untitled Meeting"
+    }
 
     // Computed helpers
     var startTimeFormatted: String {
@@ -137,6 +142,13 @@ struct MeetingView: View {
     @State private var editableTitle: String = ""
     @State private var isEditingTitle: Bool = false
     @FocusState private var isTitleFocused: Bool
+
+    // Action items state
+    @State private var extractedActions: [ExtractedAction] = []
+    @State private var isExtractingActions = false
+    @State private var executingActionId: String?
+    @State private var actionExecutionResult: (id: String, success: Bool, message: String)?
+    @State private var showingApprovalFor: ExtractedAction?
 
     // Computed property to convert between raw string and enum
     private var selectedTab: MeetingDetailTab {
@@ -448,16 +460,224 @@ struct MeetingView: View {
             } else {
                 userNotesEditor
             }
+
+            // Action Items Section (only show when viewing AI summary, not user notes)
+            if hasAISummary && !isRecording && showingAISummary {
+                actionItemsSection
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             editableUserNotes = meeting?.userNotes ?? ""
+            // Load stored actions on appear
+            loadStoredActions()
+            // Extract actions if viewing AI summary and none stored
+            if hasAISummary && showingAISummary {
+                extractActionsIfNeeded()
+            }
         }
         .onChange(of: meeting?.userNotes) { _, newValue in
             if editableUserNotes != newValue {
                 editableUserNotes = newValue ?? ""
             }
         }
+        .onChange(of: showingAISummary) { _, newValue in
+            // Extract actions when switching to AI summary view
+            if newValue && hasAISummary {
+                extractActionsIfNeeded()
+            }
+        }
+        .sheet(item: $showingApprovalFor) { action in
+            ActionApprovalSheet(
+                action: action,
+                isExecuting: executingActionId == action.id,
+                onCancel: { showingApprovalFor = nil },
+                onConfirm: { executeDirectAction(action) }
+            )
+        }
+    }
+
+    private var actionItemsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Section header
+            HStack {
+                Text("Action Items")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                if isExtractingActions {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                }
+
+                Spacer()
+
+                Button {
+                    extractActions()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(isExtractingActions)
+            }
+
+            if extractedActions.isEmpty && !isExtractingActions {
+                Text("No action items detected in this meeting.")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(extractedActions) { action in
+                        ActionItemCard(
+                            action: action,
+                            isExecuting: executingActionId == action.id,
+                            executionResult: actionExecutionResult?.id == action.id
+                                ? actionExecutionResult : nil,
+                            onExecute: {
+                                if action.mode == .direct {
+                                    showingApprovalFor = action
+                                } else {
+                                    delegateToAgent(action)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.top, 24)
+    }
+
+    private func loadStoredActions() {
+        // Load action items from the meeting model if available
+        if let meeting = meeting, !meeting.actionItems.isEmpty {
+            extractedActions = meeting.actionItems.map { $0.toExtractedAction() }
+            NSLog("[MeetingView] Loaded %d stored action items", extractedActions.count)
+        }
+    }
+
+    private func extractActionsIfNeeded() {
+        // First try to load from stored
+        if extractedActions.isEmpty {
+            loadStoredActions()
+        }
+        // Only extract if still empty and not currently extracting
+        guard extractedActions.isEmpty && !isExtractingActions else { return }
+        extractActions()
+    }
+
+    private func extractActions() {
+        let transcript = repository.getFullTranscript(meetingId: meetingId)
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isExtractingActions = true
+
+        Task {
+            do {
+                let actions = try await MeetingsApi.shared.extractActions(
+                    for: meetingId,
+                    transcript: trimmed
+                )
+                await MainActor.run {
+                    extractedActions = actions
+                    isExtractingActions = false
+
+                    // Store to repository so we don't re-extract
+                    let storedItems = actions.map { StoredActionItem(from: $0) }
+                    repository.updateMeetingActionItems(
+                        meetingId: meetingId, actionItems: storedItems)
+                    NSLog("[MeetingView] Stored %d action items to repository", storedItems.count)
+                }
+            } catch {
+                NSLog("[MeetingView] Extract actions failed: \(error)")
+                await MainActor.run {
+                    isExtractingActions = false
+                }
+            }
+        }
+    }
+
+    private func executeDirectAction(_ action: ExtractedAction) {
+        executingActionId = action.id
+        actionExecutionResult = nil
+
+        Task {
+            do {
+                let result = try await MeetingsApi.shared.executeAction(action: action)
+                await MainActor.run {
+                    executingActionId = nil
+                    showingApprovalFor = nil
+                    if result.success {
+                        actionExecutionResult = (
+                            id: action.id, success: true, message: "Action completed successfully"
+                        )
+                        // Mark action as executed in local storage
+                        markActionExecuted(actionId: action.id, success: true)
+                    } else {
+                        actionExecutionResult = (
+                            id: action.id, success: false,
+                            message: result.error ?? "Action failed"
+                        )
+                        markActionExecuted(actionId: action.id, success: false)
+                    }
+                    // Clear result after delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        if actionExecutionResult?.id == action.id {
+                            actionExecutionResult = nil
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    executingActionId = nil
+                    showingApprovalFor = nil
+                    actionExecutionResult = (
+                        id: action.id, success: false, message: error.localizedDescription
+                    )
+                    markActionExecuted(actionId: action.id, success: false)
+                }
+            }
+        }
+    }
+
+    private func markActionExecuted(actionId: String, success: Bool) {
+        // Update local action items
+        if var meeting = meeting {
+            var updatedActionItems = meeting.actionItems
+            if let index = updatedActionItems.firstIndex(where: { $0.id == actionId }) {
+                updatedActionItems[index].executedAt = Date()
+                updatedActionItems[index].executionSuccess = success
+            }
+            repository.updateMeetingActionItems(
+                meetingId: meetingId, actionItems: updatedActionItems)
+
+            // Sync to server
+            Task { await MeetingSyncManager.shared.syncMeeting(meetingId) }
+        }
+    }
+
+    private func delegateToAgent(_ action: ExtractedAction) {
+        guard let taskSpec = action.taskSpec else { return }
+
+        // Include context for the agent
+        let fullMessage = """
+            Task from meeting "\(meetingTitle)":
+
+            \(taskSpec)
+
+            Context: \(action.context)
+            """
+
+        // Post notification to show agent panel with the task
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ShowAgentPanel"),
+            object: nil,
+            userInfo: ["message": fullMessage]
+        )
     }
 
     private var summaryToggle: some View {
@@ -523,8 +743,10 @@ struct MeetingView: View {
     }
 
     private func saveUserNotes(_ notes: String) {
-        // Save immediately (or you can add debouncing with a separate state variable)
+        // Save immediately to local storage
         repository.updateMeetingUserNotes(meetingId: meetingId, userNotes: notes)
+        // Debounced sync to server (wait 2 seconds after user stops typing)
+        MeetingSyncManager.shared.debouncedSync(meetingId)
     }
 
     private func copyUserNotes() {
@@ -549,8 +771,27 @@ struct MeetingView: View {
     }
 
     private func shareMeeting() {
-        // TODO: Implement actual share
         NSLog("[MeetingView] Share tapped for \(meetingTitle)")
+
+        Task {
+            do {
+                // First, ensure meeting is synced to server
+                await MeetingSyncManager.shared.syncMeeting(meetingId)
+
+                // Generate share link
+                let shareUrl = try await MeetingsApi.shared.generateShareLink(meetingId: meetingId)
+
+                // Copy to clipboard
+                await MainActor.run {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(shareUrl, forType: .string)
+                }
+
+                NSLog("[MeetingView] Share link copied: \(shareUrl)")
+            } catch {
+                NSLog("[MeetingView] Share failed: \(error)")
+            }
+        }
     }
 
     private func startEditingTitle() {
@@ -566,6 +807,8 @@ struct MeetingView: View {
         let trimmed = editableTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             repository.updateMeetingTitle(meetingId: meetingId, title: trimmed)
+            // Sync title change to server
+            Task { await MeetingSyncManager.shared.syncMeeting(meetingId) }
         }
         isEditingTitle = false
         isTitleFocused = false
@@ -974,7 +1217,7 @@ struct MeetingsListView: View {
                 )
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(meeting.title)
+                Text(meeting.displayTitle)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.primaryText)
 
@@ -1097,7 +1340,7 @@ struct MeetingsListView: View {
 
             // Title + optional status badge
             HStack(spacing: 8) {
-                Text(meeting.title)
+                Text(meeting.displayTitle)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(AppTheme.primaryText)
                     .lineLimit(1)
@@ -1179,25 +1422,48 @@ struct MeetingsListView: View {
     }
 
     private func copyShareLink(for meeting: MeetingModel) {
-        // Generate public share URL - adjust domain as needed
-        let shareURL = "https://app.usetoss.com/meetings/\(meeting.id.uuidString)"
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(shareURL, forType: .string)
-        NSLog("[MeetingView] Copied share link for meeting: \(meeting.id)")
+        Task {
+            do {
+                // Ensure meeting is synced first
+                await MeetingSyncManager.shared.syncMeeting(meeting.id)
+                // Generate proper share link via API
+                let shareUrl = try await MeetingsApi.shared.generateShareLink(meetingId: meeting.id)
+                await MainActor.run {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(shareUrl, forType: .string)
+                }
+                NSLog("[MeetingView] Copied share link for meeting: \(meeting.id)")
+            } catch {
+                NSLog("[MeetingView] Failed to generate share link: \(error)")
+            }
+        }
     }
 
     private func shareMeeting(_ meeting: MeetingModel) {
-        let shareURL = "https://app.usetoss.com/meetings/\(meeting.id.uuidString)"
-        let picker = NSSharingServicePicker(items: [shareURL])
-        // Show share sheet - you may need to pass a view for positioning
-        if let window = NSApp.keyWindow {
-            picker.show(relativeTo: .zero, of: window.contentView!, preferredEdge: .minY)
+        Task {
+            do {
+                // Ensure meeting is synced first
+                await MeetingSyncManager.shared.syncMeeting(meeting.id)
+                // Generate proper share link via API
+                let shareUrl = try await MeetingsApi.shared.generateShareLink(meetingId: meeting.id)
+                await MainActor.run {
+                    let picker = NSSharingServicePicker(items: [shareUrl])
+                    if let window = NSApp.keyWindow {
+                        picker.show(
+                            relativeTo: .zero, of: window.contentView!, preferredEdge: .minY)
+                    }
+                }
+            } catch {
+                NSLog("[MeetingView] Failed to share meeting: \(error)")
+            }
         }
     }
 
     private func deleteMeeting(_ meeting: MeetingModel) {
         repository.deleteMeeting(id: meeting.id)
         NSLog("[MeetingView] Deleted meeting: \(meeting.id)")
+        // Also delete from server (fire and forget - queue handles retries)
+        Task { await MeetingSyncManager.shared.deleteMeetingFromServer(meeting.id) }
     }
 
     private struct MeetingSection: Identifiable {
@@ -1413,7 +1679,7 @@ private struct UpcomingMeetingsPopover: View {
     private func meetingRow(_ meeting: UpcomingMeeting) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(meeting.title)
+                Text(meeting.displayTitle)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(AppTheme.primaryText)
                     .lineLimit(1)
@@ -1603,4 +1869,293 @@ private func parseSummary(_ markdown: String) -> [SummarySection] {
 
     flush()
     return sections
+}
+
+// MARK: - Action Items UI Components
+
+private struct ActionItemCard: View {
+    let action: ExtractedAction
+    let isExecuting: Bool
+    let executionResult: (id: String, success: Bool, message: String)?
+    let onExecute: () -> Void
+
+    @State private var isExpanded = false
+
+    private var actionTypeLabel: String {
+        action.mode == .direct ? "One-click" : "Multi-step"
+    }
+
+    private var buttonLabel: String {
+        action.mode == .direct ? "Run" : "Delegate to Toss"
+    }
+
+    private var buttonColor: Color {
+        action.mode == .direct ? Color.blue : Color.orange
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header - always visible, tappable to expand
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    // Content
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(action.title)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(isExpanded ? nil : 2)
+                                .multilineTextAlignment(.leading)
+
+                            // Badge
+                            Text(actionTypeLabel)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(action.mode == .direct ? .green : .orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(
+                                            action.mode == .direct
+                                                ? Color.green.opacity(0.15)
+                                                : Color.orange.opacity(0.15)
+                                        )
+                                )
+                        }
+
+                        Text(action.context)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .lineLimit(isExpanded ? nil : 2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Expand chevron
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+
+            // Expanded content - tool preview
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider()
+                        .background(AppTheme.subtleStroke)
+
+                    // Tool-specific preview
+                    toolPreview
+
+                    // Execution result feedback
+                    if let result = executionResult {
+                        HStack(spacing: 6) {
+                            Image(
+                                systemName: result.success
+                                    ? "checkmark.circle.fill" : "xmark.circle.fill"
+                            )
+                            .font(.system(size: 13))
+                            Text(result.message)
+                                .font(.system(size: 12))
+                        }
+                        .foregroundColor(result.success ? .green : .red)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(
+                                    result.success
+                                        ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                        )
+                    }
+
+                    // Execute button
+                    HStack {
+                        Spacer()
+
+                        Button {
+                            onExecute()
+                        } label: {
+                            if isExecuting {
+                                HStack(spacing: 6) {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                    Text("Executing...")
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .foregroundColor(.white)
+                                .frame(width: 140, height: 36)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(buttonColor.opacity(0.7))
+                                )
+                            } else {
+                                HStack(spacing: 6) {
+                                    Image(systemName: action.mode == .direct ? "play.fill" : "cpu")
+                                        .font(.system(size: 11))
+                                    Text(buttonLabel)
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(buttonColor)
+                                )
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isExecuting)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    @ViewBuilder
+    private var toolPreview: some View {
+        if action.mode == .agent, let taskSpec = action.taskSpec {
+            // Agent task preview
+            AgentTaskPreview(taskSpec: taskSpec, compact: true)
+        } else if let toolName = action.toolName, let params = action.toolParams {
+            // Direct tool preview using factory
+            ToolPreviewFactory.preview(for: toolName, params: params, compact: true)
+        } else {
+            // Fallback - shouldn't happen
+            Text("Action details unavailable")
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.secondaryText)
+                .italic()
+        }
+    }
+}
+
+private struct ActionApprovalSheet: View {
+    let action: ExtractedAction
+    let isExecuting: Bool
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Text("Confirm Action")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(AppTheme.primaryText)
+                Spacer()
+
+                Button {
+                    onCancel()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .frame(width: 24, height: 24)
+                        .background(Circle().fill(AppTheme.cardBackground))
+                }
+                .buttonStyle(.plain)
+                .disabled(isExecuting)
+            }
+
+            // Action title and context
+            VStack(alignment: .leading, spacing: 6) {
+                Text(action.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Text(action.context)
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Tool-specific preview using shared components
+            if let toolName = action.toolName, let params = action.toolParams {
+                ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
+            }
+
+            Spacer()
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button {
+                    onCancel()
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(isExecuting)
+
+                Button {
+                    onConfirm()
+                } label: {
+                    if isExecuting {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("Executing...")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue.opacity(0.7))
+                        )
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 11))
+                            Text("Execute")
+                        }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue)
+                        )
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isExecuting)
+            }
+        }
+        .padding(24)
+        .frame(width: 420)
+        .frame(minHeight: 400)
+        .background(AppTheme.cardBackground)
+    }
 }

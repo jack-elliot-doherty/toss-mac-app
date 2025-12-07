@@ -206,46 +206,89 @@ private struct ToolApprovalCard: View {
     let onApprove: () -> Void
     let onReject: () -> Void
 
+    @State private var isExecuting = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "wrench.and.screwdriver")
-                    .foregroundColor(.white)
-                Text(toolCall.displayName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                Spacer()
-            }
+            // Tool-specific preview using shared components
+            ToolPreviewFactory.preview(
+                for: toolCall.name, params: toolCall.arguments, compact: false)
 
-            Divider().background(.white.opacity(0.1))
-
-            ForEach(Array(toolCall.arguments.keys.sorted()), id: \.self) { key in
-                if let value = toolCall.arguments[key] {
-                    HStack(alignment: .top) {
-                        Text(key)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 80, alignment: .leading)
-
-                        Text(String(describing: value.value))
-                            .font(.system(size: 13))
-                            .foregroundColor(.white)
-                    }
-                }
-            }
-
+            // Action buttons
             if case .awaitingApproval = toolCall.status {
-                HStack(spacing: 8) {
-                    Button("Reject", action: onReject)
-                        .buttonStyle(.bordered)
-                        .tint(.gray)
-                    Spacer()
-                    Button("Approve", action: onApprove)
-                        .buttonStyle(.borderedProminent)
+                HStack(spacing: 10) {
+                    Button {
+                        onReject()
+                    } label: {
+                        Text("Reject")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.white.opacity(0.1))
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        isExecuting = true
+                        onApprove()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if isExecuting {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Executing...")
+                            } else {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 10))
+                                Text("Approve")
+                            }
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.blue)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
                 }
+            } else if case .executing = toolCall.status {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Executing...")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+            } else if case .completed(let result) = toolCall.status {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.green)
+                    Text(result)
+                        .font(.system(size: 12))
+                        .foregroundColor(.green)
+                        .lineLimit(2)
+                    Spacer()
+                }
+                .padding(10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.green.opacity(0.1))
+                )
             }
         }
-        .padding(16)
+        .padding(14)
         .background(.regularMaterial)
         .cornerRadius(12)
         .overlay(

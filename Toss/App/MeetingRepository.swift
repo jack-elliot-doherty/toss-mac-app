@@ -21,6 +21,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var notes: String = ""  // AI-generated summary
     var userNotes: String = ""  // User's live notes during the meeting (Granola-style)
     var source: MeetingSource = .adhoc
+    var actionItems: [StoredActionItem] = []  // Extracted action items
+    var syncedAt: Date?  // Last sync to server
 
     // Custom decoder for backwards compatibility with existing data
     init(from decoder: Decoder) throws {
@@ -34,11 +36,15 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
         userNotes = try container.decodeIfPresent(String.self, forKey: .userNotes) ?? ""
         source = try container.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .adhoc
+        actionItems =
+            try container.decodeIfPresent([StoredActionItem].self, forKey: .actionItems) ?? []
+        syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
     }
 
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
-        notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc
+        notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc,
+        actionItems: [StoredActionItem] = [], syncedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -49,6 +55,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.notes = notes
         self.userNotes = userNotes
         self.source = source
+        self.actionItems = actionItems
+        self.syncedAt = syncedAt
     }
 }
 
@@ -100,6 +108,8 @@ protocol MeetingRepositoryProtocol {
     func updateMeetingTitle(meetingId: UUID, title: String)
     func updateMeetingNotes(meetingId: UUID, notes: String)
     func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
+    func updateMeetingActionItems(meetingId: UUID, actionItems: [StoredActionItem])
+    func markMeetingSynced(meetingId: UUID)
     func cleanupOrphanedMeetings()
     func endMeetingIfActive(id: UUID)
     func deleteMeeting(id: UUID)
@@ -282,6 +292,25 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         save()
     }
 
+    func updateMeetingActionItems(meetingId: UUID, actionItems: [StoredActionItem]) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.actionItems = actionItems
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
+    func markMeetingSynced(meetingId: UUID) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.syncedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
     // text cleaning for fuzzy match
     private func normalize(_ text: String) -> Set<String> {
         let cleaned = text.lowercased()
@@ -396,5 +425,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             NSLog("[Meetings] Deleted meeting with ID: \(id)")
         }
         save()
+    }
+
+    /// Returns meetings that have ended but haven't been synced, or were updated after last sync
+    func getUnsyncedMeetings() -> [MeetingModel] {
+        return queue.sync {
+            Array(meetings.values).filter { meeting in
+                // Must have ended
+                guard meeting.endTime != nil else { return false }
+                // Never synced, or updated after sync
+                guard let syncedAt = meeting.syncedAt else { return true }
+                return meeting.updatedAt > syncedAt
+            }
+        }
     }
 }

@@ -1,0 +1,238 @@
+import AppKit
+import Foundation
+
+/// Represents a meeting that failed to sync and needs retry
+struct PendingSync: Codable, Equatable {
+    let meetingId: UUID
+    let queuedAt: Date
+    var retryCount: Int
+    var lastAttempt: Date?
+    var operation: SyncOperation
+    
+    enum SyncOperation: String, Codable {
+        case sync   // Create or update meeting
+        case delete // Delete meeting from server
+    }
+}
+
+/// Manages background sync of meetings to the server with retry logic
+@MainActor
+final class MeetingSyncManager: ObservableObject {
+    static let shared = MeetingSyncManager()
+    
+    @Published private(set) var isSyncing = false
+    @Published private(set) var pendingSyncCount = 0
+    
+    private let queueFileURL: URL
+    private var pendingSyncs: [PendingSync] = []
+    private var retryTimer: Timer?
+    private var debounceTasks: [UUID: Task<Void, Never>] = [:]
+    
+    private let maxRetries = 10
+    private let retryInterval: TimeInterval = 5 * 60 // 5 minutes
+    
+    private init() {
+        let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        ).first!
+        let tossDir = appSupport.appendingPathComponent("ai.toss.mac", isDirectory: true)
+        try? FileManager.default.createDirectory(at: tossDir, withIntermediateDirectories: true)
+        self.queueFileURL = tossDir.appendingPathComponent("sync_queue.json")
+        
+        loadQueue()
+    }
+    
+    // MARK: - Public API
+    
+    /// Sync a meeting to the server (called after meeting ends or after edits)
+    func syncMeeting(_ meetingId: UUID) async {
+        NSLog("[MeetingSyncManager] Syncing meeting: \(meetingId)")
+        
+        guard let repository = await getRepository() else {
+            NSLog("[MeetingSyncManager] No repository available")
+            return
+        }
+        
+        guard let meeting = repository.getMeeting(id: meetingId) else {
+            NSLog("[MeetingSyncManager] Meeting not found: \(meetingId)")
+            return
+        }
+        
+        // Only sync ended meetings
+        guard meeting.endTime != nil else {
+            NSLog("[MeetingSyncManager] Meeting not ended yet, skipping sync: \(meetingId)")
+            return
+        }
+        
+        let chunks = repository.getChunks(meetingId: meetingId)
+        
+        do {
+            isSyncing = true
+            try await MeetingsApi.shared.syncMeeting(
+                meeting: meeting,
+                chunks: chunks,
+                actionItems: meeting.actionItems.map { $0.toExtractedAction() }
+            )
+            repository.markMeetingSynced(meetingId: meetingId)
+            
+            // Remove from pending queue if it was there
+            removePending(meetingId: meetingId, operation: .sync)
+            
+            NSLog("[MeetingSyncManager] Successfully synced meeting: \(meetingId)")
+            isSyncing = false
+        } catch {
+            NSLog("[MeetingSyncManager] Sync failed for meeting \(meetingId): \(error)")
+            queueForRetry(meetingId: meetingId, operation: .sync)
+            isSyncing = false
+        }
+    }
+    
+    /// Debounced sync for user edits (e.g., typing in notes)
+    func debouncedSync(_ meetingId: UUID, delay: TimeInterval = 2.0) {
+        // Cancel existing debounce for this meeting
+        debounceTasks[meetingId]?.cancel()
+        
+        debounceTasks[meetingId] = Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await syncMeeting(meetingId)
+            debounceTasks.removeValue(forKey: meetingId)
+        }
+    }
+    
+    /// Delete a meeting from the server
+    func deleteMeetingFromServer(_ meetingId: UUID) async {
+        NSLog("[MeetingSyncManager] Deleting meeting from server: \(meetingId)")
+        
+        do {
+            try await MeetingsApi.shared.deleteMeetingFromServer(meetingId: meetingId)
+            removePending(meetingId: meetingId, operation: .delete)
+            // Also remove any pending sync operations for this meeting
+            removePending(meetingId: meetingId, operation: .sync)
+            NSLog("[MeetingSyncManager] Successfully deleted meeting from server: \(meetingId)")
+        } catch {
+            NSLog("[MeetingSyncManager] Delete failed for meeting \(meetingId): \(error)")
+            queueForRetry(meetingId: meetingId, operation: .delete)
+        }
+    }
+    
+    /// Process all pending syncs (called on app launch and periodically)
+    func processQueue() async {
+        NSLog("[MeetingSyncManager] Processing sync queue (\(pendingSyncs.count) pending)")
+        
+        guard !pendingSyncs.isEmpty else { return }
+        
+        // Take a copy to iterate
+        let syncsToProcess = pendingSyncs
+        
+        for pending in syncsToProcess {
+            // Check if enough time has passed (exponential backoff)
+            let backoffSeconds = min(pow(2.0, Double(pending.retryCount)) * 30, 3600)
+            if let lastAttempt = pending.lastAttempt {
+                let elapsed = Date().timeIntervalSince(lastAttempt)
+                if elapsed < backoffSeconds {
+                    NSLog("[MeetingSyncManager] Skipping \(pending.meetingId) - backoff not elapsed")
+                    continue
+                }
+            }
+            
+            // Check max retries
+            if pending.retryCount >= maxRetries {
+                NSLog("[MeetingSyncManager] Max retries exceeded for \(pending.meetingId), removing from queue")
+                removePending(meetingId: pending.meetingId, operation: pending.operation)
+                continue
+            }
+            
+            // Attempt sync/delete
+            switch pending.operation {
+            case .sync:
+                await syncMeeting(pending.meetingId)
+            case .delete:
+                await deleteMeetingFromServer(pending.meetingId)
+            }
+        }
+    }
+    
+    /// Start the periodic retry timer
+    func startRetryTimer() {
+        retryTimer?.invalidate()
+        retryTimer = Timer.scheduledTimer(withTimeInterval: retryInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.processQueue()
+            }
+        }
+        NSLog("[MeetingSyncManager] Retry timer started (interval: \(retryInterval)s)")
+    }
+    
+    /// Stop the retry timer
+    func stopRetryTimer() {
+        retryTimer?.invalidate()
+        retryTimer = nil
+    }
+    
+    // MARK: - Queue Management
+    
+    private func queueForRetry(meetingId: UUID, operation: PendingSync.SyncOperation) {
+        // Check if already in queue
+        if let index = pendingSyncs.firstIndex(where: { $0.meetingId == meetingId && $0.operation == operation }) {
+            // Update existing entry
+            pendingSyncs[index].retryCount += 1
+            pendingSyncs[index].lastAttempt = Date()
+        } else {
+            // Add new entry
+            let pending = PendingSync(
+                meetingId: meetingId,
+                queuedAt: Date(),
+                retryCount: 0,
+                lastAttempt: Date(),
+                operation: operation
+            )
+            pendingSyncs.append(pending)
+        }
+        
+        pendingSyncCount = pendingSyncs.count
+        saveQueue()
+        NSLog("[MeetingSyncManager] Queued for retry: \(meetingId) (\(operation))")
+    }
+    
+    private func removePending(meetingId: UUID, operation: PendingSync.SyncOperation) {
+        pendingSyncs.removeAll { $0.meetingId == meetingId && $0.operation == operation }
+        pendingSyncCount = pendingSyncs.count
+        saveQueue()
+    }
+    
+    // MARK: - Persistence
+    
+    private func loadQueue() {
+        guard FileManager.default.fileExists(atPath: queueFileURL.path) else { return }
+        
+        do {
+            let data = try Data(contentsOf: queueFileURL)
+            pendingSyncs = try JSONDecoder().decode([PendingSync].self, from: data)
+            pendingSyncCount = pendingSyncs.count
+            NSLog("[MeetingSyncManager] Loaded \(pendingSyncs.count) pending syncs from disk")
+        } catch {
+            NSLog("[MeetingSyncManager] Failed to load queue: \(error)")
+        }
+    }
+    
+    private func saveQueue() {
+        do {
+            let data = try JSONEncoder().encode(pendingSyncs)
+            try data.write(to: queueFileURL, options: .atomic)
+        } catch {
+            NSLog("[MeetingSyncManager] Failed to save queue: \(error)")
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func getRepository() async -> PersistentMeetingRepository? {
+        // Get repository from AppDelegate
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
+            return nil
+        }
+        return appDelegate.meetingRepository
+    }
+}
+

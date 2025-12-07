@@ -65,8 +65,10 @@ final class AgentPanelController {
             forName: NSNotification.Name("AgentMessagesChanged"),
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.resizePanelToFitContent()
+        ) { [weak self] (_: Notification) in
+            Task { @MainActor in
+                self?.resizePanelToFitContent()
+            }
         }
 
         // ESC key handler
@@ -82,8 +84,23 @@ final class AgentPanelController {
             forName: NSNotification.Name("HideAgentPanel"),
             object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.hide()
+        ) { [weak self] (_: Notification) in
+            Task { @MainActor in
+                self?.hide()
+            }
+        }
+
+        // Listen for show requests with initial message
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ShowAgentPanel"),
+            object: nil,
+            queue: .main
+        ) { [weak self] (notification: Notification) in
+            Task { @MainActor in
+                if let message = notification.userInfo?["message"] as? String {
+                    self?.show(with: message)
+                }
+            }
         }
     }
 

@@ -486,6 +486,9 @@ final class PillController {
                 case .failure(let error):
                     NSLog("[PillController] Auto-summary failed: \(error)")
                 }
+                
+                // Sync meeting to server after summary is saved (or failed)
+                await MeetingSyncManager.shared.syncMeeting(meetingId)
             }
         }
 
