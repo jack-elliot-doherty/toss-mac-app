@@ -162,7 +162,13 @@ final class IntegrationsManager: ObservableObject {
             if connected { Task { await fetchLinearStatus() } }
             return true
         } else if url.path == "/google" {
-            if connected { Task { await fetchGoogleStatus() } }
+            if connected {
+                Task {
+                    await fetchGoogleStatus()
+                    // Trigger calendar sync immediately after connecting
+                    await MeetingsManager.shared.syncCalendar()
+                }
+            }
             return true
         }
         return false
