@@ -27,6 +27,7 @@ final class PillController {
     private let auth: AuthManager
     private let agentPanel: AgentPanelController
     private let meetingRepository: PersistentMeetingRepository
+    private let meetingDetector: MeetingDetector
 
     init(
         audio: AudioRecorder,
@@ -38,7 +39,8 @@ final class PillController {
         history: PersistentHistoryRepository,
         auth: AuthManager,
         agentPanel: AgentPanelController,
-        meetingRepository: PersistentMeetingRepository
+        meetingRepository: PersistentMeetingRepository,
+        meetingDetector: MeetingDetector
     ) {
         self.audio = audio
         self.transcriber = transcriber
@@ -50,6 +52,7 @@ final class PillController {
         self.auth = auth
         self.agentPanel = agentPanel
         self.meetingRepository = meetingRepository
+        self.meetingDetector = meetingDetector
     }
 
     private func log(_ s: String) { print("[PillController] \(s)") }
@@ -421,6 +424,7 @@ final class PillController {
         }
 
         SoundFeedback.shared.playStart()
+        meetingDetector.setRecordingActive(true)
         NSLog("[PillController] Meeting recording started for meeting")
     }
 
@@ -485,6 +489,7 @@ final class PillController {
         activeMeetingId = nil
         SoundFeedback.shared.playStop()
         NSLog("[PillController] Meeting recording stopped for meeting \(meetingId)")
+        meetingDetector.setRecordingActive(false)
     }
 
     private func handleUploadMeetingChunk(

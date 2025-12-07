@@ -30,6 +30,11 @@ struct PillView: View {
     @State private var hoverExitWorkItem: DispatchWorkItem?
 
     var body: some View {
+        let isMeetingRecording: Bool = {
+            if case .meetingRecording = viewModel.visualState { return true }
+            return false
+        }()
+
         Group {
             switch viewModel.visualState {
             case .idle:
@@ -55,7 +60,7 @@ struct PillView: View {
             case .upcomingMeeting(let meeting):
                 upcomingMeetingView(meeting: meeting)
             case .meetingRecording(let meetingId, let isPaused):
-                meetingRecording(meetingId: meetingId, isPaused: isPaused)
+                meetingRecording(meetingId: meetingId, isPaused: isPaused, isHovered: isHovered)
 
             }
         }
@@ -71,20 +76,42 @@ struct PillView: View {
                 .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
         )
         .contentShape(Capsule())
-        .fixedSize(horizontal: true, vertical: true)  // hug content; no stretching
+        .if(!isMeetingRecording) { view in
+            view.fixedSize(horizontal: true, vertical: true)
+        }
         .animation(
             .spring(response: 0.22, dampingFraction: 0.85),
             value: viewModel.visualState
         )
         .onHover { hovering in
             isHovered = hovering
+
+            // Notify view model if we're in meeting recording state
+            // Use same debounce delay as general hover exit
+            if case .meetingRecording = viewModel.visualState {
+                if hovering {
+                    // Cancel any pending hover exit
+                    hoverExitWorkItem?.cancel()
+                    hoverExitWorkItem = nil
+                    viewModel.isMeetingRecordingHovered = true
+                } else {
+                    // Debounce hover exit to prevent rapid grow/shrink
+                    hoverExitWorkItem?.cancel()
+                    let item = DispatchWorkItem { [weak viewModel] in
+                        viewModel?.isMeetingRecordingHovered = false
+                    }
+                    hoverExitWorkItem = item
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: item)
+                }
+                // Don't trigger general hover callbacks for meeting recording
+                return
+            }
+
             if hovering {
-                // cancel any pending exit and fire immediately
                 hoverExitWorkItem?.cancel()
                 hoverExitWorkItem = nil
                 viewModel.onHoverEnter?()
             } else {
-                // wait a beat before leaving, so the resize can finish
                 hoverExitWorkItem?.cancel()
                 let item = DispatchWorkItem { [weak viewModel] in
                     viewModel?.onHoverExit?()
@@ -330,53 +357,71 @@ struct PillView: View {
         .padding(.vertical, PillStyle.padYActive)
     }
 
-    private func meetingRecording(meetingId: UUID, isPaused: Bool) -> some View {
-        HStack(spacing: PillStyle.spacing) {
+    private func meetingRecording(meetingId: UUID, isPaused: Bool, isHovered: Bool) -> some View {
+        HStack(spacing: isHovered ? PillStyle.spacing : 6) {
+            // Waveform always on left
             DotWaveformView(viewModel: viewModel)
-                .frame(width: PillStyle.waveformWidth, height: PillStyle.waveformHeight)
+                .frame(
+                    width: isHovered ? PillStyle.waveformWidth : 44,
+                    height: isHovered ? PillStyle.waveformHeight : 12
+                )
+                .clipped()
 
-            if isPaused {
-                Button {
-                    viewModel.onResumeMeetingRecording?()
-                } label: {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(Color.green.opacity(0.9)))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    viewModel.onStopMeetingRecording?()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("Done")
-                            .font(.system(size: 11, weight: .medium))
+            if isHovered {
+                // Expanded controls
+                if isPaused {
+                    Button {
+                        viewModel.onResumeMeetingRecording?()
+                    } label: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Circle().fill(Color.green.opacity(0.9)))
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(Color.red.opacity(0.9)))
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    viewModel.onPauseMeetingRecording?()
-                } label: {
-                    Image(systemName: "pause.fill")
-                        .font(.system(size: 12, weight: .bold))
+                    .buttonStyle(.plain)
+
+                    Button {
+                        viewModel.onStopMeetingRecording?()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Done")
+                                .font(.system(size: 11, weight: .medium))
+                        }
                         .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(Color.white.opacity(0.2)))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Color.red.opacity(0.9)))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button {
+                        viewModel.onPauseMeetingRecording?()
+                    } label: {
+                        Image(systemName: "pause.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Circle().fill(Color.white.opacity(0.2)))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+            } else {
+                // Compact: colored dot
+                Circle()
+                    .fill(isPaused ? Color.yellow : Color.red)
+                    .frame(width: 8, height: 8)
+                    .modifier(PulsingModifier())
+                    .frame(width: 8, height: 8)
             }
         }
-        .padding(.horizontal, PillStyle.padXActive)
-        .padding(.vertical, PillStyle.padYActive)
+        .padding(.horizontal, isHovered ? PillStyle.padXActive : 10)
+        .padding(.vertical, isHovered ? PillStyle.padYActive : 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)  // Fill the panel
+        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
+        .animation(nil, value: isPaused)
     }
 
 }
@@ -451,5 +496,33 @@ private struct DotWaveformView: View {
 
     private func clamp(_ value: Double, min: Double, max: Double) -> Double {
         Swift.max(min, Swift.min(max, value))
+    }
+}
+
+private struct PulsingModifier: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isPulsing ? 0.4 : 1.0)
+            .animation(
+                .easeInOut(duration: 0.8)
+                    .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear {
+                isPulsing = true
+            }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }

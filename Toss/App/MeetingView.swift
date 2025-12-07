@@ -123,14 +123,35 @@ struct MeetingView: View {
     @EnvironmentObject private var pageChrome: AppScreenLayout
     @ObservedObject private var auth = AuthManager.shared
 
-    @State private var selectedTab: MeetingDetailTab = .overview
+    @SceneStorage private var selectedTabRaw: String  // Store raw value for persistence
     @Namespace private var tabAnimation
     @State private var tabFrames: [MeetingDetailTab: CGRect] = [:]
 
     @State private var isRegeneratingSummary = false
     @State private var didCopySummary = false
-    @State private var showingAISummary = false  // false = user notes, true = AI summary
+    @SceneStorage private var showingAISummary: Bool
     @State private var editableUserNotes: String = ""
+
+    // Computed property to convert between raw string and enum
+    private var selectedTab: MeetingDetailTab {
+        get { MeetingDetailTab(rawValue: selectedTabRaw) ?? .overview }
+        set { selectedTabRaw = newValue.rawValue }
+    }
+
+    // Add this helper method
+    private func setSelectedTab(_ tab: MeetingDetailTab) {
+        selectedTabRaw = tab.rawValue
+    }
+
+    // Initialize SceneStorage with meeting-specific keys
+    init(meetingId: UUID, repository: PersistentMeetingRepository) {
+        self.meetingId = meetingId
+        self.repository = repository
+        _showingAISummary = SceneStorage(
+            wrappedValue: false, "showingAISummary_\(meetingId.uuidString)")
+        _selectedTabRaw = SceneStorage(
+            wrappedValue: MeetingDetailTab.overview.rawValue, "selectedTab_\(meetingId.uuidString)")
+    }
 
     private enum MeetingDetailTab: String, CaseIterable {
         case overview = "Overview"
@@ -228,7 +249,7 @@ struct MeetingView: View {
                 ForEach(MeetingDetailTab.allCases, id: \.self) { tab in
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            selectedTab = tab
+                            setSelectedTab(tab)
                         }
                     } label: {
                         HStack(spacing: 8) {
@@ -587,7 +608,7 @@ private struct MeetingTranscriptView: View {
     }
 
     private var transcriptListView: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        LazyVStack(alignment: .leading, spacing: 20) {
             ForEach(chunks) { chunk in
                 VStack(alignment: .leading, spacing: 6) {
                     // Header: avatar + name + timestamp
@@ -1333,10 +1354,16 @@ private struct UpcomingMeetingsPopover: View {
     }
 }
 
+private struct BulletItem: Identifiable {
+    let id = UUID()
+    let text: String
+    var children: [BulletItem] = []
+}
+
 private struct SummarySection: Identifiable {
     let id = UUID()
     let title: String
-    let bullets: [String]
+    let bullets: [BulletItem]
 }
 
 private struct MarkdownSummaryView: View {
@@ -1347,34 +1374,47 @@ private struct MarkdownSummaryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {  // Increased from 16 to 24 for more section spacing
             ForEach(sections) { section in
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {  // Increased from 6 to 8
                     // Section title
                     Text(section.title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .bold))  // Increased from 14 semibold to 15 bold
                         .foregroundColor(AppTheme.primaryText)
 
                     // Bullets
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(section.bullets.indices, id: \.self) { i in
-                            let bullet = section.bullets[i]
-                            HStack(alignment: .top, spacing: 6) {
-                                Text("•")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(AppTheme.primaryText)
-
-                                // Bullet with inline markdown (respects **bold**, _italic_, etc.)
-                                textFromMarkdown(bullet)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(AppTheme.primaryText)
-                                    .lineSpacing(4)
-                            }
+                    VStack(alignment: .leading, spacing: 6) {  // Increased from 4 to 6
+                        ForEach(section.bullets) { bullet in
+                            bulletView(bullet, depth: 0)
                         }
                     }
                 }
             }
         }
+    }
+
+    private func bulletView(_ item: BulletItem, depth: Int) -> AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: 4) {  // Slightly more spacing
+                HStack(alignment: .top, spacing: 8) {  // Increased from 6 to 8
+                    // Use different bullet characters for different depths
+                    Text(depth == 0 ? "•" : "◦")
+                        .font(.system(size: depth == 0 ? 14 : 12))
+                        .foregroundColor(depth == 0 ? AppTheme.primaryText : AppTheme.secondaryText)
+
+                    textFromMarkdown(item.text)
+                        .font(.system(size: depth == 0 ? 14 : 13))
+                        .foregroundColor(depth == 0 ? AppTheme.primaryText : AppTheme.secondaryText)
+                        .lineSpacing(3)
+                }
+                .padding(.leading, CGFloat(depth) * 20)  // Increased from 16 to 20 for more indent
+
+                // Render children
+                ForEach(item.children) { child in
+                    bulletView(child, depth: depth + 1)
+                }
+            }
+        )
     }
 
     private func textFromMarkdown(_ string: String) -> Text {
@@ -1389,11 +1429,11 @@ private struct MarkdownSummaryView: View {
     }
 }
 
-// Very simple markdown-ish parser: pulls out "## Heading" + "- bullet" lines
+// Updated parser that handles nested bullets
 private func parseSummary(_ markdown: String) -> [SummarySection] {
     var sections: [SummarySection] = []
     var currentTitle: String?
-    var currentBullets: [String] = []
+    var currentBullets: [BulletItem] = []
 
     func flush() {
         if let title = currentTitle, !currentBullets.isEmpty {
@@ -1403,21 +1443,43 @@ private func parseSummary(_ markdown: String) -> [SummarySection] {
         currentBullets = []
     }
 
-    let lines = markdown.split(whereSeparator: \.isNewline).map {
-        $0.trimmingCharacters(in: .whitespaces)
-    }
+    let lines = markdown.components(separatedBy: .newlines)
 
     for line in lines {
-        if line.hasPrefix("## ") {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+        if trimmed.hasPrefix("## ") {
             flush()
-            currentTitle = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-        } else if line.hasPrefix("- ") {
-            let bullet = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
-            currentBullets.append(bullet)
-        } else if !line.isEmpty {
-            // Continuation of previous bullet: append text
+            currentTitle = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+        } else if line.hasPrefix("  - ") || line.hasPrefix("   - ") || line.hasPrefix("    - ") {
+            // Sub-bullet (indented with 2-4 spaces)
+            let bulletText = trimmed.dropFirst(2).trimmingCharacters(in: .whitespaces)
             if !currentBullets.isEmpty {
-                currentBullets[currentBullets.count - 1] += " " + line
+                // Add as child of the last top-level bullet
+                currentBullets[currentBullets.count - 1].children.append(
+                    BulletItem(text: bulletText))
+            }
+        } else if trimmed.hasPrefix("- ") {
+            // Top-level bullet
+            let bulletText = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+            currentBullets.append(BulletItem(text: bulletText))
+        } else if !trimmed.isEmpty && !trimmed.hasPrefix("#") && !trimmed.hasPrefix("---") {
+            // Continuation of previous bullet
+            if !currentBullets.isEmpty {
+                let lastIndex = currentBullets.count - 1
+                if !currentBullets[lastIndex].children.isEmpty {
+                    // Append to last child
+                    let childIndex = currentBullets[lastIndex].children.count - 1
+                    currentBullets[lastIndex].children[childIndex] = BulletItem(
+                        text: currentBullets[lastIndex].children[childIndex].text + " " + trimmed
+                    )
+                } else {
+                    // Append to parent bullet
+                    currentBullets[lastIndex] = BulletItem(
+                        text: currentBullets[lastIndex].text + " " + trimmed,
+                        children: currentBullets[lastIndex].children
+                    )
+                }
             }
         }
     }

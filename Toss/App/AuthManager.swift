@@ -180,6 +180,8 @@ final class AuthManager: ObservableObject {
                     self?.userEmail = email
                     self?.userImageURL = image
                 }
+                await SubscriptionManager.shared.checkSubscription()
+
                 return true
             }
         } catch {
@@ -298,7 +300,9 @@ final class AuthManager: ObservableObject {
                 DispatchQueue.main.async { [weak self] in
                     self?.accessToken = token
                     self?.refreshToken = (json["refresh"] as? String) ?? self?.refreshToken
+
                 }
+                await SubscriptionManager.shared.checkSubscription()
                 _ = await self.refreshProfile()
             }
         } catch {

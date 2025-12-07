@@ -142,7 +142,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             history: History.shared,
             auth: AuthManager.shared,
             agentPanel: agentPanel,
-            meetingRepository: meetingRepository
+            meetingRepository: meetingRepository,
+            meetingDetector: meetingDetector
 
         )
 
@@ -197,6 +198,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillController.send(.resumeMeetingRecording)
         }
 
+        // Add this somewhere in your app initialization (e.g., AppDelegate)
+        DistributedNotificationCenter.default().addObserver(
+            forName: nil,
+            object: nil,
+            queue: .main
+        ) { notification in
+            let name = notification.name.rawValue
+            // Filter for audio-related notifications
+            if name.lowercased().contains("audio") || name.lowercased().contains("session")
+                || name.lowercased().contains("media")
+            {
+                NSLog("[DistNotification] \(name) - object: \(notification.object ?? "nil")")
+            }
+        }
+
         // Observe planner demo trigger
         NotificationCenter.default.addObserver(
             self, selector: #selector(runPlannerDemo),
@@ -208,6 +224,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Setup meeting detection
         meetingDetector.onMeetingDetected = { [weak self] in
             self?.pillController.send(.meetingDetected)
+        }
+        meetingDetector.onMeetingEnded = { [weak self] in
+            self?.pillController.send(.meetingEnded)
         }
         meetingDetector.start()
 

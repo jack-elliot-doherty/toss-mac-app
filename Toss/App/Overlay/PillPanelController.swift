@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import SwiftUI
 
 @MainActor
@@ -6,6 +7,7 @@ final class PillPanelController {
     private let panel: NSPanel
     private let hostingView: NSHostingView<PillView>
     let viewModel: PillViewModel
+    private var cancellables = Set<AnyCancellable>()
 
     // SINGLE SOURCE OF TRUTH for idle pill size
     // To change idle size: edit ONLY this value, SwiftUI content will auto-adjust
@@ -35,6 +37,27 @@ final class PillPanelController {
         let root = PillView(viewModel: viewModel)
         self.hostingView = NSHostingView(rootView: root)
         panel.contentView = hostingView
+
+        viewModel.$isMeetingRecordingHovered
+            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)  // Reduced from 150ms
+            .sink { [weak self] (isHovered: Bool) in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    if case .meetingRecording(_, let isPaused) = self.viewModel.visualState {
+                        let size: NSSize
+                        if isHovered {
+                            // Paused needs more space (play + Done), playing just needs pause button
+                            size =
+                                isPaused
+                                ? NSSize(width: 200, height: 36) : NSSize(width: 140, height: 36)
+                        } else {
+                            size = NSSize(width: 90, height: 32)
+                        }
+                        self.resizeKeepingCenter(to: size, animated: true)
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     private func intrinsicPillSize(for state: PillVisualState) -> NSSize {
@@ -44,6 +67,13 @@ final class PillPanelController {
             // for the capsule stroke and any container padding
             // Match exactly what PillStyle defines
             return NSSize(width: 32, height: 8)  // Using PillStyle.idleWidth and idleHeight directly
+        }
+
+        // For meeting recording, use fixed sizes to prevent jitter
+        // The panel should stay consistent; SwiftUI handles the hover internally
+        if case .meetingRecording = state {
+            // Smaller size for compact - hover will slightly overflow
+            return NSSize(width: 90, height: 32)
         }
 
         // For other states, compute from SwiftUI
@@ -128,6 +158,12 @@ final class PillPanelController {
 
             // THEN: Set the visual state to trigger the SwiftUI transition
             // The panel is already the right size, so the content just animates in place
+            viewModel.visualState = state
+
+        } else if case .meetingRecording = state {
+            // For meeting recording, DON'T auto-resize here
+            // The hover subscription handles panel sizing
+            // Just update the visual state
             viewModel.visualState = state
 
         } else {
@@ -220,4 +256,26 @@ final class PillPanelController {
         }
     }
 
+    private func resizeKeepingCenter(to size: NSSize, animated: Bool) {
+        // Always recenter on screen to prevent drift
+        let screen = screenUnderMouse() ?? panel.screen ?? NSScreen.main
+        guard let screen = screen else { return }
+
+        let vf = screen.visibleFrame
+        let centerX = vf.origin.x + (vf.width / 2)
+        let x = round(centerX - (size.width / 2))
+        let y = round(vf.minY + 8)  // Same margin as setSizeAndCenter
+
+        let target = NSRect(x: x, y: y, width: round(size.width), height: round(size.height))
+
+        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.15
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().setFrame(target, display: true)
+            }
+        } else {
+            panel.setFrame(target, display: true)
+        }
+    }
 }

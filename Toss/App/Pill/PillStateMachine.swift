@@ -49,6 +49,7 @@ enum PillEvent: Equatable {
     case meetingDetected
     case meetingDetectionExpired  // auto dismiss meeting detected
     case dismissMeetingDetection
+    case meetingEnded  // auto-detected meeting end
 
     // hover events
     case pillHoverEnter
@@ -238,9 +239,10 @@ struct PillStateMachine {
         case (.idle, .doubleTapFn):
             ctx.isAlwaysOn.toggle()
             effects += [
-                .setAlwaysOn(ctx.isAlwaysOn),
-                .showToast(
-                    title: ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
+                .setAlwaysOn(ctx.isAlwaysOn)
+                // TODO: only show this if its the first time the user is enabling or disabling always on
+                // .showToast(
+                // title: ctx.isAlwaysOn ? "Always-On enabled" : "Always-On disabled"),
             ]
 
         case (.meetingDetected, .meetingDetectionExpired),
@@ -319,7 +321,7 @@ struct PillStateMachine {
             ctx.isCmdHeld = false
             effects += [
                 .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
-                .showToast(title: "Cancelled"),
+                // .showToast(title: "Cancelled"),
             ]
 
         case (.listening, .cancelButton):
@@ -327,7 +329,7 @@ struct PillStateMachine {
             state = .idle
             effects += [
                 .setAlwaysOn(false), .stopAudioCapture, .setVisualStateIdle,
-                .showToast(title: "Cancelled"),
+                // .showToast(title: "Cancelled"),
             ]
 
         case (.listening(let mode), .cmdDown):
@@ -407,7 +409,6 @@ struct PillStateMachine {
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
-                .showToast(title: "Meeting recording stopped"),
                 .openMeetingView(meetingId),
             ]
 
@@ -420,13 +421,20 @@ struct PillStateMachine {
         ):
             effects += [.uploadMeetingChunk(meetingId, speaker, url, index, startedAt)]
 
+        case (.meetingRecording(let meetingId, _), .meetingEnded):
+            effects += [
+                .stopMeetingRecording,
+                .setVisualStateIdle,
+                .openMeetingView(meetingId),
+            ]
+            state = .idle
+
         // - MEETING RECORDING → IDLE (escape/cancel)
         case (.meetingRecording, .cancelButton):
             state = .idle
             effects += [
                 .stopMeetingRecording,
                 .setVisualStateIdle,
-                .showToast(title: "Meeting cancelled"),
             ]
 
         default:

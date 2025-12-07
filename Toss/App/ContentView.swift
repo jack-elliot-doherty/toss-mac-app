@@ -80,6 +80,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 @MainActor
 struct ContentView: View {
     @ObservedObject private var auth = AuthManager.shared
+    @ObservedObject private var subscription = SubscriptionManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .home
     @State private var showSettings = false
@@ -89,6 +90,7 @@ struct ContentView: View {
     @State private var meetingsNavigationPath = NavigationPath()
     @State private var historyIndex: Int = 0
     @State private var showUserMenu = false
+    @State private var showPaywall = false
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
             breadcrumb: [Breadcrumb(title: "Overview")],
@@ -99,12 +101,26 @@ struct ContentView: View {
     @ObservedObject private var onboarding = OnboardingManager.shared
 
     var body: some View {
-        if onboarding.needsOnboarding {
-            OnboardingView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(AppTheme.windowBackground)
-        } else {
-            main
+        Group {
+
+            if onboarding.needsOnboarding {
+                OnboardingView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AppTheme.windowBackground)
+            }
+            // else if subscription.needsSubscription {
+            //     PaywallView()
+            //         .frame(maxWidth: .infinity, maxHeight: .infinity)
+            //         .background(AppTheme.windowBackground)
+            // }
+            else {
+                main
+            }
+        }.task {
+            if AuthManager.shared.isAuthenticated {
+
+                await subscription.checkSubscription()
+            }
         }
     }
 

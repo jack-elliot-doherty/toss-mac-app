@@ -22,6 +22,7 @@ final class PillViewModel: ObservableObject {
     @Published var visualState: PillVisualState = .idle
     @Published var isAlwaysOn: Bool = false
     @Published var levelRMS: Float = 0.0
+    @Published var isMeetingRecordingHovered: Bool = false
 
     // Callbacks the owner (AppDelegate) can observe to perform actions
     var onRequestStop: (() -> Void)?
