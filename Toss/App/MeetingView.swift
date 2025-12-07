@@ -65,6 +65,7 @@ final class MeetingsManager: ObservableObject {
 
     @Published var upcomingMeetings: [UpcomingMeeting] = []
     @Published var isLoading = false
+    @Published var isSyncing = false
     @Published var error: String?
 
     private var scheduledAlerts: [UUID: Task<Void, Never>] = [:]
@@ -108,12 +109,14 @@ final class MeetingsManager: ObservableObject {
     }
 
     func syncCalendar() async {
+        isSyncing = true
         do {
             try await MeetingsApi.shared.syncCalendar()
             await fetchUpcoming()
         } catch {
             NSLog("[MeetingsManager] Sync error: %@", error.localizedDescription)
         }
+        isSyncing = false
     }
 }
 
@@ -131,6 +134,9 @@ struct MeetingView: View {
     @State private var didCopySummary = false
     @SceneStorage private var showingAISummary: Bool
     @State private var editableUserNotes: String = ""
+    @State private var editableTitle: String = ""
+    @State private var isEditingTitle: Bool = false
+    @FocusState private var isTitleFocused: Bool
 
     // Computed property to convert between raw string and enum
     private var selectedTab: MeetingDetailTab {
@@ -218,9 +224,38 @@ struct MeetingView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(meetingTitle)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+            // Editable title - click to edit
+            if isEditingTitle {
+                TextField("Meeting title", text: $editableTitle)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                    .textFieldStyle(.plain)
+                    .focused($isTitleFocused)
+                    .onSubmit {
+                        saveTitle()
+                    }
+                    .onExitCommand {
+                        cancelEditingTitle()
+                    }
+                    .onChange(of: isTitleFocused) { _, focused in
+                        if !focused {
+                            saveTitle()
+                        }
+                    }
+                    .onDisappear {
+                        if isEditingTitle {
+                            saveTitle()
+                        }
+                    }
+            } else {
+                Text(meetingTitle)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(.white)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        startEditingTitle()
+                    }
+            }
 
             // Horizontal metadata with colon
             HStack(spacing: 6) {
@@ -518,6 +553,29 @@ struct MeetingView: View {
         NSLog("[MeetingView] Share tapped for \(meetingTitle)")
     }
 
+    private func startEditingTitle() {
+        editableTitle = meeting?.title ?? ""
+        isEditingTitle = true
+        // Small delay to ensure the TextField is rendered before focusing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            isTitleFocused = true
+        }
+    }
+
+    private func saveTitle() {
+        let trimmed = editableTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            repository.updateMeetingTitle(meetingId: meetingId, title: trimmed)
+        }
+        isEditingTitle = false
+        isTitleFocused = false
+    }
+
+    private func cancelEditingTitle() {
+        isEditingTitle = false
+        isTitleFocused = false
+    }
+
     private struct TabWidthPreference: PreferenceKey {
         static var defaultValue: [MeetingDetailTab: CGRect] = [:]
 
@@ -769,6 +827,12 @@ struct MeetingsListView: View {
                                 .font(.system(size: 20, weight: .semibold))
                                 .foregroundColor(AppTheme.primaryText)
 
+                            if meetingsManager.isSyncing {
+                                Text("Syncing...")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                            }
+
                             Spacer()
 
                             Button {
@@ -856,7 +920,7 @@ struct MeetingsListView: View {
             }
         }
         .onAppear {
-            // Fetch upcoming on appear
+            // Fetch cached upcoming on appear (fast)
             Task { await meetingsManager.fetchUpcoming() }
 
             if let meetingId = pendingMeetingId {
@@ -864,10 +928,12 @@ struct MeetingsListView: View {
                 selectedMeeting = meetingId
                 pendingMeetingId = nil
             }
-        }.onReceive(
+        }
+        .onReceive(
             NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
         ) { _ in
-            // Toggle to force SwiftUI to re-evaluate computed properties
+            // Sync calendar when app becomes active
+            Task { await meetingsManager.syncCalendar() }
             refreshTrigger.toggle()
         }
         // Make computed properties depend on refreshTrigger
@@ -1009,7 +1075,6 @@ struct MeetingsListView: View {
             // Icon based on meeting source
             Group {
                 if meeting.source == .calendar {
-                    // Calendar icon for synced meetings
                     RoundedRectangle(cornerRadius: 6)
                         .fill(AppTheme.secondaryText.opacity(0.15))
                         .frame(width: 32, height: 32)
@@ -1019,7 +1084,6 @@ struct MeetingsListView: View {
                                 .foregroundColor(AppTheme.secondaryText.opacity(0.7))
                         )
                 } else {
-                    // Document/page icon for ad-hoc meetings
                     RoundedRectangle(cornerRadius: 6)
                         .fill(AppTheme.secondaryText.opacity(0.15))
                         .frame(width: 32, height: 32)
@@ -1045,7 +1109,7 @@ struct MeetingsListView: View {
 
             Spacer()
 
-            // User avatar - fixed width column
+            // User avatar
             Circle()
                 .fill(Color.gray.opacity(0.3))
                 .frame(width: 20, height: 20)
@@ -1055,11 +1119,42 @@ struct MeetingsListView: View {
                         .foregroundColor(AppTheme.secondaryText)
                 )
 
-            // Time - fixed width column, right-aligned
+            // Time
             Text(formattedTime(meeting.startTime))
                 .font(.system(size: 13))
                 .foregroundColor(AppTheme.secondaryText)
                 .frame(width: 70, alignment: .trailing)
+
+            // 3-dot dropdown menu
+            Menu {
+                Button {
+                    copyShareLink(for: meeting)
+                } label: {
+                    Label("Copy link", systemImage: "link")
+                }
+
+                Button {
+                    shareMeeting(meeting)
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    deleteMeeting(meeting)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
@@ -1081,6 +1176,28 @@ struct MeetingsListView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, yyyy"
         return formatter.string(from: date)
+    }
+
+    private func copyShareLink(for meeting: MeetingModel) {
+        // Generate public share URL - adjust domain as needed
+        let shareURL = "https://app.usetoss.com/meetings/\(meeting.id.uuidString)"
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(shareURL, forType: .string)
+        NSLog("[MeetingView] Copied share link for meeting: \(meeting.id)")
+    }
+
+    private func shareMeeting(_ meeting: MeetingModel) {
+        let shareURL = "https://app.usetoss.com/meetings/\(meeting.id.uuidString)"
+        let picker = NSSharingServicePicker(items: [shareURL])
+        // Show share sheet - you may need to pass a view for positioning
+        if let window = NSApp.keyWindow {
+            picker.show(relativeTo: .zero, of: window.contentView!, preferredEdge: .minY)
+        }
+    }
+
+    private func deleteMeeting(_ meeting: MeetingModel) {
+        repository.deleteMeeting(id: meeting.id)
+        NSLog("[MeetingView] Deleted meeting: \(meeting.id)")
     }
 
     private struct MeetingSection: Identifiable {

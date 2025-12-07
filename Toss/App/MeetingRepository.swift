@@ -102,6 +102,7 @@ protocol MeetingRepositoryProtocol {
     func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
     func cleanupOrphanedMeetings()
     func endMeetingIfActive(id: UUID)
+    func deleteMeeting(id: UUID)
 }
 
 final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
@@ -384,6 +385,15 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             meeting.endTime = Date()
             meeting.updatedAt = Date()
             meetings[id] = meeting
+        }
+        save()
+    }
+
+    func deleteMeeting(id: UUID) {
+        queue.sync {
+            meetings.removeValue(forKey: id)
+            chunks.removeValue(forKey: id)
+            NSLog("[Meetings] Deleted meeting with ID: \(id)")
         }
         save()
     }

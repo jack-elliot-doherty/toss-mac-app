@@ -426,6 +426,9 @@ final class PillController {
         SoundFeedback.shared.playStart()
         meetingDetector.setRecordingActive(true)
         NSLog("[PillController] Meeting recording started for meeting")
+
+        // Bring app to foreground and position for note-taking
+        positionWindowForMeeting()
     }
 
     private func handleStopMeetingRecording() {
@@ -578,6 +581,51 @@ final class PillController {
             NSLog("[PillController] Force-ending active meeting on app termination: \(meetingId)")
             handleStopMeetingRecording()
         }
+    }
+
+    private func positionWindowForMeeting() {
+        // Activate the app
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Find the main Toss window
+        guard
+            let window = NSApp.windows.first(where: {
+                $0.title == "Toss" || $0.identifier?.rawValue == "main"
+            })
+        else {
+            // If no window exists, just activate - SwiftUI will create one
+            return
+        }
+
+        // Get the screen
+        guard let screen = window.screen ?? NSScreen.main else { return }
+        let visibleFrame = screen.visibleFrame
+
+        // Position: right side of screen, 400px wide, full height
+        let width: CGFloat = 400
+        let height = visibleFrame.height
+        let x = visibleFrame.maxX - width
+        let y = visibleFrame.minY
+
+        let newFrame = NSRect(x: x, y: y, width: width, height: height)
+
+        // Animate the window to new position
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.3
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(newFrame, display: true)
+        }
+
+        window.makeKeyAndOrderFront(nil)
+
+        // Navigate to the meeting view
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OpenMeetingView"),
+            object: nil,
+            userInfo: ["meetingId": activeMeetingId as Any]
+        )
+
+        NSLog("[PillController] Positioned window for meeting note-taking")
     }
 
     private func machineStateDebug() -> String {
