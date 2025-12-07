@@ -705,3 +705,609 @@ extension Color {
     .frame(width: 400)
     .background(Color.black)
 }
+
+// MARK: - Editable Calendar Event Preview
+
+struct EditableCalendarEventPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+
+    // Button state (optional - for inline button in header)
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var title: String
+    @State private var description: String
+
+    private var startTime: String? { initialParams.getString("startTime") }
+    private var endTime: String? { initialParams.getString("endTime") }
+    private var attendees: [String]? { initialParams.getStringArray("attendees") }
+
+    private var formattedTime: String {
+        guard let start = startTime else { return "No time specified" }
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        var startDate = isoFormatter.date(from: start)
+        if startDate == nil {
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            startDate = isoFormatter.date(from: start)
+        }
+
+        guard let date = startDate else { return start }
+
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
+        var result = displayFormatter.string(from: date)
+
+        if let end = endTime {
+            var endDate = isoFormatter.date(from: end)
+            if endDate == nil {
+                isoFormatter.formatOptions = [.withInternetDateTime]
+                endDate = isoFormatter.date(from: end)
+            }
+            if let endD = endDate {
+                let minutes = Int(endD.timeIntervalSince(date) / 60)
+                if minutes == 60 {
+                    result += " (1 hour)"
+                } else if minutes > 60 {
+                    result += " (\(minutes / 60)h \(minutes % 60)m)"
+                } else {
+                    result += " (\(minutes) min)"
+                }
+            }
+        }
+        return result
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _title = State(initialValue: params.getString("title") ?? "Untitled Event")
+        _description = State(initialValue: params.getString("description") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                Image("GoogleCalendarLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Calendar Event")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will create this event in your Google Calendar")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar.badge.plus")
+                                    .font(.system(size: 10))
+                                Text("Add to Calendar")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Key-value rows
+            VStack(spacing: 0) {
+                FormRow(label: "Title") {
+                    TextField("Event title", text: $title)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                FormRow(label: "When") {
+                    Text(formattedTime)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                }
+
+                if let attendees = attendees, !attendees.isEmpty {
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "Guests") {
+                        Text(attendees.joined(separator: ", "))
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(2)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Description
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Add a description...", text: $description, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...6)
+                        .onChange(of: description) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        if let start = initialParams.getString("startTime") {
+            updatedParams["startTime"] = .string(start)
+        }
+        if let end = initialParams.getString("endTime") {
+            updatedParams["endTime"] = .string(end)
+        }
+        if let att = initialParams.getStringArray("attendees") {
+            updatedParams["attendees"] = .array(att.map { .string($0) })
+        }
+        updatedParams["title"] = .string(title)
+        updatedParams["description"] = .string(description)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Linear Issue Preview
+
+struct EditableLinearIssuePreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var title: String
+    @State private var description: String
+
+    private var priority: Int? { initialParams.getInt("priority") }
+    private var team: String? {
+        initialParams.getString("teamId") ?? initialParams.getString("team")
+    }
+    private var assignee: String? {
+        initialParams.getString("assigneeId") ?? initialParams.getString("assignee")
+    }
+
+    private var priorityLabel: String {
+        switch priority {
+        case 1: return "Urgent"
+        case 2: return "High"
+        case 3: return "Medium"
+        case 4: return "Low"
+        default: return "No Priority"
+        }
+    }
+
+    private var priorityColor: Color {
+        switch priority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .gray
+        }
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _title = State(initialValue: params.getString("title") ?? "Untitled Issue")
+        _description = State(initialValue: params.getString("description") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                // Linear logo
+                Image("LinearLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Linear Issue")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will create this issue in Linear")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "5E6AD2").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 10))
+                                Text("Create Issue")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "5E6AD2")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Key-value rows
+            VStack(spacing: 0) {
+                FormRow(label: "Title") {
+                    TextField("Issue title", text: $title)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                FormRow(label: "Priority") {
+                    Text(priorityLabel)
+                        .font(.system(size: 13))
+                        .foregroundColor(priorityColor)
+                }
+
+                if team != nil || assignee != nil {
+                    Divider().background(AppTheme.subtleStroke)
+                    HStack(spacing: 0) {
+                        if let team = team {
+                            FormRow(label: "Team") {
+                                Text(team)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                            }
+                        }
+                        if let assignee = assignee {
+                            FormRow(label: "Assignee") {
+                                Text(assignee)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                            }
+                        }
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Description
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Add a description...", text: $description, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...6)
+                        .onChange(of: description) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        if let p = priority { updatedParams["priority"] = .int(p) }
+        if let t = team { updatedParams["teamId"] = .string(t) }
+        if let a = assignee { updatedParams["assigneeId"] = .string(a) }
+        updatedParams["title"] = .string(title)
+        updatedParams["description"] = .string(description)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Slack Message Preview
+
+struct EditableSlackMessagePreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var message: String
+
+    private var channel: String {
+        let ch =
+            initialParams.getString("channel") ?? initialParams.getString("channelId") ?? "channel"
+        return ch.hasPrefix("#") ? ch : "#\(ch)"
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _message = State(initialValue: params.getString("message") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                // Slack logo - use asset when you add it
+                Image("SlackLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Send Slack Message")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will send this message to Slack")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Sending...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "4A154B").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 10))
+                                Text("Send Message")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "4A154B")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Key-value rows
+            VStack(spacing: 0) {
+                // Channel row
+                FormRow(label: "To") {
+                    HStack(spacing: 4) {
+                        Image(systemName: "number")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(channel)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Message - editable text area
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Message")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Write your message...", text: $message, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...8)
+                        .onChange(of: message) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        // Preserve channel
+        if let ch = initialParams.getString("channel") {
+            updatedParams["channel"] = .string(ch)
+        } else if let chId = initialParams.getString("channelId") {
+            updatedParams["channelId"] = .string(chId)
+        }
+        updatedParams["message"] = .string(message)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// Helper view for key-value form rows
+private struct FormRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(AppTheme.secondaryText)
+                .frame(width: 70, alignment: .leading)
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+
+// Helper: Removable attendee chip
+private struct AttendeeChip: View {
+    let email: String
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(email)
+                .font(.system(size: 11))
+                .foregroundColor(AppTheme.primaryText)
+
+            Button {
+                onRemove()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(AppTheme.cardBackground)
+        )
+    }
+}

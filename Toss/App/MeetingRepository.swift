@@ -116,7 +116,6 @@ protocol MeetingRepositoryProtocol {
 }
 
 final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableObject {
-    // Remove @Published from these - we'll manually notify
     private var meetings: [UUID: MeetingModel] = [:]
     private var chunks: [UUID: [MeetingChunkModel]] = [:]
     private let queue = DispatchQueue(label: "meeting.repo.queue", qos: .userInitiated)

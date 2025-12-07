@@ -492,7 +492,9 @@ struct MeetingView: View {
                 action: action,
                 isExecuting: executingActionId == action.id,
                 onCancel: { showingApprovalFor = nil },
-                onConfirm: { executeDirectAction(action) }
+                onConfirm: { editedAction in
+                    executeDirectAction(editedAction)
+                }
             )
         }
     }
@@ -501,7 +503,7 @@ struct MeetingView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Section header
             HStack {
-                Text("Action Items")
+                Text("Actions")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundColor(AppTheme.primaryText)
 
@@ -525,7 +527,7 @@ struct MeetingView: View {
             }
 
             if extractedActions.isEmpty && !isExtractingActions {
-                Text("No action items detected in this meeting.")
+                Text("No actions detected in this meeting.")
                     .font(.system(size: 13))
                     .foregroundColor(AppTheme.secondaryText)
             } else {
@@ -536,11 +538,11 @@ struct MeetingView: View {
                             isExecuting: executingActionId == action.id,
                             executionResult: actionExecutionResult?.id == action.id
                                 ? actionExecutionResult : nil,
-                            onExecute: {
-                                if action.mode == .direct {
-                                    showingApprovalFor = action
+                            onExecute: { editedAction in
+                                if editedAction.mode == .direct {
+                                    executeDirectAction(editedAction)
                                 } else {
-                                    delegateToAgent(action)
+                                    delegateToAgent(editedAction)
                                 }
                             }
                         )
@@ -1877,170 +1879,82 @@ private struct ActionItemCard: View {
     let action: ExtractedAction
     let isExecuting: Bool
     let executionResult: (id: String, success: Bool, message: String)?
-    let onExecute: () -> Void
+    let onExecute: (ExtractedAction) -> Void
 
-    @State private var isExpanded = false
+    @State private var editedParams: [String: AnyCodableValue]?
 
-    private var actionTypeLabel: String {
-        action.mode == .direct ? "One-click" : "Multi-step"
-    }
-
-    private var buttonLabel: String {
-        action.mode == .direct ? "Run" : "Delegate to Toss"
-    }
-
-    private var buttonColor: Color {
-        action.mode == .direct ? Color.blue : Color.orange
+    private var currentAction: ExtractedAction {
+        guard let edited = editedParams else { return action }
+        return ExtractedAction(
+            id: action.id,
+            mode: action.mode,
+            title: action.title,
+            context: action.context,
+            toolName: action.toolName,
+            toolParams: edited,
+            taskSpec: action.taskSpec
+        )
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header - always visible, tappable to expand
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isExpanded.toggle()
+        VStack(alignment: .leading, spacing: 12) {
+            toolPreview
+
+            // Execution result feedback
+            if let result = executionResult {
+                HStack(spacing: 6) {
+                    Image(
+                        systemName: result.success ? "checkmark.circle.fill" : "xmark.circle.fill"
+                    )
+                    .font(.system(size: 13))
+                    Text(result.message)
+                        .font(.system(size: 12))
                 }
-            } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    // Content
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Text(action.title)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(AppTheme.primaryText)
-                                .lineLimit(isExpanded ? nil : 2)
-                                .multilineTextAlignment(.leading)
-
-                            // Badge
-                            Text(actionTypeLabel)
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(action.mode == .direct ? .green : .orange)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(
-                                            action.mode == .direct
-                                                ? Color.green.opacity(0.15)
-                                                : Color.orange.opacity(0.15)
-                                        )
-                                )
-                        }
-
-                        Text(action.context)
-                            .font(.system(size: 12))
-                            .foregroundColor(AppTheme.secondaryText)
-                            .lineLimit(isExpanded ? nil : 2)
-                            .multilineTextAlignment(.leading)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Expand chevron
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.secondaryText)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(12)
-
-            // Expanded content - tool preview
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 12) {
-                    Divider()
-                        .background(AppTheme.subtleStroke)
-
-                    // Tool-specific preview
-                    toolPreview
-
-                    // Execution result feedback
-                    if let result = executionResult {
-                        HStack(spacing: 6) {
-                            Image(
-                                systemName: result.success
-                                    ? "checkmark.circle.fill" : "xmark.circle.fill"
-                            )
-                            .font(.system(size: 13))
-                            Text(result.message)
-                                .font(.system(size: 12))
-                        }
-                        .foregroundColor(result.success ? .green : .red)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(
-                                    result.success
-                                        ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
-                        )
-                    }
-
-                    // Execute button
-                    HStack {
-                        Spacer()
-
-                        Button {
-                            onExecute()
-                        } label: {
-                            if isExecuting {
-                                HStack(spacing: 6) {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                    Text("Executing...")
-                                        .font(.system(size: 13, weight: .medium))
-                                }
-                                .foregroundColor(.white)
-                                .frame(width: 140, height: 36)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(buttonColor.opacity(0.7))
-                                )
-                            } else {
-                                HStack(spacing: 6) {
-                                    Image(systemName: action.mode == .direct ? "play.fill" : "cpu")
-                                        .font(.system(size: 11))
-                                    Text(buttonLabel)
-                                        .font(.system(size: 13, weight: .semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 10)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(buttonColor)
-                                )
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isExecuting)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .foregroundColor(result.success ? .green : .red)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(result.success ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                )
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.cardBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                )
-        )
     }
 
     @ViewBuilder
     private var toolPreview: some View {
         if action.mode == .agent, let taskSpec = action.taskSpec {
-            // Agent task preview
-            AgentTaskPreview(taskSpec: taskSpec, compact: true)
+            AgentTaskPreview(taskSpec: taskSpec, compact: false)
         } else if let toolName = action.toolName, let params = action.toolParams {
-            // Direct tool preview using factory
-            ToolPreviewFactory.preview(for: toolName, params: params, compact: true)
+            switch toolName {
+            case "createCalendarEvent", "create_calendar_event":
+                EditableCalendarEventPreview(
+                    params: ToolParams(params),
+                    compact: false,
+                    onParamsChanged: { editedParams = $0 },
+                    isExecuting: isExecuting,
+                    onExecute: { onExecute(currentAction) }
+                )
+            case "createLinearIssue", "create_linear_issue":
+                EditableLinearIssuePreview(
+                    params: ToolParams(params),
+                    compact: false,
+                    onParamsChanged: { editedParams = $0 },
+                    isExecuting: isExecuting,
+                    onExecute: { onExecute(currentAction) }
+                )
+            case "sendMessage", "send_slack_message", "send_message":
+                EditableSlackMessagePreview(
+                    params: ToolParams(params),
+                    compact: false,
+                    onParamsChanged: { editedParams = $0 },
+                    isExecuting: isExecuting,
+                    onExecute: { onExecute(currentAction) }
+                )
+            default:
+                ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
+            }
         } else {
-            // Fallback - shouldn't happen
             Text("Action details unavailable")
                 .font(.system(size: 12))
                 .foregroundColor(AppTheme.secondaryText)
@@ -2053,7 +1967,23 @@ private struct ActionApprovalSheet: View {
     let action: ExtractedAction
     let isExecuting: Bool
     let onCancel: () -> Void
-    let onConfirm: () -> Void
+    let onConfirm: (ExtractedAction) -> Void  // Changed: now passes the edited action
+
+    @State private var editedParams: [String: AnyCodableValue]?
+
+    private var currentAction: ExtractedAction {
+        // Return action with edited params if available
+        guard let edited = editedParams else { return action }
+        return ExtractedAction(
+            id: action.id,
+            mode: action.mode,
+            title: action.title,
+            context: action.context,
+            toolName: action.toolName,
+            toolParams: edited,
+            taskSpec: action.taskSpec
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2091,9 +2021,9 @@ private struct ActionApprovalSheet: View {
             Divider()
                 .background(AppTheme.subtleStroke)
 
-            // Tool-specific preview using shared components
+            // Tool-specific preview - use editable version for calendar
             if let toolName = action.toolName, let params = action.toolParams {
-                ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
+                editablePreview(for: toolName, params: params)
             }
 
             Spacer()
@@ -2117,13 +2047,13 @@ private struct ActionApprovalSheet: View {
                 .disabled(isExecuting)
 
                 Button {
-                    onConfirm()
+                    onConfirm(currentAction)
                 } label: {
                     if isExecuting {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .scaleEffect(0.7)
-                            Text("Executing...")
+                            Text("Creating...")
                                 .font(.system(size: 14, weight: .medium))
                         }
                         .foregroundColor(.white)
@@ -2135,9 +2065,9 @@ private struct ActionApprovalSheet: View {
                         )
                     } else {
                         HStack(spacing: 6) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 11))
-                            Text("Execute")
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 12))
+                            Text(buttonText(for: action.toolName))
                         }
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
@@ -2157,5 +2087,38 @@ private struct ActionApprovalSheet: View {
         .frame(width: 420)
         .frame(minHeight: 400)
         .background(AppTheme.cardBackground)
+    }
+
+    @ViewBuilder
+    private func editablePreview(for toolName: String, params: [String: AnyCodableValue])
+        -> some View
+    {
+        let wrapped = ToolParams(params)
+        switch toolName {
+        case "createCalendarEvent", "create_calendar_event":
+            EditableCalendarEventPreview(
+                params: wrapped,
+                compact: false,
+                onParamsChanged: { newParams in
+                    editedParams = newParams
+                }
+            )
+        default:
+            // Fall back to read-only preview for other tools
+            ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
+        }
+    }
+
+    private func buttonText(for toolName: String?) -> String {
+        switch toolName {
+        case "createCalendarEvent", "create_calendar_event":
+            return "Add to Calendar"
+        case "sendMessage", "send_slack_message", "send_message":
+            return "Send Message"
+        case "createLinearIssue", "create_linear_issue":
+            return "Create Issue"
+        default:
+            return "Execute"
+        }
     }
 }
