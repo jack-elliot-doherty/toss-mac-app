@@ -216,11 +216,38 @@ jobs:
             /usr/bin/zip -ry "./build/Toss-dSYMs.zip" "$DSYMS"
           fi
 
+      - name: Upload to Cloudflare R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: toss-releases
+        run: |
+          # Install AWS CLI (R2 is S3-compatible)
+          pip install awscli
+
+          # Configure for R2
+          aws configure set aws_access_key_id "$R2_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$R2_SECRET_ACCESS_KEY"
+
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          # Upload DMG
+          aws s3 cp "Toss/Toss-${VERSION}.dmg" \
+            "s3://${R2_BUCKET}/releases/Toss-${VERSION}.dmg" \
+            --endpoint-url "$R2_ENDPOINT"
+
+          # Also upload as "latest" for easy linking
+          aws s3 cp "Toss/Toss-${VERSION}.dmg" \
+            "s3://${R2_BUCKET}/releases/Toss-latest.dmg" \
+            --endpoint-url "$R2_ENDPOINT"
+
       - name: Update appcast.xml
         run: |
           APPCAST="appcast.xml"
           VERSION="${{ steps.version.outputs.VERSION }}"
-          URL="https://github.com/jack-elliot-doherty/toss-mac-app/releases/download/v${VERSION}/Toss-${VERSION}.dmg"
+          URL="https://pub-f7c7841703f74a6fa6c606aa61cdd1fd.r2.dev/releases/Toss-${VERSION}.dmg"
           SIG="${{ env.SIGNATURE }}"
           LEN="${{ env.DMG_LENGTH }}"
           DATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
@@ -284,6 +311,20 @@ jobs:
           git add "$APPCAST"
           git commit -m "Update appcast for v${VERSION}" || exit 0
           git push origin HEAD:main
+
+      - name: Upload appcast.xml to R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          aws s3 cp appcast.xml \
+            "s3://${R2_BUCKET}/appcast.xml" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --content-type "application/xml"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

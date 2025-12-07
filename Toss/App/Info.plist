@@ -26,7 +26,7 @@
 
 	<!-- Sparkle Configuration -->
 	<key>SUFeedURL</key>
-	<string>https://jack-elliot-doherty.github.io/toss-mac-app/appcast.xml</string>
+	<string>https://usetoss.com/api/appcast</string>
     <key>SUPublicEDKey</key>
     <string>q6OHq6jS+2hYxcwPDw+bjgJ7k++fj3sxUt3ecwWTKNU=</string>
 	<key>SUEnableAutomaticChecks</key>
