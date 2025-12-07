@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import ScreenCaptureKit
 
 enum ScreenRecordingAuth {
     static func status() -> Bool {
@@ -7,9 +8,20 @@ enum ScreenRecordingAuth {
     }
 
     static func requestAccess(completion: @escaping (Bool) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let granted = CGRequestScreenCaptureAccess()
-            DispatchQueue.main.async { completion(granted) }
+        // Attempt a real capture to force macOS to add us to the Screen Recording list
+        // This is required on macOS 14+ for the app to appear in System Settings
+        Task {
+            do {
+                // This triggers the permission prompt AND adds the app to the list
+                _ = try await SCShareableContent.excludingDesktopWindows(
+                    false, onScreenWindowsOnly: true)
+                let granted = CGPreflightScreenCaptureAccess()
+                await MainActor.run { completion(granted) }
+            } catch {
+                // Even if it fails (permission denied), the app will now be in the list
+                let granted = CGPreflightScreenCaptureAccess()
+                await MainActor.run { completion(granted) }
+            }
         }
     }
 
