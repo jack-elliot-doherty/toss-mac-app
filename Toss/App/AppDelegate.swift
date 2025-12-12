@@ -175,8 +175,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         // Wire hold-to-talk
-        hotkey.onFnDown = { [weak self] in
-            self?.pillController.send(.fnDown)
+        hotkey.onFnDown = { [weak self] isCmdHeld in
+            self?.pillController.send(.fnDown(isCmdHeld: isCmdHeld))
         }
         hotkey.onFnUp = { [weak self] in
             self?.pillController.send(.fnUp)

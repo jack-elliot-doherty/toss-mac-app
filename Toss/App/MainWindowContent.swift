@@ -25,21 +25,28 @@ struct MainWindowContent: View {
 }
 
 private struct MainWindowConfigurationView: NSViewRepresentable {
+    @ObservedObject private var auth = AuthManager.shared
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            configureMainWindow(window)
+            configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let window = nsView.window else { return }
-        configureMainWindow(window)
+        configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
     }
 
-    private func configureMainWindow(_ window: NSWindow) {
+    private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool) {
+        // Hide window entirely if not authenticated
+        if !isAuthenticated {
+            window.orderOut(nil)
+            return
+        }
         // Visual styling (same frosted glass look)
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true

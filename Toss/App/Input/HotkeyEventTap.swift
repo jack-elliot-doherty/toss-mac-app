@@ -1,7 +1,7 @@
 import Cocoa
 
 final class HotkeyEventTap {
-    var onFnDown: (() -> Void)?
+    var onFnDown: ((_ isCmdHeld: Bool) -> Void)?
     var onFnUp: (() -> Void)?
 
     var onCmdDown: (() -> Void)?
@@ -84,7 +84,8 @@ final class HotkeyEventTap {
                     pendingFnUpTimer = nil
                     lastFnDownAt = now
 
-                    onFnDown?()
+                    // Pass actual cmd modifier state to avoid event ordering issues
+                    onFnDown?(cmdIsDown)
                 }
                 if fnWasDown && !fnIsDown {
 
@@ -185,7 +186,8 @@ final class HotkeyEventTap {
                     pendingFnUpTimer?.invalidate()
                     pendingFnUpTimer = nil
                     lastFnDownAt = now
-                    onFnDown?()
+                    // Pass actual cmd modifier state to avoid event ordering issues
+                    onFnDown?(cmdIsDown)
                 }
 
                 if fnWasDown && !fnIsDown {

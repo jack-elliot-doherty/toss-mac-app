@@ -29,7 +29,7 @@ enum PillState: Equatable {
 
 enum PillEvent: Equatable {
     // key and UI inputs
-    case fnDown
+    case fnDown(isCmdHeld: Bool)  // pass actual modifier state to avoid event ordering issues
     case fnUp
     case cmdDown
     case cmdUp
@@ -221,9 +221,11 @@ struct PillStateMachine {
             ]
 
         // - IDLE
-        case (.idle, .fnDown):
-            let mode: PillMode = ctx.isCmdHeld ? .command : .dictation
-            ctx.isCmdHeld = false  // dont let stale cmddown leak from cmd + v from paste from prev session
+        case (.idle, .fnDown(let isCmdHeld)):
+            // Use the actual modifier state passed with the event, not tracked state
+            // This avoids issues where cmdUp arrives after fnDown due to event ordering
+            let mode: PillMode = isCmdHeld ? .command : .dictation
+            ctx.isCmdHeld = false  // reset tracked state to avoid stale values
             state = .listening(mode)
             effects += [.startAudioCapture, .setVisualStateListening]
 
@@ -251,7 +253,7 @@ struct PillStateMachine {
             state = .idle
             effects += [.setVisualStateIdle]
 
-        case (.meetingDetected, .fnDown),
+        case (.meetingDetected, .fnDown(_)),
             (.meetingDetected, .quickActionRecordMeeting),
             (.meetingDetected, .pillClicked):
             let meetingId = UUID()
@@ -299,7 +301,7 @@ struct PillStateMachine {
             effects += [.stopAudioCapture, .setVisualStateTranscribing, .startTranscription]
 
         // When were in always all mode hitting fn again will end the dictation
-        case (.listening, .fnDown) where ctx.isAlwaysOn:
+        case (.listening, .fnDown(_)) where ctx.isAlwaysOn:
             ctx.isAlwaysOn = false
             state = .transcribing(currentMode)
             effects += [

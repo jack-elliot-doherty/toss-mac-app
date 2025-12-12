@@ -394,40 +394,48 @@ struct OnboardingView: View {
             }
 
         case .agentIntro:
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Command your agent with Fn + ⌘")
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Meet your AI agent")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundColor(AppTheme.primaryText)
 
-                HStack(spacing: 4) {
-                    Text("Hold")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.secondaryText)
+                Text(
+                    "Your agent can take actions in connected apps - send Slack messages, create Linear issues, manage your calendar, and more."
+                )
+                .font(.system(size: 14))
+                .foregroundColor(AppTheme.secondaryText)
 
-                    HStack(spacing: 2) {
-                        Text("fn")
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        Text("+")
-                            .font(.system(size: 12, weight: .medium))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("How to use:")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Text("fn")
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            Text("+")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("⌘")
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        }
+                        .foregroundColor(AppTheme.primaryText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color.white.opacity(0.1))
+                        )
+
+                        Text("Hold, speak, release")
+                            .font(.system(size: 13))
                             .foregroundColor(AppTheme.secondaryText)
-                        Text("⌘")
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
                     }
-                    .foregroundColor(AppTheme.primaryText)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(Color.white.opacity(0.1))
-                    )
-
-                    Text("to ask Toss to take action on selected text.")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.secondaryText)
                 }
+                .padding(.top, 4)
 
-                Text("Try summarizing, translating, or rewriting any text you select.")
-                    .font(.system(size: 14))
+                Text("Connect your apps in Settings after onboarding.")
+                    .font(.system(size: 13))
                     .foregroundColor(AppTheme.secondaryText)
                     .padding(.top, 8)
             }
@@ -652,35 +660,69 @@ private struct DictationDemoView: View {
 
 private struct AgentDemoView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            // Sample text card
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Try it on this text:")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(AppTheme.secondaryText)
+        VStack(spacing: 24) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(AppTheme.accent.opacity(0.15))
+                    .frame(width: 64, height: 64)
 
-                Text(
-                    "The quarterly results show a 15% increase in user engagement, driven primarily by the new onboarding flow and improved notification system. Key metrics include a 23% reduction in churn and 40% faster time-to-value for new users."
-                )
-                .font(.system(size: 14))
-                .foregroundColor(AppTheme.primaryText)
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(AppTheme.accent.opacity(0.1))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(AppTheme.accent.opacity(0.3), lineWidth: 1)
-                        )
-                )
+                Image(systemName: "sparkles")
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundColor(AppTheme.accent)
             }
 
-            Text("Select the text, hold fn + ⌘, and say \"summarize this\"")
-                .font(.system(size: 13))
-                .foregroundColor(AppTheme.secondaryText)
-                .multilineTextAlignment(.center)
+            // Try it prompt
+            VStack(spacing: 12) {
+                Text("Try asking:")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Text("\"What can you do?\"")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                            )
+                    )
+            }
+
+            // Instructions
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Text("Hold")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    HStack(spacing: 3) {
+                        Text("fn + ⌘")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    }
+                    .foregroundColor(AppTheme.primaryText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.white.opacity(0.1))
+                    )
+
+                    Text("and speak")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Text("The agent panel will appear")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+            }
         }
-        .padding(20)
+        .padding(28)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppTheme.cardBackground)
@@ -689,7 +731,7 @@ private struct AgentDemoView: View {
                         .stroke(AppTheme.subtleStroke, lineWidth: 1)
                 )
         )
-        .frame(maxWidth: 380)
+        .frame(maxWidth: 340)
     }
 }
 
