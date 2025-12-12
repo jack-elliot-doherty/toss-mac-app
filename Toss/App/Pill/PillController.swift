@@ -486,7 +486,7 @@ final class PillController {
                 case .failure(let error):
                     NSLog("[PillController] Auto-summary failed: \(error)")
                 }
-                
+
                 // Sync meeting to server after summary is saved (or failed)
                 await MeetingSyncManager.shared.syncMeeting(meetingId)
             }
@@ -604,8 +604,8 @@ final class PillController {
         guard let screen = window.screen ?? NSScreen.main else { return }
         let visibleFrame = screen.visibleFrame
 
-        // Position: right side of screen, 400px wide, full height
-        let width: CGFloat = 400
+        // Position: right side of screen, 500px wide, full height
+        let width: CGFloat = 500
         let height = visibleFrame.height
         let x = visibleFrame.maxX - width
         let y = visibleFrame.minY

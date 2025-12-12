@@ -78,7 +78,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 }
 
 @MainActor
-struct ContentView: View {
+struct MainAppView: View {
     @ObservedObject private var auth = AuthManager.shared
     @ObservedObject private var subscription = SubscriptionManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
@@ -98,98 +98,73 @@ struct ContentView: View {
         )
     )
 
-    @ObservedObject private var onboarding = OnboardingManager.shared
-
     var body: some View {
-        Group {
+        let _ = NSLog("[MainAppView] body START")
 
-            if onboarding.needsOnboarding {
-                OnboardingView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(AppTheme.windowBackground)
+        GeometryReader { geometry in
+            let shouldCollapse = geometry.size.width < 700  // Adjust this threshold as needed
+
+            ZStack {
+                AppGlassBackground()
+
+                HStack(alignment: .top, spacing: 16) {
+                    if !shouldCollapse {
+                        sidebar
+                            .frame(width: 238)
+                            .padding(8)
+                    }
+                    detailContent
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .padding(.horizontal, 2)
+                .padding(.top, 2)
+                .frame(minWidth: 300, minHeight: 400)
+                .animation(.easeInOut(duration: 0.25), value: shouldCollapse)
+
+                if showSettings {
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                        .onTapGesture { showSettings = false }
+
+                    SettingsModalView(onClose: { showSettings = false })
+                        .frame(width: 760)
+                        .transition(.scale.combined(with: .opacity))
+                        .zIndex(1)
+                        .appGlass(.surface, radius: 24)
+                }
             }
-            // else if subscription.needsSubscription {
-            //     PaywallView()
-            //         .frame(maxWidth: .infinity, maxHeight: .infinity)
-            //         .background(AppTheme.windowBackground)
-            // }
-            else {
-                main
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+
+            .environmentObject(pageChrome)
+            .ignoresSafeArea()
+            .preferredColorScheme(.dark)
+            .animation(.easeInOut(duration: 0.2), value: showSettings)
+            .onAppear {
+                updateChromeForCurrentSelection()
             }
-        }.task {
-            if AuthManager.shared.isAuthenticated {
-
-                await subscription.checkSubscription()
+            .onChange(of: selection) { _ in
+                updateChromeForCurrentSelection()
             }
-        }
-    }
-
-    var main: some View {
-        ZStack {
-            AppGlassBackground()
-
-            HStack(alignment: .top, spacing: 16) {
-                sidebar
-                    .frame(width: 238)
-                    .padding(8)
-
-                detailContent
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
+            ) { notification in
+                if let userInfo = notification.userInfo,
+                    let meetingId = userInfo["meetingId"] as? UUID
+                {
+                    selectSidebarItem(.meetings)
+                    pendingMeetingId = meetingId
+                }
             }
-            .padding(.horizontal, 2)
-            .padding(.top, 2)
-            .frame(minWidth: 750, minHeight: 600)
-
-            if showSettings {
-                Color.black.opacity(0.35)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture { showSettings = false }
-
-                SettingsModalView(onClose: { showSettings = false })
-                    .frame(width: 760)
-                    .transition(.scale.combined(with: .opacity))
-                    .zIndex(1)
-                    .appGlass(.surface, radius: 24)
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
+            ) { _ in
+                showSettings = true
             }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
-
-        .environmentObject(pageChrome)
-        .background(
-            WindowReader { window in
-                guard let window else { return }
-                windowReference = window
-                configureWindow(window)
-            }
-        )
-        .ignoresSafeArea()
-        .preferredColorScheme(.dark)
-        .animation(.easeInOut(duration: 0.2), value: showSettings)
-        .onAppear {
-            updateChromeForCurrentSelection()
-        }
-        .onChange(of: selection) { _ in
-            updateChromeForCurrentSelection()
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
-        ) { notification in
-            if let userInfo = notification.userInfo,
-                let meetingId = userInfo["meetingId"] as? UUID
-            {
-                selectSidebarItem(.meetings)
-                pendingMeetingId = meetingId
-            }
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
-        ) { _ in
-            showSettings = true
         }
     }
 
@@ -595,41 +570,6 @@ struct ContentView: View {
     }
 }
 
-private func configureWindow(_ window: NSWindow) {
-    window.titleVisibility = .hidden
-    window.titlebarAppearsTransparent = true
-    window.styleMask.insert(.fullSizeContentView)
-    window.isMovableByWindowBackground = true
-    window.isOpaque = false
-    window.backgroundColor = .clear
-    window.titlebarSeparatorStyle = .none
-    window.toolbar = nil
-    window.standardWindowButton(.closeButton)?.isHidden = true
-    window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-    window.standardWindowButton(.zoomButton)?.isHidden = true
-    if let titlebarView = window.standardWindowButton(.closeButton)?.superview {
-        titlebarView.isHidden = true
-    }
-}
-
-private struct WindowReader: NSViewRepresentable {
-    var onUpdate: (NSWindow?) -> Void
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView(frame: .zero)
-        DispatchQueue.main.async {
-            onUpdate(view.window)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async {
-            onUpdate(nsView.window)
-        }
-    }
-}
-
 private struct TrafficLightsView: View {
     var onClose: () -> Void
     var onMinimize: () -> Void
@@ -982,7 +922,7 @@ struct HomeView: View {
 }
 
 #Preview {
-    ContentView()
+    MainAppView()
 }
 
 struct SettingsView: View {

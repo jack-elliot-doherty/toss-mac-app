@@ -106,11 +106,14 @@ final class AuthManager: ObservableObject {
         let refresh = comps?.queryItems?.first(where: { $0.name == "refresh" })?.value
         if let token, !token.isEmpty {
             try? writeToken(token)
-            DispatchQueue.main.async { [weak self] in self?.accessToken = token }
+            // CHANGED: Set directly instead of DispatchQueue.main.async
+            self.accessToken = token
             if let refresh, !refresh.isEmpty {
                 try? writeRefresh(refresh)
-                DispatchQueue.main.async { [weak self] in self?.refreshToken = refresh }
+                self.refreshToken = refresh
             }
+            // ADDED: Activate app to trigger UI update
+            NSApp.activate(ignoringOtherApps: true)
             Task { await self.refreshProfile() }
             return true
         }
@@ -122,24 +125,6 @@ final class AuthManager: ObservableObject {
         return true
     }
 
-    func signInDevToken() {
-        let alert = NSAlert()
-        alert.messageText = "Enter developer token"
-        alert.informativeText =
-            "Paste a temporary API token from the server to authenticate this device."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        alert.accessoryView = input
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else { return }
-        let token = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
-        try? writeToken(token)
-        DispatchQueue.main.async { [weak self] in self?.accessToken = token }
-    }
-
     func signOut() {
 
         refreshTimer?.invalidate()
@@ -147,13 +132,13 @@ final class AuthManager: ObservableObject {
         try? deleteToken()
         try? deleteRefresh()
         History.shared.clear()
-        DispatchQueue.main.async { [weak self] in
-            self?.accessToken = nil
-            self?.refreshToken = nil
-            self?.userName = nil
-            self?.userEmail = nil
-            self?.userImageURL = nil
-        }
+
+        accessToken = nil
+        refreshToken = nil
+        userName = nil
+        userEmail = nil
+        userImageURL = nil
+
     }
 
     @discardableResult
@@ -175,11 +160,11 @@ final class AuthManager: ObservableObject {
                 let name = json["name"] as? String
                 let email = json["email"] as? String
                 let image = (json["imageUrl"] as? String).flatMap { URL(string: $0) }
-                DispatchQueue.main.async { [weak self] in
-                    self?.userName = name
-                    self?.userEmail = email
-                    self?.userImageURL = image
-                }
+
+                userName = name
+                userEmail = email
+                userImageURL = image
+
                 await SubscriptionManager.shared.checkSubscription()
 
                 return true
@@ -297,11 +282,14 @@ final class AuthManager: ObservableObject {
                 let refresh = json["refresh"] as? String
                 if let token, !token.isEmpty { try? writeToken(token) }
                 if let refresh, !refresh.isEmpty { try? writeRefresh(refresh) }
-                DispatchQueue.main.async { [weak self] in
-                    self?.accessToken = token
-                    self?.refreshToken = (json["refresh"] as? String) ?? self?.refreshToken
 
-                }
+                // CHANGED: Set directly instead of DispatchQueue.main.async
+                self.accessToken = token
+                self.refreshToken = refresh ?? self.refreshToken
+
+                // ADDED: Activate app to bring to foreground and trigger UI update
+                NSApp.activate(ignoringOtherApps: true)
+
                 await SubscriptionManager.shared.checkSubscription()
                 _ = await self.refreshProfile()
             }
@@ -323,7 +311,8 @@ final class AuthManager: ObservableObject {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 if let token = json["token"] as? String, !token.isEmpty {
                     try? writeToken(token)
-                    DispatchQueue.main.async { [weak self] in self?.accessToken = token }
+                    // CHANGED: Set directly
+                    self.accessToken = token
                     return true
                 }
             }

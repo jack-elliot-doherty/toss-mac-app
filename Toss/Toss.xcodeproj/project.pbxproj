@@ -17,7 +17,7 @@
 		DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36235A2EB23FCE000207F0 /* UpdateManager.swift */; };
 		DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA36234D2EB23FCE000207F0 /* ToastPanelController.swift */; };
 		DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623412EB23FCE000207F0 /* AudioRecorder.swift */; };
-		DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623612EB23FCE000207F0 /* ContentView.swift */; };
+		DA36236F2EB23FCE000207F0 /* MainAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623612EB23FCE000207F0 /* MainAppView.swift */; };
 		DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623532EB23FCE000207F0 /* HistoryRepository.swift */; };
 		DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623422EB23FCE000207F0 /* HotkeyEventTap.swift */; };
 		DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3623492EB23FCE000207F0 /* PillPanelController.swift */; };
@@ -49,6 +49,14 @@
 		DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */; };
 		DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */; };
 		DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */; };
+		DA9C43CA2EE79CC900C6D778 /* ScreenshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43C92EE79CC900C6D778 /* ScreenshotCapture.swift */; };
+		DA9C43CC2EEA096A00C6D778 /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43CB2EEA096A00C6D778 /* SignInView.swift */; };
+		DA9C43CE2EEC4D3800C6D778 /* MainWindowContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43CD2EEC4D3800C6D778 /* MainWindowContent.swift */; };
+		DA9C43D02EEC4D4900C6D778 /* SignInWindowContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43CF2EEC4D4900C6D778 /* SignInWindowContent.swift */; };
+		DA9C43D52EECB9D000C6D778 /* PermissionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */; };
+		DA9C43D62EECB9D000C6D778 /* MicTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D22EECB9D000C6D778 /* MicTestView.swift */; };
+		DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */; };
+		DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */; };
 		DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */; };
 		DAD36B792EE260790040FA21 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B782EE260790040FA21 /* SubscriptionManager.swift */; };
 		DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */; };
@@ -114,7 +122,7 @@
 		DA36235E2EB23FCE000207F0 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DA36235F2EB23FCE000207F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DA3623602EB23FCE000207F0 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
-		DA3623612EB23FCE000207F0 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DA3623612EB23FCE000207F0 /* MainAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainAppView.swift; sourceTree = "<group>"; };
 		DA3623632EB23FCE000207F0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA3623822EB3FF10000207F0 /* PillController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillController.swift; sourceTree = "<group>"; };
 		DA3623832EB3FF10000207F0 /* PillStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PillStateMachine.swift; sourceTree = "<group>"; };
@@ -134,6 +142,14 @@
 		DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingDetector.swift; sourceTree = "<group>"; };
 		DA7827A52EBFFE2D0040ED92 /* MeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingView.swift; sourceTree = "<group>"; };
 		DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRecordingAuth.swift; sourceTree = "<group>"; };
+		DA9C43C92EE79CC900C6D778 /* ScreenshotCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotCapture.swift; sourceTree = "<group>"; };
+		DA9C43CB2EEA096A00C6D778 /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInView.swift; sourceTree = "<group>"; };
+		DA9C43CD2EEC4D3800C6D778 /* MainWindowContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowContent.swift; sourceTree = "<group>"; };
+		DA9C43CF2EEC4D4900C6D778 /* SignInWindowContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInWindowContent.swift; sourceTree = "<group>"; };
+		DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyTestView.swift; sourceTree = "<group>"; };
+		DA9C43D22EECB9D000C6D778 /* MicTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicTestView.swift; sourceTree = "<group>"; };
+		DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingProgressBar.swift; sourceTree = "<group>"; };
+		DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCard.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -251,6 +267,7 @@
 		DA3623592EB23FCE000207F0 /* System */ = {
 			isa = PBXGroup;
 			children = (
+				DA9C43C92EE79CC900C6D778 /* ScreenshotCapture.swift */,
 				DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */,
 				DA3623552EB23FCE000207F0 /* Accessibility.swift */,
 				DA3623572EB23FCE000207F0 /* AXFocusHelper.swift */,
@@ -270,6 +287,7 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA9C43CD2EEC4D3800C6D778 /* MainWindowContent.swift */,
 				DAEEBF2C2ED5F065009DE3CF /* Utilities */,
 				DAEEBF272ED265E1009DE3CF /* AppGlass.swift */,
 				DA3427582EC9258F00F85DEB /* AppTheme.swift */,
@@ -291,7 +309,7 @@
 				DA36235E2EB23FCE000207F0 /* AppDelegate.swift */,
 				DA36235F2EB23FCE000207F0 /* Assets.xcassets */,
 				DA3623602EB23FCE000207F0 /* AuthManager.swift */,
-				DA3623612EB23FCE000207F0 /* ContentView.swift */,
+				DA3623612EB23FCE000207F0 /* MainAppView.swift */,
 				DA3623632EB23FCE000207F0 /* Info.plist */,
 			);
 			path = App;
@@ -310,6 +328,12 @@
 		DA3623972EBB77B8000207F0 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */,
+				DA9C43D22EECB9D000C6D778 /* MicTestView.swift */,
+				DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */,
+				DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */,
+				DA9C43CF2EEC4D4900C6D778 /* SignInWindowContent.swift */,
+				DA9C43CB2EEA096A00C6D778 /* SignInView.swift */,
 				DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */,
 				DA3623942EBB77B8000207F0 /* OnboardingGate.swift */,
 				DA3623952EBB77B8000207F0 /* OnboardingManager.swift */,
@@ -534,6 +558,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA9C43D02EEC4D4900C6D778 /* SignInWindowContent.swift in Sources */,
 				DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */,
 				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
 				DAD483E72EBCE56A001C5902 /* Config.swift in Sources */,
@@ -543,13 +568,15 @@
 				DA36239C2EBB77CB000207F0 /* HistoryView.swift in Sources */,
 				DA3623672EB23FCE000207F0 /* UpdateManager.swift in Sources */,
 				DA3623982EBB77B8000207F0 /* OnboardingView.swift in Sources */,
+				DA9C43CC2EEA096A00C6D778 /* SignInView.swift in Sources */,
 				DA3623992EBB77B8000207F0 /* OnboardingGate.swift in Sources */,
+				DA9C43CA2EE79CC900C6D778 /* ScreenshotCapture.swift in Sources */,
 				DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */,
 				DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
 				DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */,
-				DA36236F2EB23FCE000207F0 /* ContentView.swift in Sources */,
+				DA36236F2EB23FCE000207F0 /* MainAppView.swift in Sources */,
 				DA3623712EB23FCE000207F0 /* HistoryRepository.swift in Sources */,
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
 				DA34275B2ECA889500F85DEB /* SystemAudioRecorder.swift in Sources */,
@@ -558,6 +585,7 @@
 				DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */,
 				DAD36B7D2EE5ABE40040FA21 /* ToolPreviewCards.swift in Sources */,
 				DA84BB2B2ECD0E3400A3318B /* ScreenRecordingAuth.swift in Sources */,
+				DA9C43CE2EEC4D3800C6D778 /* MainWindowContent.swift in Sources */,
 				DA3623892EB56CD1000207F0 /* PillPreviewModel.swift in Sources */,
 				DAEEBF312EDCF1BD009DE3CF /* URLRequest+Extensions.swift in Sources */,
 				DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */,
@@ -587,6 +615,10 @@
 				DA7827A22EBE94CC0040ED92 /* MeetingRecorder.swift in Sources */,
 				DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
+				DA9C43D52EECB9D000C6D778 /* PermissionCard.swift in Sources */,
+				DA9C43D62EECB9D000C6D778 /* MicTestView.swift in Sources */,
+				DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */,
+				DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

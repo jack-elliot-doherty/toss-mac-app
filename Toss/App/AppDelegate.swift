@@ -1,8 +1,10 @@
 import Cocoa
+import Combine
 import Foundation
 import PostHog
 import Sentry
 import Sparkle
+import SwiftUI
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -30,6 +32,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillPanel.frame
         })
     private var lastTapAt: Date?
+    private var signInWindow: NSWindow?
+    private var authCancellable: AnyCancellable?
+    private var wasAuthenticated = false
 
     override init() {
         updaterController = SPUStandardUpdaterController(
@@ -69,7 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         SentrySDK.start { options in
             options.dsn =
                 "https://a26dd5e1ec6aac34508dc372eae29c87@o4510456233197568.ingest.us.sentry.io/4510456234442752"
-            options.debug = true  // Enabling debug when first installing is always helpful
+            options.debug = false
 
             // Adds IP for users.
             // For more information, visit: https://docs.sentry.io/platforms/apple/data-management/data-collected/
@@ -255,6 +260,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         MeetingsManager.shared.pillController = pillController
 
         NSLog("[AppDelegate] Meeting detection enabled")
+
+        // Observe auth state changes to manage windows
+        // Initialize wasAuthenticated based on current state
+        wasAuthenticated = AuthManager.shared.isAuthenticated
+
+        authCancellable = AuthManager.shared.$accessToken
+            .dropFirst()  // Skip initial value to avoid duplicate on launch
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] token in
+                guard let self = self else { return }
+
+                let isAuthenticated = token?.isEmpty == false
+                let wasAuthenticated = self.wasAuthenticated
+                self.wasAuthenticated = isAuthenticated
+
+                NSLog(
+                    "[AppDelegate] Auth state changed: \(isAuthenticated) (was: \(wasAuthenticated))"
+                )
+
+                // Only react to actual state transitions, not token refreshes
+                if isAuthenticated && !wasAuthenticated {
+                    self.closeSignInWindow()
+                    // Small delay to let window fully close
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.showMainWindow()
+                    }
+                } else if !isAuthenticated && wasAuthenticated {
+                    self.closeMainWindow()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.showSignInWindow()
+                    }
+                }
+            }
+
+        // Initial window state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            if AuthManager.shared.isAuthenticated {
+                self?.showMainWindow()
+            } else {
+                self?.showSignInWindow()
+            }
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
@@ -337,6 +384,113 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleRecordMeetingRequest() {
         pillController.send(.startMeetingRecording)
+    }
+
+    func showSignInWindow() {
+        // Reuse existing sign-in window if it exists
+        if let existing = signInWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 390),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.titlebarSeparatorStyle = .none
+
+        // Create hosting view that fills the ENTIRE window
+        let contentView = SignInView()
+        let hostingView = NSHostingView(rootView: contentView)
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Create a container view that fills the window
+        let containerView = NSView(frame: window.contentView?.bounds ?? .zero)
+        containerView.wantsLayer = true
+        containerView.addSubview(hostingView)
+
+        // Pin hosting view to all edges of container
+        NSLayoutConstraint.activate([
+            hostingView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            hostingView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+        ])
+
+        window.contentView = containerView
+        window.center()
+
+        // Lock size
+        window.minSize = NSSize(width: 520, height: 390)
+        window.maxSize = NSSize(width: 520, height: 390)
+
+        // Hide minimize/zoom buttons
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
+
+        self.signInWindow = window
+
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func showMainWindow() {
+        NSLog("[AppDelegate] showMainWindow START")
+        // Find existing main window
+        for window in NSApp.windows {
+            if window.title == "Toss" && window !== signInWindow {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                NSLog("[AppDelegate] showMainWindow END (found)")
+                return
+            }
+        }
+        // No existing window - SwiftUI should create it, just activate
+        NSApp.activate(ignoringOtherApps: true)
+        NSLog("[AppDelegate] showMainWindow END (not found)")
+    }
+
+    func closeMainWindow() {
+        NSLog("[AppDelegate] closeMainWindow START")
+
+        for (index, window) in NSApp.windows.enumerated() {
+            NSLog(
+                "[AppDelegate] Checking window \(index): title='\(window.title)', isSignIn=\(window === signInWindow)"
+            )
+
+            if window.title == "Toss" && window !== signInWindow {
+                NSLog("[AppDelegate] closeMainWindow - HIDING window \(index)")
+                window.orderOut(nil)
+                // DON'T call window.close() - this tears down SwiftUI views
+                // but leaves NSTrackingAreas active, causing crashes on mouse move
+            }
+        }
+
+        NSLog("[AppDelegate] closeMainWindow END")
+    }
+
+    func closeSignInWindow() {
+        NSLog("[AppDelegate] closeSignInWindow START")
+
+        guard let window = signInWindow else {
+            NSLog("[AppDelegate] closeSignInWindow - no window to close")
+            return
+        }
+
+        // Just hide the window, don't close it
+        // Closing can cause crashes if tracking areas are still active
+        window.orderOut(nil)
+
+        NSLog("[AppDelegate] closeSignInWindow END")
     }
 }
 

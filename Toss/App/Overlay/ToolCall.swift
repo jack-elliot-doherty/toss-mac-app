@@ -25,6 +25,8 @@ struct ToolCall: Identifiable, Equatable {
             return "Create Linear Issue"
         case "get_granola_notes":
             return "Get Granola Notes"
+        case "screenshot":
+            return "Take Screenshot"
         default:
             return name.replacingOccurrences(of: "_", with: " ").capitalized
         }
@@ -35,8 +37,20 @@ struct ToolCall: Identifiable, Equatable {
         switch name {
         case "send_slack_message", "create_linear_issue":
             return true
+        case "screenshot":
+            return true  // Client-side tools need approval for user consent
         case "get_granola_notes":
             return false
+        default:
+            return false
+        }
+    }
+
+    /// Check if this tool executes on the client (Mac app) rather than the server
+    var isClientSideTool: Bool {
+        switch name {
+        case "screenshot":
+            return true
         default:
             return false
         }

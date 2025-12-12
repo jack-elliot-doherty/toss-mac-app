@@ -142,6 +142,7 @@ struct MeetingView: View {
     @State private var editableTitle: String = ""
     @State private var isEditingTitle: Bool = false
     @FocusState private var isTitleFocused: Bool
+    @State private var isAwaitingAutoSummary = false  // Waiting for post-call summary generation
 
     // Action items state
     @State private var extractedActions: [ExtractedAction] = []
@@ -471,6 +472,22 @@ struct MeetingView: View {
             editableUserNotes = meeting?.userNotes ?? ""
             // Load stored actions on appear
             loadStoredActions()
+
+            // If meeting just ended and no summary yet, show loading state
+            if !isRecording && !hasAISummary {
+                // Check if meeting ended recently (within last 2 minutes) - likely still generating
+                if let endTime = meeting?.endTime,
+                    Date().timeIntervalSince(endTime) < 120
+                {
+                    isAwaitingAutoSummary = true
+                }
+            }
+
+            // Auto-show AI summary post-call if user took no notes
+            if !isRecording && hasAISummary && (meeting?.userNotes ?? "").isEmpty {
+                showingAISummary = true
+            }
+
             // Extract actions if viewing AI summary and none stored
             if hasAISummary && showingAISummary {
                 extractActionsIfNeeded()
@@ -626,8 +643,8 @@ struct MeetingView: View {
                         )
                         markActionExecuted(actionId: action.id, success: false)
                     }
-                    // Clear result after delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    // Clear result after delay (longer for success so user sees confirmation)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
                         if actionExecutionResult?.id == action.id {
                             actionExecutionResult = nil
                         }
@@ -720,28 +737,53 @@ struct MeetingView: View {
 
     private var userNotesEditor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextEditor(text: $editableUserNotes)
-                .font(.system(size: 14))
-                .foregroundColor(AppTheme.primaryText)
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .frame(minHeight: 200)
-                .onChange(of: editableUserNotes) { _, newValue in
-                    saveUserNotes(newValue)
+            ZStack(alignment: .topLeading) {
+                // Inline placeholder when empty and recording
+                if editableUserNotes.isEmpty && isRecording {
+                    Text("Take notes here... these will be used to guide the overview.")
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+                        .padding(.top, 1)
+                        .padding(.leading, 6)
+                        .allowsHitTesting(false)
                 }
 
-            if isRecording {
-                Text(
-                    "Jot down key points, action items, questions... These will guide the AI summary."
-                )
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.secondaryText.opacity(0.6))
-            } else if !hasAISummary && (meeting?.userNotes ?? "").isEmpty {
+                TextEditor(text: $editableUserNotes)
+                    .font(.system(size: 14))
+                    .foregroundColor(AppTheme.primaryText)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .frame(minHeight: 200)
+                    .padding(.leading, -5)  // Align with placeholder
+                    .onChange(of: editableUserNotes) { _, newValue in
+                        saveUserNotes(newValue)
+                    }
+            }
+
+            if !hasAISummary && (meeting?.userNotes ?? "").isEmpty {
                 Text("No notes taken during this meeting.")
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.secondaryText)
             }
         }
+    }
+
+    private var generatingSummaryView: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Generating summary…")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            Text("This usually takes a few seconds")
+                .font(.system(size: 12))
+                .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .padding(.vertical, 32)
     }
 
     private func saveUserNotes(_ notes: String) {
@@ -1882,6 +1924,7 @@ private struct ActionItemCard: View {
     let onExecute: (ExtractedAction) -> Void
 
     @State private var editedParams: [String: AnyCodableValue]?
+    @State private var showSuccessPulse = false
 
     private var currentAction: ExtractedAction {
         guard let edited = editedParams else { return action }
@@ -1902,23 +1945,65 @@ private struct ActionItemCard: View {
 
             // Execution result feedback
             if let result = executionResult {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(
                         systemName: result.success ? "checkmark.circle.fill" : "xmark.circle.fill"
                     )
-                    .font(.system(size: 13))
+                    .font(.system(size: 16, weight: .semibold))
+                    .scaleEffect(showSuccessPulse ? 1.2 : 1.0)
+
                     Text(result.message)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13, weight: .medium))
+
+                    Spacer()
+
+                    if result.success {
+                        Text("Done")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(Color.green.opacity(0.2))
+                            )
+                    }
                 }
                 .foregroundColor(result.success ? .green : .red)
-                .padding(10)
+                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(result.success ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(result.success ? Color.green.opacity(0.12) : Color.red.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(
+                                    result.success
+                                        ? Color.green.opacity(0.3) : Color.red.opacity(0.3),
+                                    lineWidth: 1)
+                        )
                 )
+                .transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 0.95).combined(with: .opacity),
+                        removal: .opacity
+                    )
+                )
+                .onAppear {
+                    if result.success {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            showSuccessPulse = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                                showSuccessPulse = false
+                            }
+                        }
+                    }
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: executionResult?.id)
     }
 
     @ViewBuilder

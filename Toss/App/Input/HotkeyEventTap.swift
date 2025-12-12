@@ -50,16 +50,8 @@ final class HotkeyEventTap {
                 let cmdWasDown = previousFlags.contains(.command)
                 let cmdIsDown = flags.contains(.command)
 
-                print("[Hotkey] Flags:")
-                print(flags)
-                print("Fn was down: \(fnWasDown)")
-                print("Fn is down: \(fnIsDown)")
-                print("Cmd was down: \(cmdWasDown)")
-                print("Cmd is down: \(cmdIsDown)")
-
                 // --- Fn edges ---
                 if !fnWasDown && fnIsDown {
-                    print("[Hotkey] Fn DOWN")
                     // Double-tap check happens on the DOWN edge
                     var isDouble = false
                     if let last = self.lastFnDownAt,
@@ -70,7 +62,6 @@ final class HotkeyEventTap {
                     }
 
                     if isDouble {
-                        print("[Hotkey] Fn double tap")
                         self.onDoubleTapFn?()
                         cooldownUntil = now.addingTimeInterval(0.35)
 
@@ -83,7 +74,6 @@ final class HotkeyEventTap {
                         self.pendingFnUpTimer = nil
                         self.lastFnDownAt = nil
 
-                        print("[Hotkey] (swallowing Fn DOWN/UP for double-tap)")
                         self.previousFlags = flags
                         return  // ← do NOT call onFnDown
 
@@ -100,7 +90,6 @@ final class HotkeyEventTap {
 
                     if self.swallowFnUpAfterEscape {
                         self.swallowFnUpAfterEscape = false
-                        print("[Hotkey] (swallowed Fn UP after escape)")
                         self.previousFlags = flags
                         return
                     }
@@ -109,12 +98,10 @@ final class HotkeyEventTap {
                     if self.swallowNextFnUp {
                         self.swallowNextFnUp = false
                         self.swallowFnDownAfterDoubleTap = false
-                        print("[Hotkey] (swallowed Fn UP after double-tap)")
                         self.previousFlags = flags
                         return
                     }
 
-                    print("[Hotkey] Fn UP")
                     let held = now.timeIntervalSince(lastFnDownAt ?? now)
                     if held >= minFnHold {
                         onFnUp?()
@@ -139,7 +126,6 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return
                     }
-                    print("[Hotkey] Cmd DOWN")
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
@@ -147,13 +133,10 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return
                     }
-                    print("[Hotkey] Cmd UP")
                     onCmdUp?()
                 }
 
                 // update snapshot
-                print("Flags")
-                print(flags)
                 previousFlags = flags
 
             })
@@ -175,12 +158,10 @@ final class HotkeyEventTap {
                 let cmdWasDown = previousFlags.contains(.command)
                 let cmdIsDown = flags.contains(.command)
 
-                print("[Hotkey] (Local) Flags:")
                 print(flags)
 
                 // --- Fn edges ---
                 if !fnWasDown && fnIsDown {
-                    print("[Hotkey] (Local) Fn DOWN")
                     var isDouble = false
                     if let last = self.lastFnDownAt,
                         now.timeIntervalSince(last) <= self.doubleTapWindow,
@@ -190,7 +171,6 @@ final class HotkeyEventTap {
                     }
 
                     if isDouble {
-                        print("[Hotkey] (Local) Fn double tap")
                         self.onDoubleTapFn?()
                         cooldownUntil = now.addingTimeInterval(0.35)
                         self.swallowFnDownAfterDoubleTap = true
@@ -211,7 +191,6 @@ final class HotkeyEventTap {
                 if fnWasDown && !fnIsDown {
                     if self.swallowFnUpAfterEscape {
                         self.swallowFnUpAfterEscape = false
-                        print("[Hotkey] (Local) swallowed Fn UP after escape")
                         self.previousFlags = flags
                         return event
                     }
@@ -219,12 +198,10 @@ final class HotkeyEventTap {
                     if self.swallowNextFnUp {
                         self.swallowNextFnUp = false
                         self.swallowFnDownAfterDoubleTap = false
-                        print("[Hotkey] (Local) swallowed Fn UP after double-tap")
                         self.previousFlags = flags
                         return event
                     }
 
-                    print("[Hotkey] (Local) Fn UP")
                     let held = now.timeIntervalSince(lastFnDownAt ?? now)
                     if held >= minFnHold {
                         onFnUp?()
@@ -247,7 +224,6 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return event
                     }
-                    print("[Hotkey] (Local) Cmd DOWN")
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
@@ -255,7 +231,6 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return event
                     }
-                    print("[Hotkey] (Local) Cmd UP")
                     onCmdUp?()
                 }
 
@@ -272,7 +247,6 @@ final class HotkeyEventTap {
                 guard let self = self else { return }
                 // Escape key code is 53
                 if event.keyCode == 53 {
-                    print("[Hotkey] Escape pressed")
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
@@ -294,7 +268,6 @@ final class HotkeyEventTap {
                 guard let self = self else { return event }
                 // Escape key code is 53
                 if event.keyCode == 53 {
-                    print("[Hotkey] (Local) Escape pressed")
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
