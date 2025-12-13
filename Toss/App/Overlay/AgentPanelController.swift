@@ -104,8 +104,22 @@ final class AgentPanelController {
         }
     }
 
+    /// Whether the panel is currently visible with an active session
+    var isVisible: Bool {
+        panel.isVisible && !viewModel.messages.isEmpty
+    }
+
     func show(with initialMessage: String) {
-        // Reset X position for new session
+        // Check if we already have an active session
+        if isVisible {
+            // Panel is already showing with a conversation - add this as a follow-up message
+            NSLog("[AgentPanelController] Adding follow-up message to existing session")
+            viewModel.sendMessage(initialMessage)
+            return
+        }
+
+        // New session - reset everything
+        NSLog("[AgentPanelController] Starting new agent session")
         initialXPosition = nil
 
         viewModel.startConversation(with: initialMessage)

@@ -51,6 +51,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case home
     case meetings
     case activity
+    case memories
     case integrations
     case settings
 
@@ -61,6 +62,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .home: return "Home"
         case .meetings: return "Meetings"
         case .activity: return "Activity"
+        case .memories: return "Memories"
         case .integrations: return "Integrations"
         case .settings: return "Settings"
         }
@@ -71,6 +73,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .home: return "house"
         case .meetings: return "mic.fill"
         case .activity: return "clock.fill"
+        case .memories: return "brain.head.profile"
         case .integrations: return "square.stack.3d.down.right.fill"
         case .settings: return "gear"
         }
@@ -261,7 +264,8 @@ struct MainAppView: View {
                 navigationPath: $meetingsNavigationPath)
         case .activity:
             ActivityView()
-        // ActivityView()
+        case .memories:
+            MemoriesView()
         case .integrations:
             IntegrationsView()
         // IntegrationsView()
@@ -422,6 +426,8 @@ struct MainAppView: View {
             return "Calls"
         case .activity:
             return "Activity"
+        case .memories:
+            return "Memories"
         case .integrations:
             return "Integrations"
         case .settings:
@@ -626,7 +632,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 28) {
                 header
 
-                // QuickActionsCard()
+                QuickReferenceStrip()
 
                 LastDictationSection(
                     last: dictations.first,
@@ -661,11 +667,11 @@ struct HomeView: View {
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Good afternoon, \(auth.userName ?? "there")")
+                Text("Welcome back, \(auth.userName ?? "")")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundColor(AppTheme.primaryText)
 
-                Text("Toss is ready. Hold Fn to dictate, or ⌘ Fn for your agent.")
+                Text("Toss is ready to help, try out the quick reference below to get started.")
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.secondaryText)
             }
@@ -684,6 +690,81 @@ struct HomeView: View {
     }
 
     // MARK: - Sections
+
+    private struct QuickReferenceStrip: View {
+        var body: some View {
+            HStack(spacing: 12) {
+                QuickReferenceCard(
+                    keys: ["fn"],
+                    title: "Dictate",
+                    subtitle: "Hold to speak, release to paste"
+                )
+
+                QuickReferenceCard(
+                    keys: ["fn", "⌘"],
+                    title: "Agent",
+                    subtitle: "Voice commands for your apps"
+                )
+            }
+        }
+    }
+
+    private struct QuickReferenceCard: View {
+        let keys: [String]
+        let title: String
+        let subtitle: String
+
+        var body: some View {
+            HStack(spacing: 12) {
+                // Key caps
+                HStack(spacing: 4) {
+                    ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
+                        if index > 0 {
+                            Text("+")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+                        }
+                        Text(key)
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundColor(AppTheme.primaryText)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(Color.white.opacity(0.1))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                            )
+                    }
+                }
+
+                // Text
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppTheme.cardBackground.opacity(0.4))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppTheme.subtleStroke, lineWidth: 0.5)
+            )
+        }
+    }
 
     private struct QuickActionsCard: View {
         var body: some View {

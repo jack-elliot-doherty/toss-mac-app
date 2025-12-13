@@ -208,36 +208,110 @@ private struct ToolApprovalCard: View {
 
     @State private var isExecuting = false
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Tool-specific preview using shared components
-            ToolPreviewFactory.preview(
-                for: toolCall.name, params: toolCall.arguments, compact: false)
+    private var isAwaitingApproval: Bool {
+        if case .awaitingApproval = toolCall.status { return true }
+        return false
+    }
 
-            // Action buttons
-            if case .awaitingApproval = toolCall.status {
-                HStack(spacing: 10) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Reject button row (only when awaiting approval)
+            if isAwaitingApproval {
+                HStack {
+                    Spacer()
                     Button {
                         onReject()
                     } label: {
-                        Text("Reject")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.white.opacity(0.1))
-                            )
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("Reject")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.white.opacity(0.6))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(.white.opacity(0.08))
+                        )
                     }
                     .buttonStyle(.plain)
+                }
+                .padding(.bottom, 8)
+            }
 
+            // Use the unified editable preview components
+            toolPreviewContent
+
+            // Status feedback (executing, completed, failed)
+            statusOverlay
+        }
+    }
+
+    @ViewBuilder
+    private var toolPreviewContent: some View {
+        let params = ToolParams(toolCall.arguments)
+        let executing =
+            isExecuting
+            || {
+                if case .executing = toolCall.status { return true }
+                return false
+            }()
+
+        switch toolCall.name {
+        case "send_slack_message", "sendMessage", "send_message":
+            EditableSlackMessagePreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,  // No editing in agent panel
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "create_linear_issue", "createLinearIssue":
+            EditableLinearIssuePreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "create_calendar_event", "createCalendarEvent":
+            EditableCalendarEventPreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        default:
+            // Fallback to generic preview with separate approve button
+            VStack(alignment: .leading, spacing: 12) {
+                ToolPreviewFactory.preview(
+                    for: toolCall.name, params: toolCall.arguments, compact: false)
+
+                if isAwaitingApproval {
                     Button {
                         isExecuting = true
                         onApprove()
                     } label: {
                         HStack(spacing: 6) {
-                            if isExecuting {
+                            if executing {
                                 ProgressView()
                                     .scaleEffect(0.7)
                                 Text("Executing...")
@@ -257,44 +331,64 @@ private struct ToolApprovalCard: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .disabled(isExecuting)
+                    .disabled(executing)
                 }
-            } else if case .executing = toolCall.status {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .scaleEffect(0.8)
-                    Text("Executing...")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-            } else if case .completed(let result) = toolCall.status {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundColor(.green)
-                    Text(result)
-                        .font(.system(size: 12))
-                        .foregroundColor(.green)
-                        .lineLimit(2)
-                    Spacer()
-                }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.green.opacity(0.1))
-                )
             }
+            .padding(14)
+            .background(AppTheme.cardBackground)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(AppTheme.subtleStroke, lineWidth: 1)
+            )
         }
-        .padding(14)
-        .background(.regularMaterial)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(.white.opacity(0.15), lineWidth: 1)
-        )
+    }
+
+    @ViewBuilder
+    private var statusOverlay: some View {
+        if case .completed(let result) = toolCall.status {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(result)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                Spacer()
+            }
+            .foregroundColor(.green)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.green.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                    )
+            )
+            .padding(.top, 10)
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        } else if case .failed(let error) = toolCall.status {
+            HStack(spacing: 8) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(error)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                Spacer()
+            }
+            .foregroundColor(.red)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.red.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                    )
+            )
+            .padding(.top, 10)
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        }
     }
 }
 

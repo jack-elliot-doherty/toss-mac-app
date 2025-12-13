@@ -57,6 +57,7 @@
 		DA9C43D62EECB9D000C6D778 /* MicTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D22EECB9D000C6D778 /* MicTestView.swift */; };
 		DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */; };
 		DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */; };
+		DA9C43DA2EED9FE700C6D778 /* MemoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D92EED9FE700C6D778 /* MemoriesView.swift */; };
 		DAB7D7F42EDF7B5E005B99F2 /* ActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */; };
 		DAD36B792EE260790040FA21 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B782EE260790040FA21 /* SubscriptionManager.swift */; };
 		DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */; };
@@ -150,6 +151,7 @@
 		DA9C43D22EECB9D000C6D778 /* MicTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicTestView.swift; sourceTree = "<group>"; };
 		DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingProgressBar.swift; sourceTree = "<group>"; };
 		DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCard.swift; sourceTree = "<group>"; };
+		DA9C43D92EED9FE700C6D778 /* MemoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoriesView.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -256,6 +258,7 @@
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				DA9C43D92EED9FE700C6D778 /* MemoriesView.swift */,
 				DAB7D7F32EDF7B5E005B99F2 /* ActivityView.swift */,
 				DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */,
 				DA36239B2EBB77CB000207F0 /* HistoryView.swift */,
@@ -605,6 +608,7 @@
 				DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */,
 				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
+				DA9C43DA2EED9FE700C6D778 /* MemoriesView.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
 				DA3427532EC37F3A00F85DEB /* SlackMessageCard.swift in Sources */,
