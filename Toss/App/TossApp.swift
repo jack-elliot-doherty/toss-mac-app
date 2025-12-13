@@ -5,7 +5,8 @@ struct TossApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Only the main app window - sign-in is handled by AppDelegate
+        // Main window - visibility controlled by AppDelegate based on auth state
+        // The window content handles hiding itself when not authenticated
         Window("Toss", id: "main") {
             MainWindowContent()
                 .environmentObject(appDelegate.meetingRepository)

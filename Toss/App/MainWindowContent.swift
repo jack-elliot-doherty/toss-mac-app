@@ -24,13 +24,28 @@ struct MainWindowContent: View {
     }
 }
 
+// NSView subclass that calls a callback immediately when added to a window
+private class WindowObservingView: NSView {
+    var onWindow: ((NSWindow) -> Void)?
+
+    convenience init(onWindow: @escaping (NSWindow) -> Void) {
+        self.init(frame: .zero)
+        self.onWindow = onWindow
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let window = window {
+            onWindow?(window)
+        }
+    }
+}
+
 private struct MainWindowConfigurationView: NSViewRepresentable {
     @ObservedObject private var auth = AuthManager.shared
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
+        let view = WindowObservingView { [self] window in
             configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
         }
         return view
@@ -44,6 +59,7 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
     private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool) {
         // Hide window entirely if not authenticated
         if !isAuthenticated {
+            NSLog("[MainWindowConfig] Hiding main window (not authenticated)")
             window.orderOut(nil)
             return
         }

@@ -161,6 +161,20 @@ final class AuthManager: ObservableObject {
                 let email = json["email"] as? String
                 let image = (json["imageUrl"] as? String).flatMap { URL(string: $0) }
 
+                // Check if this is a different user than before
+                let lastEmail = UserDefaults.standard.string(forKey: "lastSignedInEmail")
+                if let email = email, let lastEmail = lastEmail, email != lastEmail {
+                    NSLog(
+                        "[AuthManager] Different user signed in (\(email) vs \(lastEmail)), will clear local data"
+                    )
+                    NotificationCenter.default.post(name: .userAccountChanged, object: nil)
+                }
+
+                // Store current user email for next comparison
+                if let email = email {
+                    UserDefaults.standard.set(email, forKey: "lastSignedInEmail")
+                }
+
                 userName = name
                 userEmail = email
                 userImageURL = image
@@ -321,4 +335,8 @@ final class AuthManager: ObservableObject {
         }
         return false
     }
+}
+
+extension Notification.Name {
+    static let userAccountChanged = Notification.Name("userAccountChanged")
 }

@@ -35,6 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var signInWindow: NSWindow?
     private var authCancellable: AnyCancellable?
     private var wasAuthenticated = false
+    private var pendingWindowWorkItem: DispatchWorkItem?
 
     override init() {
         updaterController = SPUStandardUpdaterController(
@@ -46,6 +47,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Disable window restoration to prevent stale windows from previous sessions
+        NSWindow.allowsAutomaticWindowTabbing = false
+        UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
+
         // Clean up any orphaned meetings from previous crash/force quit
         meetingRepository.cleanupOrphanedMeetings()
 
@@ -261,6 +266,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSLog("[AppDelegate] Meeting detection enabled")
 
+        // Observe when a different user signs in (to clear previous user's data)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleUserAccountChanged),
+            name: .userAccountChanged, object: nil)
+
         // Observe auth state changes to manage windows
         // Initialize wasAuthenticated based on current state
         wasAuthenticated = AuthManager.shared.isAuthenticated
@@ -279,26 +289,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     "[AppDelegate] Auth state changed: \(isAuthenticated) (was: \(wasAuthenticated))"
                 )
 
+                // Cancel any pending window operations to prevent race conditions
+                self.pendingWindowWorkItem?.cancel()
+                self.pendingWindowWorkItem = nil
+
                 // Only react to actual state transitions, not token refreshes
                 if isAuthenticated && !wasAuthenticated {
+                    // User just signed in - fetch their meetings from server
+                    Task {
+                        await self.fetchMeetingsFromServer()
+                    }
+
                     self.closeSignInWindow()
                     // Small delay to let window fully close
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        self.showMainWindow()
+                    let workItem = DispatchWorkItem { [weak self] in
+                        self?.showMainWindow()
                     }
+                    self.pendingWindowWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
                 } else if !isAuthenticated && wasAuthenticated {
                     self.closeMainWindow()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        self.showSignInWindow()
+                    let workItem = DispatchWorkItem { [weak self] in
+                        self?.showSignInWindow()
                     }
+                    self.pendingWindowWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
                 }
             }
 
         // Initial window state
+        // IMMEDIATELY hide main window if not authenticated to prevent flash
+        if !AuthManager.shared.isAuthenticated {
+            NSLog("[AppDelegate] Not authenticated on launch, hiding main window immediately")
+            closeMainWindow()
+        }
+
+        // Then show the appropriate window after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             if AuthManager.shared.isAuthenticated {
                 self?.showMainWindow()
             } else {
+                // Hide main window again in case SwiftUI made it visible after our initial hide
+                self?.closeMainWindow()
                 self?.showSignInWindow()
             }
         }
@@ -370,6 +402,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(nil)
     }
 
+    @objc private func handleUserAccountChanged() {
+        // When a different user signs in, clear local data and fetch their meetings from the server
+        NSLog("[AppDelegate] User account changed - clearing local data and fetching from server")
+        meetingRepository.clearAllData()
+        History.shared.clear()
+
+        // Fetch meetings from server for the new user
+        Task {
+            await fetchMeetingsFromServer()
+        }
+    }
+
+    private func fetchMeetingsFromServer() async {
+        NSLog("[AppDelegate] Fetching meetings from server...")
+        do {
+            let serverMeetings = try await MeetingsApi.shared.fetchRecordedMeetings()
+            await MainActor.run {
+                meetingRepository.importFromServer(serverMeetings)
+            }
+            NSLog(
+                "[AppDelegate] Successfully fetched and imported \(serverMeetings.count) meetings")
+        } catch {
+            NSLog(
+                "[AppDelegate] Failed to fetch meetings from server: \(error.localizedDescription)")
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         // End any active meeting recording gracefully
         pillController.endActiveRecordingIfNeeded()
@@ -387,12 +446,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showSignInWindow() {
+        NSLog("[AppDelegate] showSignInWindow START")
+
         // Reuse existing sign-in window if it exists
         if let existing = signInWindow {
+            NSLog(
+                "[AppDelegate] showSignInWindow - reusing existing window (visible=\(existing.isVisible))"
+            )
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            NSLog("[AppDelegate] showSignInWindow END (reused)")
             return
         }
+
+        NSLog("[AppDelegate] showSignInWindow - creating new window")
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 390),
@@ -441,6 +508,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        NSLog("[AppDelegate] showSignInWindow END")
     }
 
     func showMainWindow() {
@@ -463,11 +531,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("[AppDelegate] closeMainWindow START")
 
         for (index, window) in NSApp.windows.enumerated() {
+            let isPillPanel = window.level == .floating || window.level == .statusBar
+            let isSignIn = window === signInWindow
+            let isMainWindow = window.title == "Toss" || window.identifier?.rawValue == "main"
+
             NSLog(
-                "[AppDelegate] Checking window \(index): title='\(window.title)', isSignIn=\(window === signInWindow)"
+                "[AppDelegate] Checking window \(index): title='\(window.title)', isSignIn=\(isSignIn), isPill=\(isPillPanel), isMain=\(isMainWindow), visible=\(window.isVisible)"
             )
 
-            if window.title == "Toss" && window !== signInWindow {
+            // Hide main window or any non-pill, non-signin window
+            // Force hide regardless of current visibility state to catch windows that will become visible
+            if isMainWindow || (!isSignIn && !isPillPanel) {
                 NSLog("[AppDelegate] closeMainWindow - HIDING window \(index)")
                 window.orderOut(nil)
                 // DON'T call window.close() - this tears down SwiftUI views
@@ -482,15 +556,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("[AppDelegate] closeSignInWindow START")
 
         guard let window = signInWindow else {
-            NSLog("[AppDelegate] closeSignInWindow - no window to close")
+            NSLog("[AppDelegate] closeSignInWindow - no signInWindow reference")
             return
         }
+
+        NSLog(
+            "[AppDelegate] closeSignInWindow - hiding window (visible=\(window.isVisible), title='\(window.title)')"
+        )
 
         // Just hide the window, don't close it
         // Closing can cause crashes if tracking areas are still active
         window.orderOut(nil)
 
-        NSLog("[AppDelegate] closeSignInWindow END")
+        NSLog("[AppDelegate] closeSignInWindow END (visible=\(window.isVisible))")
     }
 }
 

@@ -152,6 +152,53 @@ final class MeetingsApi {
         self.baseURL = baseURL
     }
 
+    // MARK: - Fetch recorded meetings from server
+
+    struct ServerMeeting: Codable {
+        let id: String
+        let title: String
+        let transcript: String?
+        let summary: String?
+        let userNotes: String?
+        let startedAt: String
+        let endedAt: String?
+        let source: String?
+        let status: String?
+        let actionItems: [StoredActionItem]?
+    }
+
+    func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0) async throws -> [ServerMeeting] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("/meetings/recorded"),
+            resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch recorded meetings"]
+            )
+        }
+
+        struct Response: Codable {
+            let meetings: [ServerMeeting]
+        }
+
+        let decoder = JSONDecoder()
+        let result = try decoder.decode(Response.self, from: data)
+        NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server")
+        return result.meetings
+    }
+
     // MARK: - Fetch upcoming meetings
 
     func fetchUpcoming() async throws -> [UpcomingMeeting] {

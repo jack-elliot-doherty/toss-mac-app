@@ -438,4 +438,78 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             }
         }
     }
+
+    /// Clear all local meetings data (called on sign-out to prevent data leaking between accounts)
+    func clearAllData() {
+        queue.sync {
+            meetings.removeAll()
+            chunks.removeAll()
+            NSLog("[Meetings] Cleared all local meeting data")
+        }
+        save()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
+    }
+
+    /// Import meetings from server (merges with local, server wins on conflict)
+    func importFromServer(_ serverMeetings: [MeetingsApi.ServerMeeting]) {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        // Fallback formatter without fractional seconds
+        let fallbackFormatter = ISO8601DateFormatter()
+        fallbackFormatter.formatOptions = [.withInternetDateTime]
+
+        func parseDate(_ string: String) -> Date {
+            formatter.date(from: string) ?? fallbackFormatter.date(from: string) ?? Date()
+        }
+
+        queue.sync {
+            for serverMeeting in serverMeetings {
+                guard let uuid = UUID(uuidString: serverMeeting.id) else { continue }
+
+                let startTime = parseDate(serverMeeting.startedAt)
+                let endTime = serverMeeting.endedAt.flatMap { parseDate($0) }
+
+                let source: MeetingSource = serverMeeting.source == "calendar" ? .calendar : .adhoc
+
+                // Convert server action items to stored format
+                let actionItems = serverMeeting.actionItems ?? []
+
+                let meeting = MeetingModel(
+                    id: uuid,
+                    title: serverMeeting.title,
+                    startTime: startTime,
+                    endTime: endTime,
+                    createdAt: startTime,
+                    updatedAt: Date(),
+                    notes: serverMeeting.summary ?? "",
+                    userNotes: serverMeeting.userNotes ?? "",
+                    source: source,
+                    actionItems: actionItems,
+                    syncedAt: Date()  // Mark as synced since it came from server
+                )
+
+                // Only import if we don't have this meeting locally, or if local version is older
+                if let existing = meetings[uuid] {
+                    // Keep local version if it was updated more recently than our last sync
+                    if existing.syncedAt == nil || existing.updatedAt > existing.syncedAt! {
+                        NSLog("[Meetings] Keeping local version of \(uuid) (has unsynced changes)")
+                        continue
+                    }
+                }
+
+                meetings[uuid] = meeting
+                NSLog("[Meetings] Imported meeting from server: \(serverMeeting.title)")
+            }
+        }
+
+        save()
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
+
+        NSLog("[Meetings] Finished importing \(serverMeetings.count) meetings from server")
+    }
 }
