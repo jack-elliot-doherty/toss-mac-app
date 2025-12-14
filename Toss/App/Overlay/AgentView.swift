@@ -30,16 +30,6 @@ struct AgentView: View {
                         .transition(.opacity.combined(with: .scale))
                     }
 
-                    // Executing tool badges (read-only tools only)
-                    if !viewModel.executingTools.isEmpty {
-                        HStack(spacing: 8) {
-                            ForEach(viewModel.executingTools) { tool in
-                                ExecutingToolBadge(tool: tool)
-                            }
-                        }
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    }
-
                     // Only show thinking BEFORE streaming starts
                     if viewModel.isProcessing && !viewModel.isStreaming {
                         ProcessingRow()
@@ -143,8 +133,22 @@ private struct ErrorBubble: View {
 
 private struct MessageBubble: View {
     let message: AgentViewModel.DisplayMessage
+    @State private var isExpanded = false
 
     var body: some View {
+        // Special handling for different notification types
+        if message.isMemorySave {
+            MemorySaveNotification(message: message, isExpanded: $isExpanded)
+        } else if message.isToolExecution {
+            ToolExecutionNotification(message: message, isExpanded: $isExpanded)
+        } else if message.isToolApprovalWaiting {
+            ToolApprovalWaitingNotification(message: message, isExpanded: $isExpanded)
+        } else {
+            regularMessageView
+        }
+    }
+
+    private var regularMessageView: some View {
         HStack(alignment: .top, spacing: 8) {
             if message.role == .user { Spacer() }
 
@@ -198,6 +202,334 @@ private struct MessageBubble: View {
         } else {
             Color.clear
         }
+    }
+}
+
+// MARK: - Memory Save Notification (subtle reasoning-trace style)
+
+private struct MemorySaveNotification: View {
+    let message: AgentViewModel.DisplayMessage
+    @Binding var isExpanded: Bool
+
+    private var memoryText: String {
+        if let details = message.memoryDetails,
+            let memory = details["memory"] as? String
+        {
+            return memory
+        }
+        // Fallback: extract from content (format: "💭 Remembered: ...")
+        let content = message.content
+        if content.hasPrefix("💭 Remembered: ") {
+            return String(content.dropFirst("💭 Remembered: ".count))
+        }
+        return content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Collapsed: subtle inline text with chevron
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.35))
+
+                    Text("Added to memory")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
+                        .italic()
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Expanded: show the actual memory
+            if isExpanded {
+                Text(memoryText)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+                    .padding(.leading, 15)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Tool Execution Notification (subtle style with tool logo)
+
+private struct ToolExecutionNotification: View {
+    let message: AgentViewModel.DisplayMessage
+    @Binding var isExpanded: Bool
+
+    private var toolName: String {
+        message.toolExecutionName ?? "Unknown"
+    }
+
+    private var isSlackTool: Bool {
+        toolName.lowercased().hasPrefix("slack")
+    }
+
+    private var isLinearTool: Bool {
+        toolName.lowercased().hasPrefix("linear")
+    }
+
+    private var isCalendarTool: Bool {
+        toolName.lowercased().hasPrefix("calendar")
+    }
+
+    private var actionText: String {
+        let name = toolName.lowercased()
+        if isSlackTool {
+            if name.contains("send") { return "Sent to Slack" }
+            return "Read Slack"
+        }
+        if isLinearTool {
+            if name.contains("create") { return "Created Linear issue" }
+            if name.contains("search") { return "Searched Linear" }
+            return "Read from Linear"
+        }
+        if isCalendarTool {
+            if name.contains("create") { return "Created calendar event" }
+            if name.contains("list") { return "Listed calendar events" }
+            return "Read from Calendar"
+        }
+        // Convert snake_case to readable
+        return toolName.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    private var inProgressText: String {
+        let name = toolName.lowercased()
+        if isSlackTool {
+            if name.contains("send") { return "Sending to Slack..." }
+            return "Reading Slack..."
+        }
+        if isLinearTool {
+            if name.contains("create") { return "Creating Linear issue..." }
+            if name.contains("search") { return "Searching Linear..." }
+            return "Reading from Linear..."
+        }
+        if isCalendarTool {
+            if name.contains("create") { return "Creating calendar event..." }
+            if name.contains("list") { return "Listing calendar events..." }
+            return "Reading from Calendar..."
+        }
+        return toolName.replacingOccurrences(of: "_", with: " ").capitalized + "..."
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Collapsed: subtle inline text with tool icon and chevron
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.35))
+
+                    toolIcon
+                        .frame(width: 14, height: 14)
+
+                    Text(message.toolExecutionComplete ? actionText : inProgressText)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
+                        .italic()
+
+                    if message.toolExecutionComplete {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.green.opacity(0.6))
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Expanded: show args and result
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let args = message.toolExecutionArgs, !args.isEmpty {
+                        Text("Input:")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.35))
+                        Text(formatJSON(args))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.45))
+                            .textSelection(.enabled)
+                    }
+
+                    if let result = message.toolExecutionResult, message.toolExecutionComplete {
+                        Text("Output:")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.green.opacity(0.5))
+                        Text(formatJSON(result))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.green.opacity(0.6))
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(.leading, 15)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var toolIcon: some View {
+        if isSlackTool {
+            Image("SlackLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isLinearTool {
+            Image("LinearLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isCalendarTool {
+            Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.4))
+        }
+    }
+
+    private func formatJSON(_ dict: [String: Any]) -> String {
+        if let data = try? JSONSerialization.data(
+            withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]),
+            let str = String(data: data, encoding: .utf8)
+        {
+            return str
+        }
+        return String(describing: dict)
+    }
+}
+
+// MARK: - Tool Approval Waiting Notification (subtle style)
+
+private struct ToolApprovalWaitingNotification: View {
+    let message: AgentViewModel.DisplayMessage
+    @Binding var isExpanded: Bool
+
+    private var toolName: String {
+        message.toolExecutionName ?? "Unknown"
+    }
+
+    private var isSlackTool: Bool {
+        toolName.lowercased().hasPrefix("slack")
+    }
+
+    private var isLinearTool: Bool {
+        toolName.lowercased().hasPrefix("linear")
+    }
+
+    private var isCalendarTool: Bool {
+        toolName.lowercased().hasPrefix("calendar")
+    }
+
+    private var waitingText: String {
+        let name = toolName.lowercased()
+        if isSlackTool && name.contains("send") {
+            return "Waiting to send Slack message"
+        }
+        if isLinearTool && name.contains("create") {
+            return "Waiting to create Linear issue"
+        }
+        if isCalendarTool && name.contains("create") {
+            return "Waiting to create calendar event"
+        }
+        return "Waiting for approval"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Collapsed: subtle inline text with tool icon and chevron
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.35))
+
+                    toolIcon
+                        .frame(width: 14, height: 14)
+
+                    Text(waitingText)
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
+                        .italic()
+
+                    // Pulsing dot to indicate waiting
+                    Circle()
+                        .fill(Color.orange.opacity(0.6))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .buttonStyle(.plain)
+
+            // Expanded: show args
+            if isExpanded {
+                if let args = message.toolExecutionArgs, !args.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Input:")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.35))
+                        Text(formatJSON(args))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.45))
+                            .textSelection(.enabled)
+                    }
+                    .padding(.leading, 15)
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private var toolIcon: some View {
+        if isSlackTool {
+            Image("SlackLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isLinearTool {
+            Image("LinearLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isCalendarTool {
+            Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.4))
+        }
+    }
+
+    private func formatJSON(_ dict: [String: Any]) -> String {
+        if let data = try? JSONSerialization.data(
+            withJSONObject: dict, options: [.prettyPrinted, .sortedKeys]),
+            let str = String(data: data, encoding: .utf8)
+        {
+            return str
+        }
+        return String(describing: dict)
     }
 }
 
@@ -260,7 +592,7 @@ private struct ToolApprovalCard: View {
             }()
 
         switch toolCall.name {
-        case "send_slack_message", "sendMessage", "send_message":
+        case "slackSendMessage":
             EditableSlackMessagePreview(
                 params: params,
                 compact: false,
@@ -273,7 +605,7 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
-        case "create_linear_issue", "createLinearIssue":
+        case "linearCreateIssue":
             EditableLinearIssuePreview(
                 params: params,
                 compact: false,
@@ -286,7 +618,7 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
-        case "create_calendar_event", "createCalendarEvent":
+        case "calendarCreateEvent":
             EditableCalendarEventPreview(
                 params: params,
                 compact: false,
@@ -389,88 +721,5 @@ private struct ToolApprovalCard: View {
             .padding(.top, 10)
             .transition(.opacity.combined(with: .scale(scale: 0.95)))
         }
-    }
-}
-
-private struct ExecutingToolBadge: View {
-    let tool: AgentViewModel.ExecutingTool
-
-    var body: some View {
-        HStack(spacing: 8) {
-            toolIcon
-                .frame(width: 20, height: 20)
-
-            Text(actionText)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-
-            if tool.isComplete {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.green)
-            } else {
-                LoadingDots()
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Capsule().fill(.ultraThinMaterial))
-        .overlay(Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1))
-    }
-
-    @ViewBuilder
-    private var toolIcon: some View {
-        let name = tool.name.lowercased()
-        if name.contains("slack") {
-            Image(systemName: "number.square.fill")
-                .font(.system(size: 14))
-                .foregroundColor(.green)
-        } else if name.contains("linear") {
-            Image(systemName: "lineweight")
-                .font(.system(size: 14))
-                .foregroundColor(Color(red: 0.37, green: 0.42, blue: 0.82))
-        } else if name.contains("calendar") || name.contains("google") {
-            Image(systemName: "calendar")
-                .font(.system(size: 14))
-                .foregroundColor(.blue)
-        } else {
-            Image(systemName: "gearshape.fill")
-                .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.7))
-        }
-    }
-
-    private var actionText: String {
-        let name = tool.name.lowercased()
-        if name.contains("slack") {
-            if name.contains("send") { return "Sending to Slack" }
-            if name.contains("search") { return "Searching Slack" }
-            return "Reading Slack"
-        }
-        if name.contains("linear") {
-            if name.contains("create") { return "Creating Linear issue" }
-            if name.contains("search") { return "Searching Linear" }
-            return "Reading Linear"
-        }
-        if name.contains("calendar") || name.contains("event") {
-            return "Reading Calendar"
-        }
-        return tool.name.replacingOccurrences(of: "_", with: " ").capitalized
-    }
-}
-
-private struct LoadingDots: View {
-    @State private var dotCount = 0
-
-    var body: some View {
-        Text(String(repeating: "•", count: dotCount + 1))
-            .font(.system(size: 14, weight: .bold))
-            .foregroundColor(.white.opacity(0.6))
-            .frame(width: 24, alignment: .leading)
-            .onAppear {
-                Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
-                    dotCount = (dotCount + 1) % 3
-                }
-            }
     }
 }

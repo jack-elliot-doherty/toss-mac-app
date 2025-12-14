@@ -72,11 +72,11 @@ struct ToolPreviewFactory {
     ) -> some View {
         let wrapped = ToolParams(params)
         switch toolName {
-        case "createLinearIssue", "create_linear_issue":
+        case "linearCreateIssue":
             LinearIssuePreview(params: wrapped, compact: compact)
-        case "createCalendarEvent", "create_calendar_event":
+        case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
-        case "sendMessage", "send_slack_message", "send_message":
+        case "slackSendMessage":
             SlackMessagePreview(params: wrapped, compact: compact)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
@@ -92,11 +92,11 @@ struct ToolPreviewFactory {
     ) -> some View {
         let wrapped = ToolParams(params)
         switch toolName {
-        case "createLinearIssue", "create_linear_issue":
+        case "linearCreateIssue":
             LinearIssuePreview(params: wrapped, compact: compact)
-        case "createCalendarEvent", "create_calendar_event":
+        case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
-        case "sendMessage", "send_slack_message", "send_message":
+        case "slackSendMessage":
             SlackMessagePreview(params: wrapped, compact: compact)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
@@ -368,25 +368,41 @@ struct SlackMessagePreview: View {
     let params: ToolParams
     let compact: Bool
 
-    private var channel: String {
-        let ch = params.getString("channel") ?? params.getString("channelId") ?? "channel"
-        return ch.hasPrefix("#") ? ch : "#\(ch)"
+    @State private var channelInfo: SlackChannelInfo?
+    @State private var isLoadingChannel = true
+
+    private var channelId: String {
+        params.getString("channelId") ?? params.getString("channel") ?? ""
     }
+
     private var message: String { params.getString("message") ?? "" }
+
+    private var channelDisplay: String {
+        if let info = channelInfo {
+            if info.isDirectMessage {
+                return "@\(info.name)"
+            } else if info.isGroupDM {
+                return info.name
+            } else {
+                return "#\(info.name)"
+            }
+        }
+        // Still loading - show channel ID
+        return channelId
+    }
+
+    private var isDirectMessage: Bool {
+        channelInfo?.isDirectMessage ?? false
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 12) {
             // Header with Slack colors
             HStack(spacing: 8) {
-                // Slack-ish icon
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(hex: "4A154B"))
+                Image("SlackLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
                     .frame(width: compact ? 20 : 24, height: compact ? 20 : 24)
-                    .overlay(
-                        Image(systemName: "number")
-                            .font(.system(size: compact ? 10 : 12, weight: .bold))
-                            .foregroundColor(.white)
-                    )
 
                 Text("Send Slack Message")
                     .font(.system(size: compact ? 12 : 14, weight: .semibold))
@@ -400,13 +416,19 @@ struct SlackMessagePreview: View {
 
             // Message details
             VStack(alignment: .leading, spacing: compact ? 6 : 10) {
-                // Channel
+                // Channel or DM
                 HStack(spacing: 6) {
-                    Image(systemName: "number")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(AppTheme.secondaryText)
+                    if isLoadingChannel {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 10, height: 10)
+                    } else {
+                        Image(systemName: isDirectMessage ? "person.fill" : "number")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
 
-                    Text(channel)
+                    Text(channelDisplay)
                         .font(.system(size: compact ? 12 : 13, weight: .medium))
                         .foregroundColor(AppTheme.primaryText)
                         .padding(.horizontal, 6)
@@ -443,6 +465,23 @@ struct SlackMessagePreview: View {
                         .stroke(Color(hex: "4A154B").opacity(0.2), lineWidth: 1)
                 )
         )
+        .task {
+            await fetchChannelInfo()
+        }
+    }
+
+    private func fetchChannelInfo() async {
+        guard !channelId.isEmpty else {
+            isLoadingChannel = false
+            return
+        }
+
+        do {
+            channelInfo = try await SlackAPI.shared.getChannelInfo(channelId: channelId)
+        } catch {
+            NSLog("[SlackMessagePreview] Failed to fetch channel info: \(error)")
+        }
+        isLoadingChannel = false
     }
 }
 
@@ -1121,11 +1160,28 @@ struct EditableSlackMessagePreview: View {
     var onExecute: (() -> Void)? = nil
 
     @State private var message: String
+    @State private var channelInfo: SlackChannelInfo?
+    @State private var isLoadingChannel = true
 
-    private var channel: String {
-        let ch =
-            initialParams.getString("channel") ?? initialParams.getString("channelId") ?? "channel"
-        return ch.hasPrefix("#") ? ch : "#\(ch)"
+    private var channelId: String {
+        initialParams.getString("channelId") ?? initialParams.getString("channel") ?? ""
+    }
+
+    private var channelDisplay: String {
+        if let info = channelInfo {
+            if info.isDirectMessage {
+                return "@\(info.name)"
+            } else if info.isGroupDM {
+                return info.name
+            } else {
+                return "#\(info.name)"
+            }
+        }
+        return channelId
+    }
+
+    private var isDirectMessage: Bool {
+        channelInfo?.isDirectMessage ?? false
     }
 
     init(
@@ -1148,7 +1204,6 @@ struct EditableSlackMessagePreview: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with logo, title, and action button
             HStack(spacing: 10) {
-                // Slack logo - use asset when you add it
                 Image("SlackLogo")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -1199,7 +1254,7 @@ struct EditableSlackMessagePreview: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(isExecuting)
+                    .disabled(isExecuting || isLoadingChannel)
                 }
             }
             .padding(.horizontal, 14)
@@ -1210,13 +1265,19 @@ struct EditableSlackMessagePreview: View {
 
             // Key-value rows
             VStack(spacing: 0) {
-                // Channel row
-                FormRow(label: "To") {
+                // Channel or DM row
+                FormRow(label: isDirectMessage ? "To" : "Channel") {
                     HStack(spacing: 4) {
-                        Image(systemName: "number")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.secondaryText)
-                        Text(channel)
+                        if isLoadingChannel {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 10, height: 10)
+                        } else {
+                            Image(systemName: isDirectMessage ? "person.fill" : "number")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                        }
+                        Text(channelDisplay)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(AppTheme.primaryText)
                     }
@@ -1248,15 +1309,32 @@ struct EditableSlackMessagePreview: View {
                         .stroke(AppTheme.subtleStroke, lineWidth: 1)
                 )
         )
+        .task {
+            await fetchChannelInfo()
+        }
+    }
+
+    private func fetchChannelInfo() async {
+        guard !channelId.isEmpty else {
+            isLoadingChannel = false
+            return
+        }
+
+        do {
+            channelInfo = try await SlackAPI.shared.getChannelInfo(channelId: channelId)
+        } catch {
+            NSLog("[EditableSlackMessagePreview] Failed to fetch channel info: \(error)")
+        }
+        isLoadingChannel = false
     }
 
     private func notifyParamsChanged() {
         var updatedParams: [String: AnyCodableValue] = [:]
-        // Preserve channel
-        if let ch = initialParams.getString("channel") {
-            updatedParams["channel"] = .string(ch)
-        } else if let chId = initialParams.getString("channelId") {
+        // Preserve channel ID
+        if let chId = initialParams.getString("channelId") {
             updatedParams["channelId"] = .string(chId)
+        } else if let ch = initialParams.getString("channel") {
+            updatedParams["channelId"] = .string(ch)
         }
         updatedParams["message"] = .string(message)
         onParamsChanged?(updatedParams)

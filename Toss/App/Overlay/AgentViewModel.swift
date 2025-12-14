@@ -13,7 +13,13 @@ final class AgentViewModel: ObservableObject {
     struct ExecutingTool: Identifiable, Equatable {
         let id: String
         let name: String
+        var arguments: [String: Any] = [:]
+        var result: [String: Any]?
         var isComplete: Bool = false
+
+        static func == (lhs: ExecutingTool, rhs: ExecutingTool) -> Bool {
+            lhs.id == rhs.id && lhs.name == rhs.name && lhs.isComplete == rhs.isComplete
+        }
     }
 
     struct DisplayMessage: Identifiable, Equatable {
@@ -25,6 +31,26 @@ final class AgentViewModel: ObservableObject {
         var toolCall: ToolCallInfo? = nil
         // Tool result info (for tool response messages)
         var toolResult: ToolResultInfo? = nil
+        // Memory save info (for inline memory notifications)
+        var isMemorySave: Bool = false
+        var memoryDetails: [String: Any]? = nil
+        // Tool execution info (for persisted read tool notifications)
+        var isToolExecution: Bool = false
+        var toolExecutionId: String? = nil
+        var toolExecutionName: String? = nil
+        var toolExecutionArgs: [String: Any]? = nil
+        var toolExecutionResult: [String: Any]? = nil
+        var toolExecutionComplete: Bool = false
+        // Tool approval waiting info (for subtle approval notifications)
+        var isToolApprovalWaiting: Bool = false
+
+        static func == (lhs: DisplayMessage, rhs: DisplayMessage) -> Bool {
+            lhs.id == rhs.id && lhs.role == rhs.role && lhs.content == rhs.content
+                && lhs.isMemorySave == rhs.isMemorySave
+                && lhs.isToolExecution == rhs.isToolExecution
+                && lhs.toolExecutionComplete == rhs.toolExecutionComplete
+                && lhs.isToolApprovalWaiting == rhs.isToolApprovalWaiting
+        }
     }
 
     // Info about a tool call made by the assistant
@@ -96,13 +122,57 @@ final class AgentViewModel: ObservableObject {
         isProcessing = true
         errorMessage = nil
 
-        // Build messages array for API
-        let apiMessages = messages.map { msg in
-            ["role": msg.role.rawValue, "content": msg.content]
+        // Build messages array for API using AI SDK v6 UIMessage protocol format
+        var apiMessages: [[String: Any]] = []
+
+        for msg in messages {
+            // Skip system messages that are just for UI
+            if msg.role == .system && msg.toolCall == nil { continue }
+            if msg.role == .tool { continue }
+
+            // For messages with tool call + result (completed tool invocations)
+            if let toolCall = msg.toolCall, let toolResult = msg.toolResult {
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": "assistant",
+                    "parts": [
+                        [
+                            "type": "tool-\(toolCall.toolName)",
+                            "toolCallId": toolCall.toolCallId,
+                            "state": "output-available",
+                            "input": toolCall.arguments,
+                            "output": toolResult.result,
+                        ]
+                    ],
+                ])
+            } else if let toolCall = msg.toolCall {
+                // Tool call without result yet
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": "assistant",
+                    "parts": [
+                        [
+                            "type": "tool-\(toolCall.toolName)",
+                            "toolCallId": toolCall.toolCallId,
+                            "state": "input-available",
+                            "input": toolCall.arguments,
+                        ]
+                    ],
+                ])
+            } else if !msg.content.isEmpty {
+                // Regular text message
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": msg.role.rawValue,
+                    "parts": [
+                        ["type": "text", "text": msg.content]
+                    ],
+                ])
+            }
         }
 
         do {
-            try await streamFromAgent(messages: apiMessages)
+            try await streamFromAgentWithParts(messages: apiMessages)
         } catch {
             errorMessage = error.localizedDescription
             NSLog("[AgentViewModel] Streaming error: \(error)")
@@ -244,7 +314,7 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
-    private func streamFromAgent(messages: [[String: String]]) async throws {
+    private func streamFromAgentWithParts(messages: [[String: Any]]) async throws {
         guard let token = auth.accessToken else {
             throw NSError(
                 domain: "AgentViewModel", code: 401,
@@ -257,25 +327,16 @@ final class AgentViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        // Build messages array
-        var apiMessages: [[String: Any]] = []
-
-        for dict in messages {
-            apiMessages.append([
-                "id": UUID().uuidString,
-                "role": dict["role"] ?? "user",
-                "parts": [
-                    ["type": "text", "text": dict["content"] ?? ""]
-                ],
-            ])
-        }
-
-        let payload: [String: Any] = ["messages": apiMessages]
+        let payload: [String: Any] = ["messages": messages]
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
 
-        // Debug log to verify payload
+        // Debug log to verify payload (truncated)
         if let jsonString = String(data: jsonData, encoding: .utf8) {
-            NSLog("[AgentViewModel] JSON Body: %@", jsonString)
+            let truncated =
+                jsonString.count > 1000
+                ? String(jsonString.prefix(1000)) + "... [truncated]"
+                : jsonString
+            NSLog("[AgentViewModel] JSON Body: %@", truncated)
         }
 
         request.httpBody = jsonData
@@ -294,10 +355,39 @@ final class AgentViewModel: ObservableObject {
         case .textChunk(let chunk):  // NEW: Complete text chunks from agent steps
             appendToCurrentMessage(chunk)
 
-        case .toolExecuting(let id, let name):
-            // Tool started - show badge (may be removed if it needs approval)
-            if !executingTools.contains(where: { $0.id == id }) {
-                executingTools.append(ExecutingTool(id: id, name: name))
+        case .toolExecuting(let id, let name, let arguments):
+            // Special handling for memory tool - add a persistent inline message
+            if name.lowercased().contains("memory") || name.lowercased() == "savememory" {
+                let memoryContent =
+                    (arguments["memory"] as? String) ?? String(describing: arguments)
+                let msg = DisplayMessage(
+                    id: UUID(),
+                    role: .system,
+                    content: "💭 Remembered: \(memoryContent)",
+                    timestamp: Date(),
+                    isMemorySave: true,
+                    memoryDetails: arguments
+                )
+                messages.append(msg)
+            } else {
+                // Add persistent tool execution message (will update with result later)
+                let msg = DisplayMessage(
+                    id: UUID(),
+                    role: .system,
+                    content: "",
+                    timestamp: Date(),
+                    isToolExecution: true,
+                    toolExecutionId: id,
+                    toolExecutionName: name,
+                    toolExecutionArgs: arguments,
+                    toolExecutionComplete: false
+                )
+                messages.append(msg)
+
+                // Also add to transient executingTools (may be removed if it needs approval)
+                if !executingTools.contains(where: { $0.id == id }) {
+                    executingTools.append(ExecutingTool(id: id, name: name, arguments: arguments))
+                }
             }
 
         case .toolCallAwaitingApproval(let toolCall):  // NEW: Native approval from v6
@@ -306,16 +396,25 @@ final class AgentViewModel: ObservableObject {
             // REMOVE from executing tools - it needs approval, not a badge
             executingTools.removeAll { $0.id == toolCall.id }
 
+            // Also remove the persistent tool execution message if one was added
+            messages.removeAll { $0.toolExecutionId == toolCall.id }
+
             // Add to pending approval (show card)
             var mutableToolCall = toolCall
             mutableToolCall.status = .awaitingApproval
             pendingToolCalls.append(mutableToolCall)
 
+            // Add subtle "waiting for approval" message
             let msg = DisplayMessage(
                 id: UUID(),
                 role: .system,
-                content: "⏸️ Waiting for approval: \(toolCall.displayName)",
-                timestamp: Date()
+                content: toolCall.displayName,
+                timestamp: Date(),
+                isToolExecution: false,
+                toolExecutionId: toolCall.id,
+                toolExecutionName: toolCall.name,
+                toolExecutionArgs: toolCall.arguments.mapValues { $0.value },
+                isToolApprovalWaiting: true
             )
             messages.append(msg)
 
@@ -339,16 +438,62 @@ final class AgentViewModel: ObservableObject {
             // Remove from pending approval cards
             pendingToolCalls.removeAll { $0.id == id }
 
-            // Mark executing tool as complete, then remove
+            // Parse result JSON
+            var parsedResult: [String: Any] = [:]
+            if let data = result.data(using: .utf8),
+                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            {
+                parsedResult = json
+            } else {
+                parsedResult = ["raw": result]
+            }
+
+            // Update persistent tool execution message with result AND add tool result info for API
+            if let index = messages.firstIndex(where: { $0.toolExecutionId == id }) {
+                messages[index].toolExecutionResult = parsedResult
+                messages[index].toolExecutionComplete = true
+
+                // Add tool call/result info so it gets sent to the API on next message
+                if let toolName = messages[index].toolExecutionName,
+                    let toolArgs = messages[index].toolExecutionArgs
+                {
+                    messages[index].toolCall = ToolCallInfo(
+                        toolCallId: id,
+                        toolName: toolName,
+                        arguments: toolArgs
+                    )
+                    messages[index].toolResult = ToolResultInfo(
+                        toolCallId: id,
+                        result: parsedResult
+                    )
+                    // Change role to assistant so it gets included in API calls
+                    messages[index] = DisplayMessage(
+                        id: messages[index].id,
+                        role: .assistant,
+                        content: "",
+                        timestamp: messages[index].timestamp,
+                        toolCall: messages[index].toolCall,
+                        toolResult: messages[index].toolResult,
+                        isToolExecution: true,
+                        toolExecutionId: id,
+                        toolExecutionName: toolName,
+                        toolExecutionArgs: toolArgs,
+                        toolExecutionResult: parsedResult,
+                        toolExecutionComplete: true
+                    )
+                }
+            }
+
+            // Mark executing tool as complete with result, then remove after delay
             if let index = executingTools.firstIndex(where: { $0.id == id }) {
                 executingTools[index].isComplete = true
+                executingTools[index].result = parsedResult
                 let toolId = id
                 Task {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    try? await Task.sleep(nanoseconds: 500_000_000)  // Shorter delay since we have persistent message
                     executingTools.removeAll { $0.id == toolId }
                 }
             }
-        // Don't add raw JSON as system message
 
         case .agentStepFinish(let stepNumber):  // NEW: Agent step completed
             NSLog("[AgentViewModel] Agent step \(stepNumber) finished")
@@ -587,7 +732,7 @@ final class AgentViewModel: ObservableObject {
         // Remove from UI
         pendingToolCalls.remove(at: index)
 
-        // Send rejection to server (just logging)
+        // Send rejection to server and continue conversation
         Task {
             do {
                 try await sendToolApproval(
@@ -597,6 +742,18 @@ final class AgentViewModel: ObservableObject {
                     approved: false
                 )
                 NSLog("[AgentViewModel] Sent rejection for: \(toolCall.name)")
+
+                // Convert arguments to [String: Any]
+                let argsDict = toolCall.arguments.mapValues { $0.value }
+
+                // Continue the conversation with a rejection result
+                // This tells the agent the user rejected the tool call
+                await continueAfterToolExecution(
+                    toolCallId: toolCall.id,
+                    toolName: toolCall.name,
+                    arguments: argsDict,
+                    result: ["rejected": true, "reason": "User rejected this action"]
+                )
             } catch {
                 errorMessage = "Failed to reject tool: \(error.localizedDescription)"
             }

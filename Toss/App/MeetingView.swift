@@ -2012,7 +2012,7 @@ private struct ActionItemCard: View {
             AgentTaskPreview(taskSpec: taskSpec, compact: false)
         } else if let toolName = action.toolName, let params = action.toolParams {
             switch toolName {
-            case "createCalendarEvent", "create_calendar_event":
+            case "calendarCreateEvent":
                 EditableCalendarEventPreview(
                     params: ToolParams(params),
                     compact: false,
@@ -2020,7 +2020,7 @@ private struct ActionItemCard: View {
                     isExecuting: isExecuting,
                     onExecute: { onExecute(currentAction) }
                 )
-            case "createLinearIssue", "create_linear_issue":
+            case "linearCreateIssue":
                 EditableLinearIssuePreview(
                     params: ToolParams(params),
                     compact: false,
@@ -2028,7 +2028,7 @@ private struct ActionItemCard: View {
                     isExecuting: isExecuting,
                     onExecute: { onExecute(currentAction) }
                 )
-            case "sendMessage", "send_slack_message", "send_message":
+            case "slackSendMessage":
                 EditableSlackMessagePreview(
                     params: ToolParams(params),
                     compact: false,
@@ -2180,7 +2180,7 @@ private struct ActionApprovalSheet: View {
     {
         let wrapped = ToolParams(params)
         switch toolName {
-        case "createCalendarEvent", "create_calendar_event":
+        case "calendarCreateEvent":
             EditableCalendarEventPreview(
                 params: wrapped,
                 compact: false,
@@ -2196,11 +2196,11 @@ private struct ActionApprovalSheet: View {
 
     private func buttonText(for toolName: String?) -> String {
         switch toolName {
-        case "createCalendarEvent", "create_calendar_event":
+        case "calendarCreateEvent":
             return "Add to Calendar"
-        case "sendMessage", "send_slack_message", "send_message":
+        case "slackSendMessage":
             return "Send Message"
-        case "createLinearIssue", "create_linear_issue":
+        case "linearCreateIssue":
             return "Create Issue"
         default:
             return "Execute"

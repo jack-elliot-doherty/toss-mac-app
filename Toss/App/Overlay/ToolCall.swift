@@ -12,48 +12,83 @@ enum ToolCallStatus: Equatable {
 
 struct ToolCall: Identifiable, Equatable {
     let id: String
-    let name: String  // e.g., "send_slack_message", "create_linear_issue"
+    let name: String  // e.g., "slackSendMessage", "linearCreateIssue"
     let arguments: [String: AnyCodable]
     var status: ToolCallStatus = .pending
+
+    // Tool type detection using prefixes
+    private var isSlackTool: Bool {
+        name.lowercased().hasPrefix("slack")
+    }
+
+    private var isLinearTool: Bool {
+        name.lowercased().hasPrefix("linear")
+    }
+
+    private var isCalendarTool: Bool {
+        name.lowercased().hasPrefix("calendar")
+    }
 
     // Computed property for display
     var displayName: String {
         switch name {
-        case "send_slack_message":
+        case "slackSendMessage":
             return "Send Slack Message"
-        case "create_linear_issue":
+        case "slackListChannels":
+            return "List Slack Channels"
+        case "slackSearch":
+            return "Search Slack"
+        case "slackReadHistory":
+            return "Read Slack History"
+        case "linearCreateIssue":
             return "Create Linear Issue"
-        case "get_granola_notes":
-            return "Get Granola Notes"
+        case "calendarCreateEvent":
+            return "Create Calendar Event"
+        case "calendarListEvents":
+            return "List Calendar Events"
         case "screenshot":
             return "Take Screenshot"
         default:
-            return name.replacingOccurrences(of: "_", with: " ").capitalized
+            // Convert camelCase to readable
+            return
+                name
+                .replacingOccurrences(
+                    of: "([a-z])([A-Z])", with: "$1 $2", options: .regularExpression
+                )
+                .capitalized
         }
     }
 
-    // Check if this tool requires user approval
+    // Check if this tool requires user approval (mutations only)
     var requiresApproval: Bool {
-        switch name {
-        case "send_slack_message", "create_linear_issue":
+        let lowerName = name.lowercased()
+
+        // Slack send requires approval
+        if lowerName.contains("send") && isSlackTool {
             return true
-        case "screenshot":
-            return true  // Client-side tools need approval for user consent
-        case "get_granola_notes":
-            return false
-        default:
-            return false
         }
+
+        // Linear create requires approval
+        if lowerName.contains("create") && isLinearTool {
+            return true
+        }
+
+        // Calendar create requires approval
+        if lowerName.contains("create") && isCalendarTool {
+            return true
+        }
+
+        // Client-side tools need approval for user consent
+        if lowerName == "screenshot" {
+            return true
+        }
+
+        return false
     }
 
     /// Check if this tool executes on the client (Mac app) rather than the server
     var isClientSideTool: Bool {
-        switch name {
-        case "screenshot":
-            return true
-        default:
-            return false
-        }
+        name.lowercased() == "screenshot"
     }
 }
 

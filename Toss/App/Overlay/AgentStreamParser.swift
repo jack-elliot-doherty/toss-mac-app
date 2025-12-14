@@ -12,7 +12,7 @@ enum AgentStreamEvent {
     case agentStepFinish(stepNumber: Int)
     case done
     case error(String)
-    case toolExecuting(id: String, name: String)  // NEW: tool started executing
+    case toolExecuting(id: String, name: String, arguments: [String: Any])  // Tool started executing with args
 }
 
 // MARK: - AI SDK v6 Data Stream Protocol
@@ -21,7 +21,7 @@ enum AgentStreamEvent {
 // FORMAT: "INDEX:JSON_DATA"
 // Examples:
 // 0:{"type":"agent-step","step":{"type":"text","content":"Let me help..."}}
-// 1:{"type":"tool-call-awaiting-approval","toolCallId":"call_123","toolName":"send_slack_message","args":{"channel":"#eng","message":"Hi"}}
+// 1:{"type":"tool-call-awaiting-approval","toolCallId":"call_123","toolName":"slackSendMessage","args":{"channel":"#eng","message":"Hi"}}
 // 2:{"type":"tool-call-approved","toolCallId":"call_123"}
 // 3:{"type":"tool-result","toolCallId":"call_123","result":"Success"}
 
@@ -197,7 +197,7 @@ class AgentStreamParser {
                 let input = json["input"] as? [String: Any]
             {
                 pendingToolInputs[toolCallId] = (name: toolName, args: input)
-                return .toolExecuting(id: toolCallId, name: toolName)  // Emit event
+                return .toolExecuting(id: toolCallId, name: toolName, arguments: input)
             }
             return nil
 
