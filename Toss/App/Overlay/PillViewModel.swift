@@ -15,6 +15,7 @@ enum PillVisualState: Equatable {
     case transcribing(PillMode)
     case upcomingMeeting(UpcomingMeeting)
     case meetingRecording(UUID, isPaused: Bool)
+    case agentSessionActive  // Agent panel is minimized but session is active
 }
 
 @MainActor
@@ -74,6 +75,10 @@ final class PillViewModel: ObservableObject {
 
     func upcomingMeeting(_ meeting: UpcomingMeeting) {
         visualState = .upcomingMeeting(meeting)
+    }
+
+    func agentSessionActive() {
+        visualState = .agentSessionActive
     }
 
     func updateLevelRMS(_ value: Float) {

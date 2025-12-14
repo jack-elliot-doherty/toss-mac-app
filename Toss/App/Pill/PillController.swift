@@ -132,6 +132,12 @@ final class PillController {
             case .setVisualStateIdle:
                 pillPanel.setState(.idle)
 
+            case .setVisualStateAgentSessionActive:
+                pillPanel.setState(.agentSessionActive)
+
+            case .restoreAgentPanel:
+                agentPanel.restore()
+
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
 

@@ -62,6 +62,9 @@ struct PillView: View {
             case .meetingRecording(let meetingId, let isPaused):
                 meetingRecording(meetingId: meetingId, isPaused: isPaused, isHovered: isHovered)
 
+            case .agentSessionActive:
+                agentSessionActive.transition(
+                    .opacity.combined(with: .scale(scale: 0.9, anchor: .center)))
             }
         }
         .padding(.horizontal, 0)
@@ -138,6 +141,21 @@ struct PillView: View {
             )
             .blendMode(.plusLighter)
 
+    }
+
+    // MARK: Agent Session Active — shows there's a minimized agent session
+    private var agentSessionActive: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white.opacity(0.7))
+
+            Text("Resume")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
     }
 
     // NEW: Hovered state with quick actions

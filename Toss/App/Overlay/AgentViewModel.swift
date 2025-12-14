@@ -356,6 +356,10 @@ final class AgentViewModel: ObservableObject {
             appendToCurrentMessage(chunk)
 
         case .toolExecuting(let id, let name, let arguments):
+            // Finalize any in-progress text message so tool appears after it
+            // and subsequent text will be in a new message
+            finalizeCurrentMessage()
+
             // Special handling for memory tool - add a persistent inline message
             if name.lowercased().contains("memory") || name.lowercased() == "savememory" {
                 let memoryContent =
@@ -628,8 +632,57 @@ final class AgentViewModel: ObservableObject {
         switch toolCall.name {
         case "screenshot":
             return await executeScreenshot(toolCall.arguments)
+        case "connectSlack":
+            return await executeConnect(provider: "slack", endpoint: "/slack/connect")
+        case "connectLinear":
+            return await executeConnect(provider: "linear", endpoint: "/linear/connect")
+        case "connectGoogleCalendar":
+            return await executeConnect(provider: "google", endpoint: "/google/connect")
         default:
             return ["error": "Unknown client tool: \(toolCall.name)"]
+        }
+    }
+
+    /// Execute a connect tool - opens OAuth flow in browser
+    private func executeConnect(provider: String, endpoint: String) async -> [String: Any] {
+        guard let token = auth.accessToken else {
+            return ["success": false, "error": "Not authenticated"]
+        }
+
+        guard let url = URL(string: "\(Config.serverURL)\(endpoint)") else {
+            return ["success": false, "error": "Invalid URL"]
+        }
+
+        NSLog("[AgentViewModel] Initiating \(provider) connection")
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let urlString = json["url"] as? String,
+                let authURL = URL(string: urlString)
+            {
+                // Open OAuth URL in browser
+                await MainActor.run {
+                    NSWorkspace.shared.open(authURL)
+                }
+                NSLog("[AgentViewModel] Opened \(provider) OAuth URL")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "message":
+                        "OAuth flow started. Please complete the connection in your browser.",
+                ]
+            } else {
+                return ["success": false, "error": "Failed to get OAuth URL"]
+            }
+        } catch {
+            NSLog("[AgentViewModel] Failed to connect \(provider): \(error)")
+            return ["success": false, "error": error.localizedDescription]
         }
     }
 

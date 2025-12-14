@@ -29,6 +29,11 @@ struct ToolCall: Identifiable, Equatable {
         name.lowercased().hasPrefix("calendar")
     }
 
+    // Check if this is a connect tool
+    var isConnectTool: Bool {
+        name.lowercased().hasPrefix("connect")
+    }
+
     // Computed property for display
     var displayName: String {
         switch name {
@@ -48,6 +53,12 @@ struct ToolCall: Identifiable, Equatable {
             return "List Calendar Events"
         case "screenshot":
             return "Take Screenshot"
+        case "connectSlack":
+            return "Connect Slack"
+        case "connectLinear":
+            return "Connect Linear"
+        case "connectGoogleCalendar":
+            return "Connect Google Calendar"
         default:
             // Convert camelCase to readable
             return
@@ -88,7 +99,8 @@ struct ToolCall: Identifiable, Equatable {
 
     /// Check if this tool executes on the client (Mac app) rather than the server
     var isClientSideTool: Bool {
-        name.lowercased() == "screenshot"
+        let lowerName = name.lowercased()
+        return lowerName == "screenshot" || lowerName.hasPrefix("connect")
     }
 }
 

@@ -11,6 +11,12 @@ final class AgentPanelController {
     private let hostingView: NSHostingView<AgentView>
     private var cancellables = Set<AnyCancellable>()
     private var initialXPosition: CGFloat?  // NEW: Store the X position once
+    private(set) var isMinimized = false  // Track if we have a minimized session
+
+    // Callback for when minimize/restore happens (to update pill state)
+    var onMinimize: (() -> Void)?
+    var onRestore: (() -> Void)?
+    var onSessionEnd: (() -> Void)?
 
     init(viewModel: AgentViewModel, anchorFrameProvider: @escaping () -> NSRect?) {
         self.viewModel = viewModel
@@ -87,6 +93,28 @@ final class AgentPanelController {
         ) { [weak self] (_: Notification) in
             Task { @MainActor in
                 self?.hide()
+            }
+        }
+
+        // Listen for minimize requests (e.g., during OAuth flow)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("MinimizeAgentPanel"),
+            object: nil,
+            queue: .main
+        ) { [weak self] (_: Notification) in
+            Task { @MainActor in
+                self?.minimize()
+            }
+        }
+
+        // Listen for restore requests (e.g., after OAuth completes)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("RestoreAgentPanel"),
+            object: nil,
+            queue: .main
+        ) { [weak self] (_: Notification) in
+            Task { @MainActor in
+                self?.restore()
             }
         }
 
@@ -201,6 +229,7 @@ final class AgentPanelController {
     }
 
     func hide() {
+        isMinimized = false
         NSAnimationContext.runAnimationGroup(
             { ctx in
                 ctx.duration = 0.15
@@ -209,6 +238,48 @@ final class AgentPanelController {
             completionHandler: {
                 self.panel.orderOut(nil)
                 self.viewModel.clearConversation()
+                self.onSessionEnd?()
             })
+    }
+
+    /// Minimize the panel but keep the session active
+    func minimize() {
+        guard panel.isVisible else { return }
+        isMinimized = true
+
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = 0.15
+                panel.animator().alphaValue = 0
+            },
+            completionHandler: {
+                self.panel.orderOut(nil)
+                self.onMinimize?()
+            })
+    }
+
+    /// Restore a minimized panel
+    func restore() {
+        guard isMinimized else { return }
+        isMinimized = false
+
+        // Recalculate position and size
+        resizePanelToFitContent()
+
+        // Fade in animation
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.2
+            panel.animator().alphaValue = 1.0
+        }
+
+        onRestore?()
+    }
+
+    /// Check if there's an active (possibly minimized) session
+    var hasActiveSession: Bool {
+        !viewModel.messages.isEmpty
     }
 }

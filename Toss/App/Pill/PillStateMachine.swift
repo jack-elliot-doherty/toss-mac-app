@@ -25,6 +25,7 @@ enum PillState: Equatable {
     case listening(PillMode)  // audio capture running, waveform shown
     case transcribing(PillMode)  // audio capture stopped, uploading/awaiting text transcription
     case meetingRecording(UUID, isPaused: Bool)
+    case agentSessionActive  // Agent panel is minimized but session is ongoing
 }
 
 enum PillEvent: Equatable {
@@ -67,6 +68,10 @@ enum PillEvent: Equatable {
     case upcomingMeetingAlert(UpcomingMeeting)
     case joinAndRecordUpcoming(UpcomingMeeting)
     case dismissUpcomingMeeting
+
+    // agent session events
+    case agentSessionMinimized  // Agent panel was minimized, session still active
+    case agentSessionEnded  // Agent session ended (panel closed or dismissed)
 }
 
 // Things the machine asks the outside world to do
@@ -114,6 +119,10 @@ enum PillEffect: Equatable {
     case setVisualStateUpcomingMeeting(UpcomingMeeting)
     case scheduleUpcomingMeetingTimeout(TimeInterval)
     case openURL(URL)
+
+    // agent session effects
+    case setVisualStateAgentSessionActive
+    case restoreAgentPanel  // Restore the minimized agent panel
 
 }
 
@@ -193,6 +202,28 @@ struct PillStateMachine {
             ]
 
         case (.hovered, .pillHoverExit):
+            state = .idle
+            effects += [.setVisualStateIdle]
+
+        // AGENT SESSION ACTIVE - minimized agent panel with ongoing session
+        case (.idle, .agentSessionMinimized), (.hovered, .agentSessionMinimized):
+            state = .agentSessionActive
+            effects += [.setVisualStateAgentSessionActive]
+
+        case (.agentSessionActive, .pillHoverEnter):
+            // Don't change state - stay in agentSessionActive
+            // The pill already shows the agent session indicator
+            break
+
+        case (.agentSessionActive, .pillHoverExit):
+            // Stay in agentSessionActive state
+            break
+
+        case (.agentSessionActive, .pillClicked):
+            // Restore the agent panel
+            effects += [.restoreAgentPanel]
+
+        case (.agentSessionActive, .agentSessionEnded):
             state = .idle
             effects += [.setVisualStateIdle]
 

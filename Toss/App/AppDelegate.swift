@@ -213,7 +213,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         pillViewModel.onHoverEnter = { [weak self] in self?.pillController.send(.pillHoverEnter) }
         pillViewModel.onHoverExit = { [weak self] in self?.pillController.send(.pillHoverExit) }
-        pillViewModel.onPillClicked = { [weak self] in self?.pillController.send(.pillClicked) }
+        pillViewModel.onPillClicked = { [weak self] in
+            self?.pillController.send(.pillClicked)
+        }
+
+        // Wire agent panel minimize/restore to state machine events
+        agentPanel.onMinimize = { [weak self] in
+            self?.pillController.send(.agentSessionMinimized)
+        }
+        agentPanel.onRestore = { [weak self] in
+            self?.pillController.send(.agentSessionEnded)
+        }
+        agentPanel.onSessionEnd = { [weak self] in
+            self?.pillController.send(.agentSessionEnded)
+        }
         pillViewModel.onQuickActionRecordMeeting = { [weak self] in
             self?.pillController.send(.quickActionRecordMeeting)
         }

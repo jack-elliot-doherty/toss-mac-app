@@ -21,13 +21,23 @@ struct AgentView: View {
                     }
 
                     ForEach(viewModel.pendingToolCalls) { call in
-                        ToolApprovalCard(
-                            toolCall: call,
-                            onApprove: { Task { await viewModel.approveToolCall(call) } },
-                            onReject: { viewModel.rejectToolCall(call) }
-                        )
-                        .id(call.id)
-                        .transition(.opacity.combined(with: .scale))
+                        // Use special card for connect tools (no reject button)
+                        if call.isConnectTool {
+                            ConnectToolCard(
+                                toolCall: call,
+                                onApprove: { Task { await viewModel.approveToolCall(call) } }
+                            )
+                            .id(call.id)
+                            .transition(.opacity.combined(with: .scale))
+                        } else {
+                            ToolApprovalCard(
+                                toolCall: call,
+                                onApprove: { Task { await viewModel.approveToolCall(call) } },
+                                onReject: { viewModel.rejectToolCall(call) }
+                            )
+                            .id(call.id)
+                            .transition(.opacity.combined(with: .scale))
+                        }
                     }
 
                     // Only show thinking BEFORE streaming starts
@@ -631,6 +641,45 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "connectSlack":
+            ConnectIntegrationCard(
+                provider: "Slack",
+                icon: "SlackLogo",
+                color: Color(hex: "4A154B"),
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "connectLinear":
+            ConnectIntegrationCard(
+                provider: "Linear",
+                icon: "LinearLogo",
+                color: Color(hex: "5E6AD2"),
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "connectGoogleCalendar":
+            ConnectIntegrationCard(
+                provider: "Google Calendar",
+                icon: "GoogleCalendarLogo",
+                color: Color(hex: "4285F4"),
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         default:
             // Fallback to generic preview with separate approve button
             VStack(alignment: .leading, spacing: 12) {
@@ -721,5 +770,299 @@ private struct ToolApprovalCard: View {
             .padding(.top, 10)
             .transition(.opacity.combined(with: .scale(scale: 0.95)))
         }
+    }
+}
+
+// MARK: - Connect Tool Card (for connect tools in chat - observes IntegrationsManager)
+
+private struct ConnectToolCard: View {
+    let toolCall: ToolCall
+    let onApprove: () -> Void
+
+    @ObservedObject private var integrationsManager = IntegrationsManager.shared
+    @State private var isConnecting = false
+    @State private var hasApproved = false
+
+    private var provider: String {
+        switch toolCall.name {
+        case "connectSlack": return "Slack"
+        case "connectLinear": return "Linear"
+        case "connectGoogleCalendar": return "Google Calendar"
+        default: return "Integration"
+        }
+    }
+
+    private var icon: String {
+        switch toolCall.name {
+        case "connectSlack": return "SlackLogo"
+        case "connectLinear": return "LinearLogo"
+        case "connectGoogleCalendar": return "GoogleCalendarLogo"
+        default: return "gearshape"
+        }
+    }
+
+    private var color: Color {
+        switch toolCall.name {
+        case "connectSlack": return Color(hex: "4A154B")
+        case "connectLinear": return Color(hex: "5E6AD2")
+        case "connectGoogleCalendar": return Color(hex: "4285F4")
+        default: return .blue
+        }
+    }
+
+    private var isConnected: Bool {
+        switch toolCall.name {
+        case "connectSlack":
+            return integrationsManager.slackStatus?.connected == true
+        case "connectLinear":
+            return integrationsManager.linearStatus?.connected == true
+        case "connectGoogleCalendar":
+            return integrationsManager.googleStatus?.connected == true
+        default:
+            return false
+        }
+    }
+
+    private var connectedInfo: String? {
+        switch toolCall.name {
+        case "connectSlack":
+            return integrationsManager.slackStatus?.teamName
+        case "connectLinear":
+            return integrationsManager.linearStatus?.organizationName
+        case "connectGoogleCalendar":
+            return integrationsManager.googleStatus?.email
+        default:
+            return nil
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Image(icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if isConnected {
+                        Text("\(provider) Connected")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.green)
+
+                        if let info = connectedInfo {
+                            Text(info)
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                    } else {
+                        Text("Connect \(provider)")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        Text("Connect your \(provider) account to enable this feature")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+
+                Spacer()
+
+                if isConnected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.green)
+                }
+            }
+            .padding(16)
+
+            // Connect button (only when not connected)
+            if !isConnected {
+                Divider()
+                    .background(.white.opacity(0.1))
+
+                HStack {
+                    Spacer()
+
+                    Button {
+                        startConnection()
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isConnecting {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Opening browser...")
+                            } else {
+                                Image(systemName: "link")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Connect \(provider)")
+                            }
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(color)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting)
+
+                    Spacer()
+                }
+                .padding(16)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(
+                            isConnected ? Color.green.opacity(0.3) : color.opacity(0.3),
+                            lineWidth: 1)
+                )
+        )
+        .onChange(of: isConnected) { connected in
+            // Auto-approve and restore when connection completes
+            if connected && !hasApproved {
+                hasApproved = true
+
+                // Restore the agent panel first
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("RestoreAgentPanel"),
+                    object: nil
+                )
+
+                // Small delay to show the connected state before continuing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    onApprove()
+                }
+            }
+        }
+        .onAppear {
+            // Fetch current status
+            Task {
+                switch toolCall.name {
+                case "connectSlack":
+                    await integrationsManager.fetchSlackStatus()
+                case "connectLinear":
+                    await integrationsManager.fetchLinearStatus()
+                case "connectGoogleCalendar":
+                    await integrationsManager.fetchGoogleStatus()
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    private func startConnection() {
+        isConnecting = true
+
+        // Minimize the agent panel so user can complete OAuth in browser
+        NotificationCenter.default.post(
+            name: NSNotification.Name("MinimizeAgentPanel"),
+            object: nil
+        )
+
+        Task {
+            switch toolCall.name {
+            case "connectSlack":
+                await integrationsManager.connectSlack()
+            case "connectLinear":
+                await integrationsManager.connectLinear()
+            case "connectGoogleCalendar":
+                await integrationsManager.connectGoogle()
+            default:
+                break
+            }
+            // Keep isConnecting true - the card will update when OAuth completes
+        }
+    }
+}
+
+// MARK: - Connect Integration Card (for tool previews)
+
+private struct ConnectIntegrationCard: View {
+    let provider: String
+    let icon: String
+    let color: Color
+    var isExecuting: Bool = false
+    var onConnect: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Image(icon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Connect \(provider)")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text("Connect your \(provider) account to enable this feature")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+            }
+            .padding(16)
+
+            Divider()
+                .background(.white.opacity(0.1))
+
+            // Connect button
+            HStack {
+                Spacer()
+
+                if let onConnect = onConnect {
+                    Button {
+                        onConnect()
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isExecuting {
+                                ProgressView()
+                                    .scaleEffect(0.7)
+                                Text("Connecting...")
+                            } else {
+                                Image(systemName: "link")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Connect \(provider)")
+                            }
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(color)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+
+                Spacer()
+            }
+            .padding(16)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
+        )
     }
 }
