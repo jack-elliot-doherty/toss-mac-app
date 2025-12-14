@@ -1925,6 +1925,65 @@ private struct ActionItemCard: View {
 
     @State private var editedParams: [String: AnyCodableValue]?
     @State private var showSuccessPulse = false
+    @State private var isConnecting = false
+    @ObservedObject private var integrationsManager = IntegrationsManager.shared
+
+    // Check if the required integration is connected
+    private var isIntegrationConnected: Bool {
+        guard let toolName = action.toolName else { return true }
+        switch toolName {
+        case "slackSendMessage", "slackListChannels":
+            return integrationsManager.slackStatus?.connected ?? false
+        case "linearCreateIssue":
+            return integrationsManager.linearStatus?.connected ?? false
+        case "calendarCreateEvent", "calendarListEvents":
+            return integrationsManager.googleStatus?.connected ?? false
+        default:
+            return true
+        }
+    }
+
+    private var integrationName: String {
+        guard let toolName = action.toolName else { return "" }
+        switch toolName {
+        case "slackSendMessage", "slackListChannels":
+            return "Slack"
+        case "linearCreateIssue":
+            return "Linear"
+        case "calendarCreateEvent", "calendarListEvents":
+            return "Google Calendar"
+        default:
+            return ""
+        }
+    }
+
+    private var integrationIcon: String {
+        guard let toolName = action.toolName else { return "" }
+        switch toolName {
+        case "slackSendMessage", "slackListChannels":
+            return "SlackLogo"
+        case "linearCreateIssue":
+            return "LinearLogo"
+        case "calendarCreateEvent", "calendarListEvents":
+            return "GoogleCalendarLogo"
+        default:
+            return ""
+        }
+    }
+
+    private var integrationColor: Color {
+        guard let toolName = action.toolName else { return .blue }
+        switch toolName {
+        case "slackSendMessage", "slackListChannels":
+            return Color(hex: "4A154B") ?? .purple
+        case "linearCreateIssue":
+            return Color(hex: "5E6AD2") ?? .indigo
+        case "calendarCreateEvent", "calendarListEvents":
+            return Color(hex: "4285F4") ?? .blue
+        default:
+            return .blue
+        }
+    }
 
     private var currentAction: ExtractedAction {
         guard let edited = editedParams else { return action }
@@ -1942,6 +2001,11 @@ private struct ActionItemCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             toolPreview
+
+            // Connect button when integration is not connected
+            if !isIntegrationConnected {
+                connectIntegrationButton
+            }
 
             // Execution result feedback
             if let result = executionResult {
@@ -2004,6 +2068,57 @@ private struct ActionItemCard: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: executionResult?.id)
+        .onAppear {
+            // Fetch integration status on appear
+            Task {
+                await integrationsManager.fetchSlackStatus()
+                await integrationsManager.fetchLinearStatus()
+                await integrationsManager.fetchGoogleStatus()
+            }
+        }
+    }
+
+    private var connectIntegrationButton: some View {
+        Button {
+            isConnecting = true
+            Task {
+                switch action.toolName {
+                case "slackSendMessage", "slackListChannels":
+                    await integrationsManager.connectSlack()
+                case "linearCreateIssue":
+                    await integrationsManager.connectLinear()
+                case "calendarCreateEvent", "calendarListEvents":
+                    await integrationsManager.connectGoogle()
+                default:
+                    break
+                }
+                isConnecting = false
+            }
+        } label: {
+            HStack(spacing: 8) {
+                if isConnecting {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                } else {
+                    Image(integrationIcon)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 16, height: 16)
+                }
+                Text(isConnecting ? "Opening browser..." : "Connect \(integrationName) to run this")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(integrationColor)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isConnecting)
     }
 
     @ViewBuilder
@@ -2018,7 +2133,7 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: { onExecute(currentAction) }
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
                 )
             case "linearCreateIssue":
                 EditableLinearIssuePreview(
@@ -2026,7 +2141,7 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: { onExecute(currentAction) }
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
                 )
             case "slackSendMessage":
                 EditableSlackMessagePreview(
@@ -2034,7 +2149,7 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: { onExecute(currentAction) }
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
                 )
             default:
                 ToolPreviewFactory.preview(for: toolName, params: params, compact: false)

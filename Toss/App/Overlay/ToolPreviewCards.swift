@@ -424,8 +424,8 @@ struct SlackMessagePreview: View {
                             .frame(width: 10, height: 10)
                     } else {
                         Image(systemName: isDirectMessage ? "person.fill" : "number")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.secondaryText)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
                     }
 
                     Text(channelDisplay)
@@ -1274,8 +1274,8 @@ struct EditableSlackMessagePreview: View {
                                 .frame(width: 10, height: 10)
                         } else {
                             Image(systemName: isDirectMessage ? "person.fill" : "number")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(AppTheme.secondaryText)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
                         }
                         Text(channelDisplay)
                             .font(.system(size: 13, weight: .medium))
