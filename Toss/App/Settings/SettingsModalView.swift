@@ -254,21 +254,45 @@ struct SettingsModalView: View {
 
     // MARK: - Google Calendar Card
 
+    private var googleRequiresReauth: Bool {
+        integrations.googleStatus?.requiresReauth == true
+    }
+
     private var googleCalendarCard: some View {
         HStack(spacing: 16) {
-            // Left side: Icon with Synced badge below
+            // Left side: Icon with status badge below
             VStack(spacing: 6) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(red: 0.2, green: 0.5, blue: 0.3))  // Green-ish like Google Calendar
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white)
+                        .fill(
+                            googleRequiresReauth
+                                ? Color.orange.opacity(0.15)
+                                : Color(red: 0.2, green: 0.5, blue: 0.3))
+                    Image(
+                        systemName: googleRequiresReauth
+                            ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
+                    )
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(googleRequiresReauth ? .orange : .white)
                 }
                 .frame(width: 48, height: 48)
 
-                // Synced badge below icon (only when connected)
-                if let status = integrations.googleStatus, status.connected {
+                // Status badge below icon
+                if googleRequiresReauth {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Reauth needed")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.orange.opacity(0.15))
+                    )
+                } else if let status = integrations.googleStatus, status.connected {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 9, weight: .bold))
@@ -289,7 +313,11 @@ struct SettingsModalView: View {
                 Text("Google Calendar")
                     .font(.system(size: 14, weight: .semibold))
 
-                if let status = integrations.googleStatus, status.connected {
+                if googleRequiresReauth {
+                    Text("Connection expired — tap Reconnect")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+                } else if let status = integrations.googleStatus, status.connected {
                     Text("Calendar events sync and meeting data")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
@@ -302,7 +330,14 @@ struct SettingsModalView: View {
 
             Spacer()
 
-            if let status = integrations.googleStatus, status.connected {
+            if googleRequiresReauth {
+                Button("Reconnect") {
+                    Task { await integrations.connectGoogle() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .controlSize(.small)
+            } else if let status = integrations.googleStatus, status.connected {
                 Button("Disconnect") {
                     Task { await integrations.disconnectGoogle() }
                 }
@@ -319,7 +354,12 @@ struct SettingsModalView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.03))
+                .fill(googleRequiresReauth ? Color.orange.opacity(0.05) : Color.black.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(
+                    googleRequiresReauth ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
         )
     }
 

@@ -13,6 +13,8 @@ struct LinearConnectionStatus: Codable {
 struct GoogleConnectionStatus: Codable {
     let connected: Bool
     let email: String?
+    let requiresReauth: Bool?
+    let lastErrorAt: String?
 }
 
 @MainActor
@@ -140,7 +142,8 @@ final class IntegrationsManager: ObservableObject {
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                googleStatus = GoogleConnectionStatus(connected: false, email: nil)
+                googleStatus = GoogleConnectionStatus(
+                    connected: false, email: nil, requiresReauth: nil, lastErrorAt: nil)
             }
         } catch {
             NSLog("[Integrations] Failed to disconnect Google: %@", error.localizedDescription)
@@ -434,15 +437,19 @@ struct GoogleIntegrationCard: View {
     let onConnect: () -> Void
     let onDisconnect: () -> Void
 
+    private var requiresReauth: Bool {
+        status?.requiresReauth == true
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             // Google logo placeholder
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white)  // Google usually white bg
-                Image(systemName: "calendar")  // Placeholder for GCal icon
+                    .fill(requiresReauth ? Color.orange.opacity(0.15) : Color.white)
+                Image(systemName: requiresReauth ? "exclamationmark.triangle.fill" : "calendar")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(requiresReauth ? .orange : .blue)
             }
             .frame(width: 48, height: 48)
 
@@ -451,7 +458,11 @@ struct GoogleIntegrationCard: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.primaryText)
 
-                if let status, status.connected, let email = status.email {
+                if requiresReauth, let email = status?.email {
+                    Text("Reconnect required for \(email)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+                } else if let status, status.connected, let email = status.email {
                     Text("Connected as \(email)")
                         .font(.system(size: 12))
                         .foregroundColor(.green)
@@ -464,7 +475,14 @@ struct GoogleIntegrationCard: View {
 
             Spacer()
 
-            if let status, status.connected {
+            if requiresReauth {
+                Button("Reconnect") {
+                    onConnect()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .controlSize(.small)
+            } else if let status, status.connected {
                 Button("Disconnect") {
                     onDisconnect()
                 }
@@ -485,7 +503,9 @@ struct GoogleIntegrationCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                .stroke(
+                    requiresReauth ? Color.orange.opacity(0.5) : AppTheme.subtleStroke,
+                    lineWidth: requiresReauth ? 2 : 1)
         )
     }
 }

@@ -16,6 +16,7 @@ final class MeetingRecorder {
     private let engine = AVAudioEngine()
     private var inputFormat: AVAudioFormat?
     private var converter: AVAudioConverter?
+    private var configurationObserver: NSObjectProtocol?
 
     private var remoteLevelRMS: Float = 0
     private let remoteLevelLock = NSLock()
@@ -62,32 +63,16 @@ final class MeetingRecorder {
     func start() {
         guard !isRunning else { return }
 
-        let inputNode = engine.inputNode
-        let inputFormat = inputNode.inputFormat(forBus: 0)
-        self.inputFormat = inputFormat
-
-        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
-            let err = NSError(
-                domain: "MeetingRecorder",
-                code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to create AVAudioConverter"]
-            )
-            onError?(err)
-            return
-        }
-        self.converter = converter
-
+        setupAudioEngine()
         startNewChunk()
 
-        // Just in case there was a previous tap
-        inputNode.removeTap(onBus: 0)
-
-        // Small-ish buffer for low latency
-        let bufferSize: AVAudioFrameCount = 1024
-
-        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
-            [weak self] buffer, _ in
-            self?.handleInputBuffer(buffer)
+        // Listen for audio device changes (e.g., switching to AirPods)
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleConfigurationChange()
         }
 
         do {
@@ -105,11 +90,63 @@ final class MeetingRecorder {
         }
     }
 
+    private func setupAudioEngine() {
+        let inputNode = engine.inputNode
+        let inputFormat = inputNode.inputFormat(forBus: 0)
+        self.inputFormat = inputFormat
+
+        guard let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+            let err = NSError(
+                domain: "MeetingRecorder",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create AVAudioConverter"]
+            )
+            onError?(err)
+            return
+        }
+        self.converter = converter
+
+        // Just in case there was a previous tap
+        inputNode.removeTap(onBus: 0)
+
+        // Small-ish buffer for low latency
+        let bufferSize: AVAudioFrameCount = 1024
+
+        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) {
+            [weak self] buffer, _ in
+            self?.handleInputBuffer(buffer)
+        }
+    }
+
+    private func handleConfigurationChange() {
+        NSLog("[MeetingRecorder] Audio configuration changed (device switch detected)")
+
+        // Stop the engine and remove the old tap
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+
+        // Re-setup with new device configuration
+        setupAudioEngine()
+
+        do {
+            try engine.start()
+            NSLog("[MeetingRecorder] AVAudioEngine restarted after device change")
+        } catch {
+            NSLog("[MeetingRecorder] Failed to restart after device change: \(error)")
+            onError?(error)
+        }
+    }
+
     func stop() -> RecordedChunk? {
         guard isRunning else { return nil }
 
         chunkTimer?.invalidate()
         chunkTimer = nil
+
+        if let observer = configurationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            configurationObserver = nil
+        }
 
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
@@ -345,6 +382,10 @@ final class MeetingRecorder {
     }
 
     private func teardown() {
+        if let observer = configurationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            configurationObserver = nil
+        }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         isRunning = false
