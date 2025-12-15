@@ -760,11 +760,6 @@ struct MeetingView: View {
                     }
             }
 
-            if !hasAISummary && (meeting?.userNotes ?? "").isEmpty {
-                Text("No notes taken during this meeting.")
-                    .font(.system(size: 14))
-                    .foregroundColor(AppTheme.secondaryText)
-            }
         }
     }
 
@@ -2002,11 +1997,6 @@ private struct ActionItemCard: View {
         VStack(alignment: .leading, spacing: 12) {
             toolPreview
 
-            // Connect button when integration is not connected
-            if !isIntegrationConnected {
-                connectIntegrationButton
-            }
-
             // Execution result feedback
             if let result = executionResult {
                 HStack(spacing: 8) {
@@ -2078,47 +2068,21 @@ private struct ActionItemCard: View {
         }
     }
 
-    private var connectIntegrationButton: some View {
-        Button {
-            isConnecting = true
-            Task {
-                switch action.toolName {
-                case "slackSendMessage", "slackListChannels":
-                    await integrationsManager.connectSlack()
-                case "linearCreateIssue":
-                    await integrationsManager.connectLinear()
-                case "calendarCreateEvent", "calendarListEvents":
-                    await integrationsManager.connectGoogle()
-                default:
-                    break
-                }
-                isConnecting = false
+    private func connectIntegration() {
+        isConnecting = true
+        Task {
+            switch action.toolName {
+            case "slackSendMessage", "slackListChannels":
+                await integrationsManager.connectSlack()
+            case "linearCreateIssue":
+                await integrationsManager.connectLinear()
+            case "calendarCreateEvent", "calendarListEvents":
+                await integrationsManager.connectGoogle()
+            default:
+                break
             }
-        } label: {
-            HStack(spacing: 8) {
-                if isConnecting {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                } else {
-                    Image(integrationIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 16, height: 16)
-                }
-                Text(isConnecting ? "Opening browser..." : "Connect \(integrationName) to run this")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(integrationColor)
-            )
+            isConnecting = false
         }
-        .buttonStyle(.plain)
-        .disabled(isConnecting)
     }
 
     @ViewBuilder
@@ -2133,7 +2097,9 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                    isConnecting: isConnecting,
+                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
                 )
             case "linearCreateIssue":
                 EditableLinearIssuePreview(
@@ -2141,7 +2107,9 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                    isConnecting: isConnecting,
+                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
                 )
             case "slackSendMessage":
                 EditableSlackMessagePreview(
@@ -2149,7 +2117,9 @@ private struct ActionItemCard: View {
                     compact: false,
                     onParamsChanged: { editedParams = $0 },
                     isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil
+                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                    isConnecting: isConnecting,
+                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
                 )
             default:
                 ToolPreviewFactory.preview(for: toolName, params: params, compact: false)

@@ -424,8 +424,8 @@ struct SlackMessagePreview: View {
                             .frame(width: 10, height: 10)
                     } else {
                         Image(systemName: isDirectMessage ? "person.fill" : "number")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(AppTheme.secondaryText)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
                     }
 
                     Text(channelDisplay)
@@ -755,6 +755,8 @@ struct EditableCalendarEventPreview: View {
     // Button state (optional - for inline button in header)
     var isExecuting: Bool = false
     var onExecute: (() -> Void)? = nil
+    var isConnecting: Bool = false
+    var onConnect: (() -> Void)? = nil
 
     @State private var title: String
     @State private var description: String
@@ -806,13 +808,17 @@ struct EditableCalendarEventPreview: View {
         compact: Bool,
         onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
         isExecuting: Bool = false,
-        onExecute: (() -> Void)? = nil
+        onExecute: (() -> Void)? = nil,
+        isConnecting: Bool = false,
+        onConnect: (() -> Void)? = nil
     ) {
         self.initialParams = params
         self.compact = compact
         self.onParamsChanged = onParamsChanged
         self.isExecuting = isExecuting
         self.onExecute = onExecute
+        self.isConnecting = isConnecting
+        self.onConnect = onConnect
 
         _title = State(initialValue: params.getString("title") ?? "Untitled Event")
         _description = State(initialValue: params.getString("description") ?? "")
@@ -871,6 +877,37 @@ struct EditableCalendarEventPreview: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isExecuting)
+                } else if let onConnect = onConnect {
+                    Button {
+                        onConnect()
+                    } label: {
+                        if isConnecting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Connecting...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 10))
+                                Text("Connect Google")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting)
                 }
             }
             .padding(.horizontal, 14)
@@ -960,6 +997,8 @@ struct EditableLinearIssuePreview: View {
     var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
     var isExecuting: Bool = false
     var onExecute: (() -> Void)? = nil
+    var isConnecting: Bool = false
+    var onConnect: (() -> Void)? = nil
 
     @State private var title: String
     @State private var description: String
@@ -997,13 +1036,17 @@ struct EditableLinearIssuePreview: View {
         compact: Bool,
         onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
         isExecuting: Bool = false,
-        onExecute: (() -> Void)? = nil
+        onExecute: (() -> Void)? = nil,
+        isConnecting: Bool = false,
+        onConnect: (() -> Void)? = nil
     ) {
         self.initialParams = params
         self.compact = compact
         self.onParamsChanged = onParamsChanged
         self.isExecuting = isExecuting
         self.onExecute = onExecute
+        self.isConnecting = isConnecting
+        self.onConnect = onConnect
 
         _title = State(initialValue: params.getString("title") ?? "Untitled Issue")
         _description = State(initialValue: params.getString("description") ?? "")
@@ -1065,6 +1108,39 @@ struct EditableLinearIssuePreview: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isExecuting)
+                } else if let onConnect = onConnect {
+                    Button {
+                        onConnect()
+                    } label: {
+                        if isConnecting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Connecting...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "5E6AD2").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 10))
+                                Text("Connect Linear")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "5E6AD2")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting)
                 }
             }
             .padding(.horizontal, 14)
@@ -1158,6 +1234,8 @@ struct EditableSlackMessagePreview: View {
     var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
     var isExecuting: Bool = false
     var onExecute: (() -> Void)? = nil
+    var isConnecting: Bool = false
+    var onConnect: (() -> Void)? = nil
 
     @State private var message: String
     @State private var channelInfo: SlackChannelInfo?
@@ -1189,13 +1267,17 @@ struct EditableSlackMessagePreview: View {
         compact: Bool,
         onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
         isExecuting: Bool = false,
-        onExecute: (() -> Void)? = nil
+        onExecute: (() -> Void)? = nil,
+        isConnecting: Bool = false,
+        onConnect: (() -> Void)? = nil
     ) {
         self.initialParams = params
         self.compact = compact
         self.onParamsChanged = onParamsChanged
         self.isExecuting = isExecuting
         self.onExecute = onExecute
+        self.isConnecting = isConnecting
+        self.onConnect = onConnect
 
         _message = State(initialValue: params.getString("message") ?? "")
     }
@@ -1255,6 +1337,39 @@ struct EditableSlackMessagePreview: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(isExecuting || isLoadingChannel)
+                } else if let onConnect = onConnect {
+                    Button {
+                        onConnect()
+                    } label: {
+                        if isConnecting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Connecting...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "4A154B").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "link")
+                                    .font(.system(size: 10))
+                                Text("Connect Slack")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "4A154B")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isConnecting)
                 }
             }
             .padding(.horizontal, 14)
@@ -1274,8 +1389,8 @@ struct EditableSlackMessagePreview: View {
                                 .frame(width: 10, height: 10)
                         } else {
                             Image(systemName: isDirectMessage ? "person.fill" : "number")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.secondaryText)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
                         }
                         Text(channelDisplay)
                             .font(.system(size: 13, weight: .medium))
