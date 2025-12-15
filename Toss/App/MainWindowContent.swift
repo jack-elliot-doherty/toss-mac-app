@@ -24,28 +24,13 @@ struct MainWindowContent: View {
     }
 }
 
-// NSView subclass that calls a callback immediately when added to a window
-private class WindowObservingView: NSView {
-    var onWindow: ((NSWindow) -> Void)?
-
-    convenience init(onWindow: @escaping (NSWindow) -> Void) {
-        self.init(frame: .zero)
-        self.onWindow = onWindow
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let window = window {
-            onWindow?(window)
-        }
-    }
-}
-
 private struct MainWindowConfigurationView: NSViewRepresentable {
     @ObservedObject private var auth = AuthManager.shared
 
     func makeNSView(context: Context) -> NSView {
-        let view = WindowObservingView { [self] window in
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
             configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
         }
         return view
@@ -59,7 +44,6 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
     private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool) {
         // Hide window entirely if not authenticated
         if !isAuthenticated {
-            NSLog("[MainWindowConfig] Hiding main window (not authenticated)")
             window.orderOut(nil)
             return
         }
@@ -78,9 +62,11 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
         window.collectionBehavior.insert(.fullScreenPrimary)
 
         // Size constraints
-        window.minSize = NSSize(width: 820, height: 600)
+        // Note: minWidth must be less than sidebar collapse threshold (700) in MainAppView
+        // to allow the window to legitimately reach collapsed-sidebar widths
+        window.minSize = NSSize(width: 500, height: 500)
         window.maxSize = NSSize(width: 10_000, height: 10_000)
-        window.contentMinSize = NSSize(width: 820, height: 600)
+        window.contentMinSize = NSSize(width: 500, height: 500)
         window.contentMaxSize = NSSize(width: 10_000, height: 10_000)
 
         // Hide all traffic lights (you draw custom ones)
