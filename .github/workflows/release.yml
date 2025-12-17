@@ -120,16 +120,30 @@ jobs:
       - name: Create DMG
         working-directory: Toss
         run: |
-          mkdir -p ./build/dmg-staging
-          cp -R "./build/Release/Toss.app" ./build/dmg-staging/
-          ln -s /Applications ./build/dmg-staging/Applications
+          # Install create-dmg and librsvg for SVG conversion
+          brew install create-dmg librsvg
 
-          hdiutil create -volname "Toss" \
-            -srcfolder ./build/dmg-staging \
-            -ov -format UDZO \
-            "Toss-${{ steps.version.outputs.VERSION }}.dmg"
+          mkdir -p ./build/dmg-assets
 
-          rm -rf ./build/dmg-staging
+          # Convert SVG background to PNG
+          rsvg-convert -w 540 -h 380 ../dmg-background.svg -o ./build/dmg-assets/background.png
+
+          # Create styled DMG with custom background and icon positioning
+          create-dmg \
+            --volname "Toss" \
+            --window-pos 200 120 \
+            --window-size 540 380 \
+            --icon-size 100 \
+            --icon "Toss.app" 135 200 \
+            --hide-extension "Toss.app" \
+            --app-drop-link 405 200 \
+            --background "./build/dmg-assets/background.png" \
+            --text-size 14 \
+            --no-internet-enable \
+            "Toss-${{ steps.version.outputs.VERSION }}.dmg" \
+            "./build/Release/Toss.app"
+
+          rm -rf ./build/dmg-assets
 
       - name: Sign DMG
         working-directory: Toss

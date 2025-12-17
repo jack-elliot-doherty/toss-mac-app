@@ -339,7 +339,7 @@ struct MainAppView: View {
 
             breadcrumbView
 
-            Spacer()
+            Spacer(minLength: 0)
 
             if let meetingId = pageChrome.state.meetingActionsId {
                 MeetingChromeActions(
@@ -356,6 +356,7 @@ struct MainAppView: View {
                 AppScreenActionButton(action: action)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
     }

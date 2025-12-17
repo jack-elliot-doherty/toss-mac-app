@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="380" viewBox="0 0 540 380">
+  <!-- Background matching Toss brand -->
+  <rect width="540" height="380" fill="#FAF9F7"/>
+  
+  <!-- Subtle top gradient for depth -->
+  <defs>
+    <linearGradient id="topGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5F4F2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FAF9F7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="540" height="80" fill="url(#topGradient)"/>
+  
+  <!-- Instructional text -->
+  <text x="270" y="52" 
+        font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" 
+        font-size="18" 
+        font-weight="500"
+        fill="#1A1A1A" 
+        text-anchor="middle">
+    Drag Toss to Applications
+  </text>
+  
+  <!-- Arrow pointing from left to right -->
+  <g transform="translate(270, 210)">
+    <!-- Arrow line -->
+    <line x1="-40" y1="0" x2="30" y2="0" 
+          stroke="#6078FF" 
+          stroke-width="3" 
+          stroke-linecap="round"/>
+    <!-- Arrow head -->
+    <polyline points="20,-10 35,0 20,10" 
+              stroke="#6078FF" 
+              stroke-width="3" 
+              stroke-linecap="round" 
+              stroke-linejoin="round"
+              fill="none"/>
+  </g>
+</svg>
