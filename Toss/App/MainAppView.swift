@@ -356,6 +356,8 @@ struct MainAppView: View {
                 AppScreenActionButton(action: action)
             }
         }
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     private func navButton(systemName: String, enabled: Bool, action: @escaping () -> Void)

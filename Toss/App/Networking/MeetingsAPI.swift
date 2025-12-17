@@ -115,6 +115,12 @@ enum AnyCodableValue: Codable, Equatable {
         case .null: return NSNull()
         }
     }
+
+    // Convenience accessor for string values
+    var stringValue: String? {
+        if case .string(let v) = self { return v }
+        return nil
+    }
 }
 
 struct ToolApprovalResult: Codable {

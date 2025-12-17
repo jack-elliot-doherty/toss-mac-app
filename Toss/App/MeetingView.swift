@@ -230,6 +230,7 @@ struct MeetingView: View {
             .padding(.bottom, 60)
             .frame(maxWidth: .infinity, alignment: .center)  // Center the block in the window
         }
+        .clipped()
         .onAppear(perform: configureChrome)
         .onDisappear { pageChrome.clearOverride() }
         .onChange(of: meeting?.title) { _, _ in configureChrome() }
@@ -1170,6 +1171,7 @@ struct MeetingsListView: View {
                 MeetingView(meetingId: meetingId, repository: repository)
             }
         }
+        .clipped()  // Prevent NavigationStack content from extending into header
         .onChange(of: pendingMeetingId) { _, newValue in
             if let meetingId = newValue {
                 navigationPath.append(meetingId)
@@ -2099,6 +2101,20 @@ private struct ActionItemCard: View {
                     isConnecting: isConnecting,
                     onConnect: isIntegrationConnected ? nil : { connectIntegration() }
                 )
+            case "cursorOpenPrompt":
+                CursorPromptPreview(
+                    params: ToolParams(params),
+                    compact: false,
+                    title: action.title,
+                    context: action.context,
+                    isExecuting: isExecuting,
+                    onOpenInCursor: {
+                        openInCursor(params: params)
+                    },
+                    onCopyLink: {
+                        copyCursorLink(params: params)
+                    }
+                )
             default:
                 ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
             }
@@ -2108,6 +2124,19 @@ private struct ActionItemCard: View {
                 .foregroundColor(AppTheme.secondaryText)
                 .italic()
         }
+    }
+
+    private func openInCursor(params: [String: AnyCodableValue]) {
+        guard let prompt = params["prompt"]?.stringValue else { return }
+        guard let url = CursorPromptPreview.generateDeepLink(prompt: prompt) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func copyCursorLink(params: [String: AnyCodableValue]) {
+        guard let prompt = params["prompt"]?.stringValue else { return }
+        guard let url = CursorPromptPreview.generateWebLink(prompt: prompt) else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
     }
 }
 

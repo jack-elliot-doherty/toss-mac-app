@@ -273,6 +273,8 @@ struct IntegrationsView: View {
                         onDisconnect: { Task { await manager.disconnectGoogle() } }
                     )
 
+                    CursorIntegrationCard()
+
                     // Future integrations go here
                     ComingSoonCard(
                         name: "Notion", imageName: "NotionLogo", fallbackIcon: "doc.text",
@@ -517,6 +519,48 @@ struct GoogleIntegrationCard: View {
                 .stroke(
                     requiresReauth ? Color.orange.opacity(0.5) : AppTheme.subtleStroke,
                     lineWidth: requiresReauth ? 2 : 1)
+        )
+    }
+}
+
+struct CursorIntegrationCard: View {
+    var body: some View {
+        HStack(spacing: 16) {
+            // Cursor logo
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.black)
+                Image("CursorLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Cursor")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Text("Turn call context into Cursor prompts automatically")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            Spacer()
+
+            Text("Always available")
+                .font(.system(size: 12))
+                .foregroundColor(.green)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.elevatedBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.subtleStroke, lineWidth: 1)
         )
     }
 }

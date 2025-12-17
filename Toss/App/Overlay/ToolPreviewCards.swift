@@ -98,6 +98,10 @@ struct ToolPreviewFactory {
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
             SlackMessagePreview(params: wrapped, compact: compact)
+        case "cursorOpenPrompt":
+            // Note: CursorPromptPreview needs title/context, so use GenericToolPreview as fallback
+            // The full CursorPromptPreview is used directly in ActionItemCard
+            GenericToolPreview(toolName: "Open in Cursor", params: wrapped)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
         }
@@ -601,6 +605,201 @@ struct AgentTaskPreview: View {
                         .stroke(Color.orange.opacity(0.2), lineWidth: 1)
                 )
         )
+    }
+}
+
+// MARK: - Cursor Prompt Preview
+
+struct CursorPromptPreview: View {
+    let params: ToolParams
+    let compact: Bool
+    let title: String
+    let context: String
+    var isExecuting: Bool = false
+    var onOpenInCursor: (() -> Void)? = nil
+    var onCopyLink: (() -> Void)? = nil
+
+    @State private var isExpanded = false
+    @State private var didCopyLink = false
+
+    private var prompt: String { params.getString("prompt") ?? "" }
+
+    // Cursor brand color
+    private let cursorColor = Color(hex: "00D1FF")
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with Cursor branding
+            HStack(spacing: 10) {
+                // Cursor icon
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.black)
+                    .frame(width: 24, height: 24)
+                    .overlay(
+                        Image("CursorLogo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 16, height: 16)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(1)
+
+                    Text(context)
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Secondary CTA: Copy Link
+                Button {
+                    onCopyLink?()
+                    didCopyLink = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        didCopyLink = false
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: didCopyLink ? "checkmark" : "link")
+                            .font(.system(size: 10))
+                        Text(didCopyLink ? "Copied" : "Copy Link")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(didCopyLink ? .green : AppTheme.secondaryText)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(AppTheme.cardBackground)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+
+                // Primary CTA: Open in Cursor
+                Button {
+                    onOpenInCursor?()
+                } label: {
+                    if isExecuting {
+                        HStack(spacing: 6) {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                            Text("Opening...")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(cursorColor.opacity(0.7))
+                        )
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.forward.app")
+                                .font(.system(size: 10))
+                            Text("Open in Cursor")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(cursorColor)
+                        )
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isExecuting)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Prompt code block
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Prompt")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    Spacer()
+
+                    if prompt.count > 300 {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isExpanded.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Text(isExpanded ? "Collapse" : "Expand")
+                                    .font(.system(size: 11, weight: .medium))
+                                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
+                            .foregroundColor(cursorColor)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                // Code block style prompt display
+                ScrollView {
+                    Text(prompt)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(AppTheme.primaryText.opacity(0.9))
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: isExpanded ? 400 : (compact ? 100 : 150))
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.black.opacity(0.3))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(cursorColor.opacity(0.2), lineWidth: 1)
+                        )
+                )
+            }
+            .padding(14)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(cursorColor.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+
+    // Generate Cursor deep link URL
+    static func generateDeepLink(prompt: String) -> URL? {
+        let baseUrl = "cursor://anysphere.cursor-deeplink/prompt"
+        guard var components = URLComponents(string: baseUrl) else { return nil }
+        components.queryItems = [URLQueryItem(name: "text", value: prompt)]
+        return components.url
+    }
+
+    // Generate web link for sharing
+    static func generateWebLink(prompt: String) -> URL? {
+        let baseUrl = "https://cursor.com/link/prompt"
+        guard var components = URLComponents(string: baseUrl) else { return nil }
+        components.queryItems = [URLQueryItem(name: "text", value: prompt)]
+        return components.url
     }
 }
 
