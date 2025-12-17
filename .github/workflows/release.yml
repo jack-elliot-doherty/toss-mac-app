@@ -240,6 +240,7 @@ jobs:
           # Install AWS CLI (R2 is S3-compatible)
           pip install awscli
 
+
           # Configure for R2
           aws configure set aws_access_key_id "$R2_ACCESS_KEY_ID"
           aws configure set aws_secret_access_key "$R2_SECRET_ACCESS_KEY"
