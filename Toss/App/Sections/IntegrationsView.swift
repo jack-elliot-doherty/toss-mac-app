@@ -275,10 +275,12 @@ struct IntegrationsView: View {
 
                     // Future integrations go here
                     ComingSoonCard(
-                        name: "Linear", icon: "square.stack.3d.up",
-                        description: "Create and manage issues")
+                        name: "Notion", imageName: "NotionLogo", fallbackIcon: "doc.text",
+                        description: "Access your workspace")
                     ComingSoonCard(
-                        name: "Notion", icon: "doc.text", description: "Access your workspace")
+                        name: "GitHub", imageName: "GitHubLogo",
+                        fallbackIcon: "chevron.left.forwardslash.chevron.right",
+                        description: "Create issues and pull requests")
                 }
             }
             .padding(.horizontal, 32)
@@ -312,13 +314,14 @@ struct SlackIntegrationCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Slack logo placeholder
+            // Slack logo
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(red: 0.28, green: 0.16, blue: 0.36))
-                Image(systemName: "number")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                Image("SlackLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
             }
             .frame(width: 48, height: 48)
 
@@ -377,13 +380,14 @@ struct LinearIntegrationCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Linear logo placeholder
+            // Linear logo
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color(red: 0.36, green: 0.38, blue: 0.96))  // Linear Purple
-                Image(systemName: "square.stack.3d.up")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                Image("LinearLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 28, height: 28)
             }
             .frame(width: 48, height: 48)
 
@@ -443,13 +447,20 @@ struct GoogleIntegrationCard: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Google logo placeholder
+            // Google Calendar logo
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(requiresReauth ? Color.orange.opacity(0.15) : Color.white)
-                Image(systemName: requiresReauth ? "exclamationmark.triangle.fill" : "calendar")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(requiresReauth ? .orange : .blue)
+                if requiresReauth {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.orange)
+                } else {
+                    Image("GoogleCalendarLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
+                }
             }
             .frame(width: 48, height: 48)
 
@@ -512,17 +523,33 @@ struct GoogleIntegrationCard: View {
 
 struct ComingSoonCard: View {
     let name: String
-    let icon: String
+    let imageName: String?
+    let fallbackIcon: String
     let description: String
+
+    init(name: String, imageName: String? = nil, fallbackIcon: String, description: String) {
+        self.name = name
+        self.imageName = imageName
+        self.fallbackIcon = fallbackIcon
+        self.description = description
+    }
 
     var body: some View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.gray.opacity(0.2))
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(AppTheme.secondaryText)
+                if let imageName, NSImage(named: imageName) != nil {
+                    Image(imageName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
+                        .opacity(0.6)
+                } else {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
             }
             .frame(width: 48, height: 48)
 
