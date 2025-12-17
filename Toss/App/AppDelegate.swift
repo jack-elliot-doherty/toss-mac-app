@@ -277,6 +277,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         MeetingsManager.shared.pillController = pillController
 
+        // Configure update manager for in-app update notifications
+        UpdateManager.shared.configure(with: updaterController)
+
         NSLog("[AppDelegate] Meeting detection enabled")
 
         // Observe when a different user signs in (to clear previous user's data)

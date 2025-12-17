@@ -84,6 +84,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 struct MainAppView: View {
     @ObservedObject private var auth = AuthManager.shared
     @ObservedObject private var subscription = SubscriptionManager.shared
+    @ObservedObject private var updateManager = UpdateManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .home
     @State private var showSettings = false
@@ -194,6 +195,13 @@ struct MainAppView: View {
             }
 
             Spacer()
+
+            // Update available notification
+            if updateManager.updateAvailable {
+                updateAvailableBanner
+                    .padding(.bottom, 8)
+            }
+
             // Settings at bottom
             sidebarButton(for: .settings)
                 .padding(.bottom, 4)
@@ -230,6 +238,56 @@ struct MainAppView: View {
                     .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0))
             )
             .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var updateAvailableBanner: some View {
+        Button {
+            updateManager.installUpdate()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                // Title row
+                HStack {
+                    Text("Update available")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    if let version = updateManager.latestVersion {
+                        Text("v\(version)")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                }
+
+                // Description
+                Text("A new version of Toss is available with the latest features and fixes.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineSpacing(2)
+
+                // Update button - full width, white
+                Text("Update now")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.white)
+                    )
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.black)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
