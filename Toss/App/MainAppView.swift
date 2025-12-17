@@ -336,29 +336,33 @@ struct MainAppView: View {
     private var pageHeader: some View {
         HStack(spacing: 16) {
             navigationControls
-
             breadcrumbView
-
             Spacer(minLength: 0)
-
-            if let meetingId = pageChrome.state.meetingActionsId {
-                MeetingChromeActions(
-                    meetingId: meetingId,
-                    repository: meetingRepository,
-                    onDelete: {
-                        // Navigate back after delete
-                        if !meetingsNavigationPath.isEmpty {
-                            meetingsNavigationPath.removeLast()
-                        }
-                    }
-                )
-            } else if let action = pageChrome.state.action {
-                AppScreenActionButton(action: action)
-            }
         }
         .frame(maxWidth: .infinity)
+        .overlay(alignment: .trailing) {
+            pageHeaderActions
+        }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private var pageHeaderActions: some View {
+        if let meetingId = pageChrome.state.meetingActionsId {
+            MeetingChromeActions(
+                meetingId: meetingId,
+                repository: meetingRepository,
+                onDelete: {
+                    // Navigate back after delete
+                    if !meetingsNavigationPath.isEmpty {
+                        meetingsNavigationPath.removeLast()
+                    }
+                }
+            )
+        } else if let action = pageChrome.state.action {
+            AppScreenActionButton(action: action)
+        }
     }
 
     private func navButton(systemName: String, enabled: Bool, action: @escaping () -> Void)
