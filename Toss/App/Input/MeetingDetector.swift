@@ -159,8 +159,8 @@ final class MeetingDetector {
             if let appName = currentMeetingApp {
                 NSLog("[MeetingDetector] Mic active in \(appName) - triggering detection!")
 
-                // Wait 4 seconds before showing toast (let user focus on joining)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self] in
+                // Wait 2 seconds before showing toast (let user focus on joining)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                     NSLog("[MeetingDetector] Showing meeting detection prompt")
                     self?.onMeetingDetected?()
                 }
