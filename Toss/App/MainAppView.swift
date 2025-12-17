@@ -334,15 +334,23 @@ struct MainAppView: View {
     }
 
     private var pageHeader: some View {
-        HStack(spacing: 16) {
-            navigationControls
-            breadcrumbView
-            Spacer(minLength: 0)
+        ZStack {
+            // Left-aligned: navigation + breadcrumb
+            HStack(spacing: 16) {
+                navigationControls
+                breadcrumbView
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+
+            // Right-aligned: actions
+            HStack {
+                Spacer()
+                pageHeaderActions
+            }
+            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity)
-        .overlay(alignment: .trailing) {
-            pageHeaderActions
-        }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
