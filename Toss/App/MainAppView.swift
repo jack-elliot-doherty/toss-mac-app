@@ -17,6 +17,7 @@ struct AppScreenAction {
 struct AppScreenLayoutState {
     var breadcrumb: [Breadcrumb]
     var action: AppScreenAction?
+    var meetingActionsId: UUID?  // When set, shows meeting-specific share/delete actions
 }
 
 final class AppScreenLayout: ObservableObject {
@@ -340,7 +341,18 @@ struct MainAppView: View {
 
             Spacer()
 
-            if let action = pageChrome.state.action {
+            if let meetingId = pageChrome.state.meetingActionsId {
+                MeetingChromeActions(
+                    meetingId: meetingId,
+                    repository: meetingRepository,
+                    onDelete: {
+                        // Navigate back after delete
+                        if !meetingsNavigationPath.isEmpty {
+                            meetingsNavigationPath.removeLast()
+                        }
+                    }
+                )
+            } else if let action = pageChrome.state.action {
                 AppScreenActionButton(action: action)
             }
         }
@@ -1056,6 +1068,124 @@ struct HomeView: View {
                 formatter.dateFormat = "h:mm a"
                 return formatter.string(from: date)
             }
+        }
+    }
+}
+
+// MARK: - Meeting Chrome Actions
+
+struct MeetingChromeActions: View {
+    let meetingId: UUID
+    @ObservedObject var repository: PersistentMeetingRepository
+    let onDelete: () -> Void
+
+    private var meeting: MeetingModel? {
+        repository.getMeeting(id: meetingId)
+    }
+
+    private var isRecording: Bool {
+        meeting?.endTime == nil
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Share dropdown
+            Menu {
+                Button(action: copyShareLink) {
+                    Label("Copy link", systemImage: "link")
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Share")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.white.opacity(0.1))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+                .foregroundColor(AppTheme.primaryText)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+
+            // Ellipsis menu
+            Menu {
+                if !isRecording {
+                    Button(action: resumeRecording) {
+                        Label("Resume", systemImage: "mic.fill")
+                    }
+                }
+
+                Divider()
+
+                Button(role: .destructive, action: deleteMeetingWithConfirmation) {
+                    Label("Delete", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(0.1))
+                    )
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+        }
+    }
+
+    private func copyShareLink() {
+        Task {
+            do {
+                await MeetingSyncManager.shared.syncMeeting(meetingId)
+                let shareUrl = try await MeetingsApi.shared.generateShareLink(meetingId: meetingId)
+                await MainActor.run {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(shareUrl, forType: .string)
+                }
+                NSLog("[MeetingChromeActions] Copied share link: \(shareUrl)")
+            } catch {
+                NSLog("[MeetingChromeActions] Failed to copy share link: \(error)")
+            }
+        }
+    }
+
+    private func resumeRecording() {
+        NSLog("[MeetingChromeActions] Resume recording for meeting: \(meetingId)")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ResumeMeetingRecording"),
+            object: nil,
+            userInfo: ["meetingId": meetingId]
+        )
+    }
+
+    private func deleteMeetingWithConfirmation() {
+        let alert = NSAlert()
+        alert.messageText = "Delete this call?"
+        alert.informativeText = "This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            repository.deleteMeeting(id: meetingId)
+            Task { await MeetingSyncManager.shared.deleteMeetingFromServer(meetingId) }
+            NSLog("[MeetingChromeActions] Deleted meeting: \(meetingId)")
+            onDelete()
         }
     }
 }

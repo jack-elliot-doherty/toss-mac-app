@@ -803,34 +803,12 @@ struct MeetingView: View {
             Breadcrumb(title: "Calls"),
             Breadcrumb(title: meetingTitle),
         ]
-        let action = AppScreenAction(title: "Share", systemImage: "square.and.arrow.up") {
-            shareMeeting()
-        }
-        pageChrome.override(with: AppScreenLayoutState(breadcrumb: crumbs, action: action))
-    }
-
-    private func shareMeeting() {
-        NSLog("[MeetingView] Share tapped for \(meetingTitle)")
-
-        Task {
-            do {
-                // First, ensure meeting is synced to server
-                await MeetingSyncManager.shared.syncMeeting(meetingId)
-
-                // Generate share link
-                let shareUrl = try await MeetingsApi.shared.generateShareLink(meetingId: meetingId)
-
-                // Copy to clipboard
-                await MainActor.run {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(shareUrl, forType: .string)
-                }
-
-                NSLog("[MeetingView] Share link copied: \(shareUrl)")
-            } catch {
-                NSLog("[MeetingView] Share failed: \(error)")
-            }
-        }
+        pageChrome.override(
+            with: AppScreenLayoutState(
+                breadcrumb: crumbs,
+                action: nil,
+                meetingActionsId: meetingId
+            ))
     }
 
     private func startEditingTitle() {
