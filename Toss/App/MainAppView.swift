@@ -205,6 +205,9 @@ struct MainAppView: View {
 
             // Settings at bottom
             sidebarButton(for: .settings)
+
+            // Contact founder button
+            contactFounderButton
                 .padding(.bottom, 4)
 
             sidebarAuth
@@ -238,6 +241,31 @@ struct MainAppView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(isSelected ? Color.white.opacity(0.15) : Color.white.opacity(0))
             )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var contactFounderButton: some View {
+        Button {
+            if let url = URL(string: "https://wa.me/353862702345") {
+                NSWorkspace.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "bubble.left.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Text("Talk to Founder")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
