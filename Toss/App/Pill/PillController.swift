@@ -138,6 +138,9 @@ final class PillController {
             case .restoreAgentPanel:
                 agentPanel.restore()
 
+            case .showAgentPanel:
+                handleShowAgentPanel()
+
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
 
@@ -344,6 +347,11 @@ final class PillController {
         log("Sending to agent: \(text)")
         // TODO: Cache the transcript locally
         agentPanel.show(with: text)
+    }
+
+    private func handleShowAgentPanel() {
+        log("Showing empty agent panel for text chat")
+        agentPanel.showEmpty()
     }
 
     private func cacheTranscript(_ text: String, rawText: String? = nil) {

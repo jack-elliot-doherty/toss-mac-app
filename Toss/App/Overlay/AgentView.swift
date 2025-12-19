@@ -3,107 +3,140 @@ import SwiftUI
 struct AgentView: View {
     @ObservedObject var viewModel: AgentViewModel
     @State private var inputText: String = ""
+    @FocusState private var isInputFocused: Bool
     @Namespace private var scrollNamespace
 
-    @State private var isHovering = false
-
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(viewModel.messages) { msg in
-                        MessageBubble(message: msg)
-                            .id(msg.id)
-                            .transition(
-                                .move(edge: .bottom)
-                                    .combined(with: .opacity)
-                            )
-                    }
-
-                    ForEach(viewModel.pendingToolCalls) { call in
-                        // Use special card for connect tools (no reject button)
-                        if call.isConnectTool {
-                            ConnectToolCard(
-                                toolCall: call,
-                                onApprove: { Task { await viewModel.approveToolCall(call) } }
-                            )
-                            .id(call.id)
-                            .transition(.opacity.combined(with: .scale))
-                        } else {
-                            ToolApprovalCard(
-                                toolCall: call,
-                                onApprove: { Task { await viewModel.approveToolCall(call) } },
-                                onReject: { viewModel.rejectToolCall(call) }
-                            )
-                            .id(call.id)
-                            .transition(.opacity.combined(with: .scale))
+        VStack(spacing: 0) {
+            if viewModel.isCompactMode {
+                // MARK: - Compact Mode (Input Only)
+                CompactInputView(
+                    inputText: $inputText,
+                    isInputFocused: $isInputFocused,
+                    onSend: {
+                        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        else {
+                            return
                         }
+                        let message = inputText
+                        inputText = ""
+                        // Transition to full mode, then send
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            viewModel.isCompactMode = false
+                        }
+                        // Small delay to let animation start
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            viewModel.sendMessage(message)
+                        }
+                    },
+                    onClose: {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("HideAgentPanel"), object: nil)
                     }
+                )
+            } else {
+                // MARK: - Full Mode
+                // Header
+                AgentHeader()
 
-                    // Only show thinking BEFORE streaming starts
-                    if viewModel.isProcessing && !viewModel.isStreaming {
-                        ProcessingRow()
-                            .transition(.opacity)
-                    }
+                Divider()
+                    .background(Color.white.opacity(0.08))
 
-                    if let error = viewModel.errorMessage {
-                        ErrorBubble(text: error)
-                            .transition(.opacity)
+                // Messages
+                ScrollViewReader { proxy in
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(viewModel.messages) { msg in
+                                MessageBubble(message: msg)
+                                    .id(msg.id)
+                                    .transition(
+                                        .move(edge: .bottom)
+                                            .combined(with: .opacity)
+                                    )
+                            }
+
+                            ForEach(viewModel.pendingToolCalls) { call in
+                                if call.isConnectTool {
+                                    ConnectToolCard(
+                                        toolCall: call,
+                                        onApprove: {
+                                            Task { await viewModel.approveToolCall(call) }
+                                        }
+                                    )
+                                    .id(call.id)
+                                    .transition(.opacity.combined(with: .scale))
+                                } else {
+                                    ToolApprovalCard(
+                                        toolCall: call,
+                                        onApprove: {
+                                            Task { await viewModel.approveToolCall(call) }
+                                        },
+                                        onReject: { viewModel.rejectToolCall(call) }
+                                    )
+                                    .id(call.id)
+                                    .transition(.opacity.combined(with: .scale))
+                                }
+                            }
+
+                            if viewModel.isProcessing && !viewModel.isStreaming {
+                                ProcessingRow()
+                                    .transition(.opacity)
+                            }
+
+                            if let error = viewModel.errorMessage {
+                                ErrorBubble(text: error)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
                     }
+                    .onChange(of: viewModel.messages.count) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: viewModel.pendingToolCalls.count) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: viewModel.isProcessing) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onAppear { scrollToBottom(proxy) }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 6)
+
+                Divider()
+                    .background(Color.white.opacity(0.08))
+
+                // Footer
+                AgentFooter(
+                    inputText: $inputText,
+                    isInputFocused: $isInputFocused,
+                    isProcessing: viewModel.isProcessing,
+                    onSend: {
+                        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        else {
+                            return
+                        }
+                        viewModel.sendMessage(inputText)
+                        inputText = ""
+                    }
+                )
             }
-            .onChange(of: viewModel.messages.count) { _ in
-                scrollToBottom(proxy)
-            }
-            .onChange(of: viewModel.pendingToolCalls.count) { _ in
-                scrollToBottom(proxy)
-            }
-            .onChange(of: viewModel.isProcessing) { _ in
-                scrollToBottom(proxy)
-            }
-            .onAppear { scrollToBottom(proxy) }
         }
-        .padding(16)
-        .frame(width: 650)
+        .frame(width: viewModel.isCompactMode ? 500 : 650)
         .appGlass(.surface, radius: 18, opacity: 0.001)
         .preferredColorScheme(.dark)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.messages)
-        .animation(
-            .spring(response: 0.3, dampingFraction: 0.85), value: viewModel.pendingToolCalls
-        )
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.pendingToolCalls)
         .animation(.easeInOut(duration: 0.15), value: viewModel.isProcessing)
-        .overlay(alignment: .topTrailing) {
-            closeButton
-                .opacity(isHovering ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2), value: isHovering)
-                .padding(10)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.isCompactMode)
+        .onAppear {
+            // Focus input when appearing in compact mode
+            if viewModel.isCompactMode {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isInputFocused = true
+                }
+            }
         }
-        .onHover { hovering in
-            isHovering = hovering
-        }
-    }
-
-    private var closeButton: some View {
-        Button {
-            // Post notification for controller to handle "Hide"
-            NotificationCenter.default.post(
-                name: NSNotification.Name("HideAgentPanel"), object: nil)
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white.opacity(0.8))
-                .frame(width: 24, height: 24)
-                .background(.ultraThinMaterial)  // subtle frosted backing
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.2), radius: 2)
-        }
-        .buttonStyle(.plain)
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -112,6 +145,199 @@ struct AgentView: View {
         } else if let lastMsg = viewModel.messages.last {
             proxy.scrollTo(lastMsg.id, anchor: .bottom)
         }
+    }
+}
+
+// MARK: - Compact Input View (Input Only Mode)
+
+private struct CompactInputView: View {
+    @Binding var inputText: String
+    var isInputFocused: FocusState<Bool>.Binding
+    let onSend: () -> Void
+    let onClose: () -> Void
+
+    @State private var isHoveringClose = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Text input
+            TextField("Ask anything...", text: $inputText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 15))
+                .foregroundColor(.white)
+                .focused(isInputFocused)
+                .onSubmit {
+                    if !inputText.isEmpty {
+                        onSend()
+                    }
+                }
+
+            // Send button
+            Button {
+                onSend()
+            } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle()
+                            .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(inputText.isEmpty)
+
+            // Close button
+            Button {
+                onClose()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(isHoveringClose ? 0.8 : 0.5))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(isHoveringClose ? 0.15 : 0.08))
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { isHoveringClose = $0 }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .onAppear {
+            // Auto-focus the text field when compact view appears
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isInputFocused.wrappedValue = true
+            }
+        }
+    }
+}
+
+// MARK: - Agent Header
+
+private struct AgentHeader: View {
+    @State private var isHoveringMinimize = false
+    @State private var isHoveringClose = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Spacer()
+
+            // Minimize button
+            Button {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("MinimizeAgentPanel"), object: nil)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(isHoveringMinimize ? 1.0 : 0.5))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(isHoveringMinimize ? 0.15 : 0.08))
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { isHoveringMinimize = $0 }
+            .help("Minimize (keep session active)")
+
+            // Close button
+            Button {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("HideAgentPanel"), object: nil)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(isHoveringClose ? 1.0 : 0.5))
+                    .frame(width: 24, height: 24)
+                    .background(
+                        Circle()
+                            .fill(Color.white.opacity(isHoveringClose ? 0.15 : 0.08))
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { isHoveringClose = $0 }
+            .help("End session")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Agent Footer
+
+private struct AgentFooter: View {
+    @Binding var inputText: String
+    var isInputFocused: FocusState<Bool>.Binding
+    let isProcessing: Bool
+    let onSend: () -> Void
+
+    @State private var isHoveringSend = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Text input
+            TextField("Type a message...", text: $inputText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .foregroundColor(.white)
+                .lineLimit(1...4)
+                .focused(isInputFocused)
+                .onSubmit {
+                    if !inputText.isEmpty {
+                        onSend()
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                )
+
+            // Send button
+            Button {
+                onSend()
+            } label: {
+                Group {
+                    if isProcessing {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(inputText.isEmpty || isProcessing)
+            .onHover { isHoveringSend = $0 }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+
+        // Keyboard hint
+        HStack {
+            Spacer()
+            Text("esc to close")
+                .font(.system(size: 10))
+                .foregroundColor(.white.opacity(0.3))
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 }
 

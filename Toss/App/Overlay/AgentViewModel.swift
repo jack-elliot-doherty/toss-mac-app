@@ -9,6 +9,7 @@ final class AgentViewModel: ObservableObject {
     @Published var isProcessing: Bool = false
     @Published var isStreaming: Bool = false  // NEW: true when receiving tokens
     @Published var errorMessage: String?
+    @Published var isCompactMode: Bool = false  // Just input field, no header/messages
 
     struct ExecutingTool: Identifiable, Equatable {
         let id: String
@@ -184,12 +185,13 @@ final class AgentViewModel: ObservableObject {
     func clearConversation() {
         messages.removeAll()
         pendingToolCalls.removeAll()
-        executingTools.removeAll()  // Clear these too
+        executingTools.removeAll()
         threadId = nil
         isProcessing = false
-        isStreaming = false  // Reset this too
+        isStreaming = false
         errorMessage = nil
         currentAssistantMessage = nil
+        isCompactMode = false
     }
 
     /// Continue the conversation after a tool execution

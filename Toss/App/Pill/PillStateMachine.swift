@@ -57,7 +57,7 @@ enum PillEvent: Equatable {
     case pillHoverExit
     case quickActionRecordMeeting  // clicking a button shown in the hover state to start a meeting recording
     case quickActionDictation  // clicking a button shown in the hover state to start a dictation
-    // TODO we might need a button to start a command mode session but we havent added command mode yet so leave it for now
+    case quickActionAgentChat  // clicking a button shown in the hover state to start an agent chat
     case pillClicked  // clicking during meeting state will open app
 
     // async results
@@ -123,6 +123,7 @@ enum PillEffect: Equatable {
     // agent session effects
     case setVisualStateAgentSessionActive
     case restoreAgentPanel  // Restore the minimized agent panel
+    case showAgentPanel  // Show agent panel for new chat session
 
 }
 
@@ -242,6 +243,13 @@ struct PillStateMachine {
                 .startAudioCapture,
                 .setVisualStateListening,
                 .setAlwaysOn(true),
+            ]
+
+        case (.hovered, .quickActionAgentChat), (.idle, .quickActionAgentChat):
+            state = .idle
+            effects += [
+                .setVisualStateIdle,
+                .showAgentPanel,
             ]
 
         case (.idle, .meetingDetected), (.hovered, .meetingDetected):

@@ -217,14 +217,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillController.send(.pillClicked)
         }
 
-        // Wire agent panel minimize/restore to state machine events
+        // Wire agent panel show/minimize/restore to disable/enable pill hover
+        agentPanel.onShow = { [weak self] in
+            self?.pillViewModel.isHoverDisabled = true
+        }
         agentPanel.onMinimize = { [weak self] in
+            self?.pillViewModel.isHoverDisabled = false  // Re-enable hover when minimized
             self?.pillController.send(.agentSessionMinimized)
         }
         agentPanel.onRestore = { [weak self] in
+            self?.pillViewModel.isHoverDisabled = true  // Disable hover when restored
             self?.pillController.send(.agentSessionEnded)
         }
         agentPanel.onSessionEnd = { [weak self] in
+            self?.pillViewModel.isHoverDisabled = false  // Re-enable hover when session ends
             self?.pillController.send(.agentSessionEnded)
         }
         pillViewModel.onQuickActionRecordMeeting = { [weak self] in
@@ -232,6 +238,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         pillViewModel.onQuickActionDictation = { [weak self] in
             self?.pillController.send(.quickActionDictation)
+        }
+        pillViewModel.onQuickActionAgentChat = { [weak self] in
+            self?.pillController.send(.quickActionAgentChat)
         }
         pillViewModel.onStopMeetingRecording = { [weak self] in
             self?.pillController.send(.stopMeetingRecording)

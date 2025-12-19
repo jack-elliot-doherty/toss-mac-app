@@ -28,6 +28,7 @@ struct PillView: View {
     @ObservedObject var viewModel: PillViewModel
     @State private var isHovered: Bool = false
     @State private var hoverExitWorkItem: DispatchWorkItem?
+    @State private var isTransitioning: Bool = false  // Lock during transitions
 
     var body: some View {
         let isMeetingRecording: Bool = {
@@ -38,33 +39,37 @@ struct PillView: View {
         Group {
             switch viewModel.visualState {
             case .idle:
-                idle.transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .center)))
+                idle.transition(.opacity.animation(.easeOut(duration: 0.15)))
             case .hovered:
                 hoveredQuickActions.transition(
                     .asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal: .opacity
+                        insertion: .opacity.animation(.easeOut(duration: 0.18)),
+                        removal: .opacity.animation(.easeIn(duration: 0.12))
                     )
                 )
             case .listening(let mode):
                 listening(mode: mode).transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 1.05, anchor: .center).combined(with: .opacity),
-                        removal: .opacity
-                    )
+                    .opacity.animation(.easeOut(duration: 0.15))
                 )
             case .transcribing(let mode):
-                transcribing(mode: mode)
+                transcribing(mode: mode).transition(
+                    .opacity.animation(.easeInOut(duration: 0.15))
+                )
             case .meetingDetected:
-                meetingDetected
+                meetingDetected.transition(
+                    .opacity.animation(.easeOut(duration: 0.18))
+                )
             case .upcomingMeeting(let meeting):
-                upcomingMeetingView(meeting: meeting)
+                upcomingMeetingView(meeting: meeting).transition(
+                    .opacity.animation(.easeOut(duration: 0.18))
+                )
             case .meetingRecording(let meetingId, let isPaused):
                 meetingRecording(meetingId: meetingId, isPaused: isPaused, isHovered: isHovered)
 
             case .agentSessionActive:
                 agentSessionActive.transition(
-                    .opacity.combined(with: .scale(scale: 0.9, anchor: .center)))
+                    .opacity.animation(.easeOut(duration: 0.15))
+                )
             }
         }
         .padding(.horizontal, 0)
@@ -83,22 +88,19 @@ struct PillView: View {
             view.fixedSize(horizontal: true, vertical: true)
         }
         .animation(
-            .spring(response: 0.22, dampingFraction: 0.85),
+            .spring(response: 0.25, dampingFraction: 0.88),
             value: viewModel.visualState
         )
         .onHover { hovering in
             isHovered = hovering
 
             // Notify view model if we're in meeting recording state
-            // Use same debounce delay as general hover exit
             if case .meetingRecording = viewModel.visualState {
                 if hovering {
-                    // Cancel any pending hover exit
                     hoverExitWorkItem?.cancel()
                     hoverExitWorkItem = nil
                     viewModel.isMeetingRecordingHovered = true
                 } else {
-                    // Debounce hover exit to prevent rapid grow/shrink
                     hoverExitWorkItem?.cancel()
                     let item = DispatchWorkItem { [weak viewModel] in
                         viewModel?.isMeetingRecordingHovered = false
@@ -106,21 +108,39 @@ struct PillView: View {
                     hoverExitWorkItem = item
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: item)
                 }
-                // Don't trigger general hover callbacks for meeting recording
                 return
             }
 
             if hovering {
+                // Cancel any pending hover exit
                 hoverExitWorkItem?.cancel()
                 hoverExitWorkItem = nil
-                viewModel.onHoverEnter?()
+
+                // Skip hover if disabled (e.g., agent panel is open)
+                guard !viewModel.isHoverDisabled else { return }
+
+                // Only trigger hover enter if we're in idle state
+                // This prevents re-triggering during transitions
+                if case .idle = viewModel.visualState {
+                    isTransitioning = true
+                    viewModel.onHoverEnter?()
+
+                    // Release transition lock after animation completes
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        isTransitioning = false
+                    }
+                }
             } else {
+                // Ignore hover exit during transition to prevent flapping
+                guard !isTransitioning else { return }
+
                 hoverExitWorkItem?.cancel()
                 let item = DispatchWorkItem { [weak viewModel] in
                     viewModel?.onHoverExit?()
                 }
                 hoverExitWorkItem = item
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: item)
+                // Longer debounce to prevent flapping
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
             }
         }
         .onTapGesture {
@@ -158,56 +178,35 @@ struct PillView: View {
         .padding(.vertical, 5)
     }
 
-    // NEW: Hovered state with quick actions
+    // Hovered state with labeled buttons
     private var hoveredQuickActions: some View {
-        HStack(spacing: 8) {
-            // Record Meeting button
-            Button {
+        HStack(spacing: 6) {
+            // Record Meeting
+            QuickActionButton(
+                icon: "record.circle",
+                label: "Record"
+            ) {
                 viewModel.onQuickActionRecordMeeting?()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("Record Meeting")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Color.red.opacity(0.8))
-                )
             }
-            .buttonStyle(.plain)
 
-            // Divider
-            Rectangle()
-                .fill(Color.white.opacity(0.2))
-                .frame(width: 1, height: 16)
+            // Agent Chat
+            QuickActionButton(
+                icon: "sparkles",
+                label: "Agent"
+            ) {
+                viewModel.onQuickActionAgentChat?()
+            }
 
-            // Perma Dictation button
-            Button {
+            // Dictation
+            QuickActionButton(
+                icon: "waveform",
+                label: "Dictate"
+            ) {
                 viewModel.onQuickActionDictation?()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("Dictation")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(Color.blue.opacity(0.8))
-                )
             }
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
     }
 
     // MARK: Listening
@@ -446,7 +445,41 @@ struct PillView: View {
 
 // MARK: - Subviews
 
-/// Small “Agent” badge, purely indicative (no toggle).
+/// Minimal labeled button for hover state quick actions
+private struct QuickActionButton: View {
+    let icon: String
+    let label: String
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(.white.opacity(isHovered ? 1.0 : 0.8))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(Color.white.opacity(isHovered ? 0.15 : 0.08))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(isHovered ? 0.3 : 0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .animation(.easeOut(duration: 0.1), value: isHovered)
+    }
+}
+
+/// Small "Agent" badge, purely indicative (no toggle).
 private struct AgentChip: View {
     var body: some View {
         HStack(spacing: 6) {

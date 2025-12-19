@@ -24,6 +24,7 @@ final class PillViewModel: ObservableObject {
     @Published var isAlwaysOn: Bool = false
     @Published var levelRMS: Float = 0.0
     @Published var isMeetingRecordingHovered: Bool = false
+    @Published var isHoverDisabled: Bool = false  // Disable hover when agent panel is open
 
     // Callbacks the owner (AppDelegate) can observe to perform actions
     var onRequestStop: (() -> Void)?
@@ -39,6 +40,7 @@ final class PillViewModel: ObservableObject {
     var onPillClicked: (() -> Void)?
     var onQuickActionRecordMeeting: (() -> Void)?
     var onQuickActionDictation: (() -> Void)?
+    var onQuickActionAgentChat: (() -> Void)?
     var onStopMeetingRecording: (() -> Void)?
 
     var onJoinAndRecordUpcoming: ((UpcomingMeeting) -> Void)?

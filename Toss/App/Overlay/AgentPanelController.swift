@@ -2,9 +2,14 @@ import Cocoa
 import Combine
 import SwiftUI
 
+// Custom NSPanel that can become key for text input
+private class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 final class AgentPanelController {
-    private let panel: NSPanel
+    private let panel: KeyablePanel
     private let viewModel: AgentViewModel
     private let anchorFrameProvider: () -> NSRect?
     private let anchorOffset: CGFloat = 12
@@ -14,6 +19,7 @@ final class AgentPanelController {
     private(set) var isMinimized = false  // Track if we have a minimized session
 
     // Callback for when minimize/restore happens (to update pill state)
+    var onShow: (() -> Void)?
     var onMinimize: (() -> Void)?
     var onRestore: (() -> Void)?
     var onSessionEnd: (() -> Void)?
@@ -23,7 +29,7 @@ final class AgentPanelController {
         self.anchorFrameProvider = anchorFrameProvider
 
         let contentRect = NSRect(x: 0, y: 0, width: 650, height: 200)
-        self.panel = NSPanel(
+        self.panel = KeyablePanel(
             contentRect: contentRect,
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
@@ -44,6 +50,7 @@ final class AgentPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
+        panel.becomesKeyOnlyIfNeeded = true  // Allow becoming key for text input
 
         let root = AgentView(viewModel: viewModel)
         self.hostingView = NSHostingView(rootView: root)
@@ -60,6 +67,14 @@ final class AgentPanelController {
                 viewModel.$isProcessing,
                 viewModel.$errorMessage
             )
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.resizePanelToFitContent()
+            }
+            .store(in: &cancellables)
+
+        // Resize when compact mode changes
+        viewModel.$isCompactMode
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.resizePanelToFitContent()
@@ -137,6 +152,38 @@ final class AgentPanelController {
         panel.isVisible && !viewModel.messages.isEmpty
     }
 
+    /// Show empty agent panel for text-based chat (no initial message)
+    func showEmpty() {
+        if isVisible { return }
+
+        NSLog("[AgentPanelController] Showing empty agent panel for text chat")
+        initialXPosition = nil
+
+        // Clear first, then set compact mode (clearConversation resets it)
+        viewModel.clearConversation()
+        viewModel.isCompactMode = true
+
+        // Initial sizing and positioning for compact mode
+        resizePanelToFitContent()
+
+        // Notify that panel is showing (to disable pill hover)
+        onShow?()
+
+        // Fade in animation
+        panel.alphaValue = 0
+        panel.makeKeyAndOrderFront(nil)  // Make key AND order front for text input
+
+        NSAnimationContext.runAnimationGroup(
+            { ctx in
+                ctx.duration = 0.2
+                panel.animator().alphaValue = 1.0
+            },
+            completionHandler: { [weak self] in
+                // Force focus on the text field after animation
+                self?.panel.makeFirstResponder(self?.hostingView)
+            })
+    }
+
     func show(with initialMessage: String) {
         // Check if we already have an active session
         if isVisible {
@@ -146,14 +193,18 @@ final class AgentPanelController {
             return
         }
 
-        // New session - reset everything
+        // New session - reset everything and start in full mode (we have a message)
         NSLog("[AgentPanelController] Starting new agent session")
+        viewModel.isCompactMode = false
         initialXPosition = nil
 
         viewModel.startConversation(with: initialMessage)
 
         // Initial sizing and positioning
         resizePanelToFitContent()
+
+        // Notify that panel is showing (to disable pill hover)
+        onShow?()
 
         // Fade in animation
         panel.alphaValue = 0

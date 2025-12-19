@@ -136,48 +136,83 @@ final class PillPanelController {
     }
 
     func setState(_ state: PillVisualState) {
-        // For hovered state, we need extra layout time due to the complex button layout
-        if case .hovered = state {
-            // Temporarily set state to compute size, then revert
-            let previousState = viewModel.visualState
+        // Meeting recording has special hover-based sizing, handle separately
+        if case .meetingRecording = state {
             viewModel.visualState = state
-
-            // Force immediate layout to compute the size we'll need
-            hostingView.invalidateIntrinsicContentSize()
-            hostingView.layoutSubtreeIfNeeded()
-
-            // Compute the target size while in hovered state
-            let targetSize = sizeForState(state)
-
-            // Revert to previous state so the view doesn't transition yet
-            viewModel.visualState = previousState
-
-            // FIRST: Resize the panel to the target size (without animation)
-            // This happens before the visual transition
-            setSizeAndCenter(to: targetSize, animated: true)
-
-            // THEN: Set the visual state to trigger the SwiftUI transition
-            // The panel is already the right size, so the content just animates in place
-            viewModel.visualState = state
-
-        } else if case .meetingRecording = state {
-            // For meeting recording, DON'T auto-resize here
-            // The hover subscription handles panel sizing
-            // Just update the visual state
-            viewModel.visualState = state
-
-        } else {
-            viewModel.visualState = state
-            // Wait a tick for SwiftUI to begin its layout pass
-            DispatchQueue.main.async {
-                // Resize heuristics for main states and center in one atomic frame update
-                let size = self.sizeForState(state)
-                self.setSizeAndCenter(to: size, animated: true)
+            if !panel.isVisible {
+                panel.orderFrontRegardless()
             }
+            return
         }
+
+        // Use known sizes to avoid reentrant layout issues
+        let targetSize = knownSizeForState(state)
+
+        // Start the panel resize animation
+        animatePanelToSize(targetSize)
+
+        // Set the visual state on next tick to let panel animation start first
+        DispatchQueue.main.async {
+            self.viewModel.visualState = state
+        }
+
         // Ensure panel is visible
         if !panel.isVisible {
             panel.orderFrontRegardless()
+        }
+    }
+
+    /// Returns known sizes for each state to avoid dynamic layout calculations
+    /// that cause reentrant layout issues
+    private func knownSizeForState(_ state: PillVisualState) -> NSSize {
+        switch state {
+        case .idle:
+            return NSSize(width: 32, height: 8)
+        case .hovered:
+            return NSSize(width: 300, height: 48)  // 3 labeled buttons with padding
+        case .listening:
+            return NSSize(width: 160, height: 32)  // Waveform + buttons
+        case .transcribing:
+            return NSSize(width: 160, height: 32)  // Waveform + spinner + buttons
+        case .meetingDetected:
+            return NSSize(width: 380, height: 48)
+        case .upcomingMeeting:
+            return NSSize(width: 400, height: 48)
+        case .meetingRecording:
+            return NSSize(width: 90, height: 32)  // Compact, expands on hover
+        case .agentSessionActive:
+            return NSSize(width: 100, height: 28)
+        }
+    }
+
+    /// Animates the panel to a new size while keeping it anchored at bottom-center
+    private func animatePanelToSize(_ size: NSSize) {
+        let screen = screenUnderMouse() ?? panel.screen ?? NSScreen.main
+        guard let screen = screen else { return }
+
+        let vf = screen.visibleFrame
+        let margin: CGFloat = 8
+
+        // Calculate new frame anchored at bottom-center
+        let centerX = vf.origin.x + (vf.width / 2)
+        let x = round(centerX - (size.width / 2))
+        let y = vf.minY + margin
+
+        let target = NSRect(x: x, y: y, width: round(size.width), height: round(size.height))
+
+        let reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+
+        if !reducedMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                // Match SwiftUI spring timing more closely
+                ctx.duration = 0.22
+                ctx.timingFunction = CAMediaTimingFunction(
+                    controlPoints: 0.25, 0.1, 0.25, 1.0  // Ease-out curve
+                )
+                panel.animator().setFrame(target, display: true)
+            }
+        } else {
+            panel.setFrame(target, display: true)
         }
     }
 
