@@ -249,127 +249,56 @@ final class MeetingDetector {
             return false
         }
 
+        let slackPID = slackApp.processIdentifier
         let slackVersion =
             slackApp.bundleURL?.path.contains("Slack.app") == true
             ? (Bundle(url: slackApp.bundleURL!)?.infoDictionary?["CFBundleShortVersionString"]
                 as? String ?? "unknown")
             : "unknown"
         NSLog(
-            "[MeetingDetector] Found Slack app, PID: \(slackApp.processIdentifier), Version: \(slackVersion)"
+            "[MeetingDetector] Found Slack app, PID: \(slackPID), Version: \(slackVersion)"
         )
 
-        let slackElement = AXUIElementCreateApplication(slackApp.processIdentifier)
-
-        // Get all windows
-        var windowsRef: CFTypeRef?
-        let windowsResult = AXUIElementCopyAttributeValue(
-            slackElement, kAXWindowsAttribute as CFString, &windowsRef)
-
-        guard windowsResult == .success, let windows = windowsRef as? [AXUIElement] else {
-            NSLog(
-                "[MeetingDetector] Failed to get Slack windows, result: \(windowsResult.rawValue)")
+        // Use CGWindowList which sees ALL windows across all Spaces/desktops
+        // This is preferred over Accessibility API because:
+        // 1. It works across all Spaces without issues
+        // 2. It doesn't cause the app to come to foreground (AX API can do that)
+        guard
+            let cgWindows = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID)
+                as? [[String: Any]]
+        else {
+            NSLog("[MeetingDetector] Failed to get CGWindowList")
             return false
         }
 
-        NSLog("[MeetingDetector] Found \(windows.count) Slack window(s)")
+        let slackCGWindows = cgWindows.filter {
+            ($0[kCGWindowOwnerPID as String] as? Int32) == slackPID
+        }
+        NSLog(
+            "[MeetingDetector] CGWindowList found \(slackCGWindows.count) Slack window(s) across all Spaces"
+        )
 
-        // Check each window for huddle indicators
-        for (windowIndex, window) in windows.enumerated() {
-            var titleRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleRef)
-            let windowTitle = (titleRef as? String) ?? "<no title>"
-
-            // Get window role and subrole for debugging
-            var roleRef: CFTypeRef?
-            var subroleRef: CFTypeRef?
-            AXUIElementCopyAttributeValue(window, kAXRoleAttribute as CFString, &roleRef)
-            AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subroleRef)
-            let role = (roleRef as? String) ?? "<no role>"
-            let subrole = (subroleRef as? String) ?? "<no subrole>"
-
+        for (index, window) in slackCGWindows.enumerated() {
+            let name = window[kCGWindowName as String] as? String ?? "<no name>"
+            let layer = window[kCGWindowLayer as String] as? Int ?? -1
+            let isOnScreen = window[kCGWindowIsOnscreen as String] as? Bool ?? false
             NSLog(
-                "[MeetingDetector] Window \(windowIndex): title='\(windowTitle)' role='\(role)' subrole='\(subrole)'"
+                "[MeetingDetector] CGWindow \(index): name='\(name)' layer=\(layer) onScreen=\(isOnScreen)"
             )
 
-            // Check for 🎤 emoji in title - Slack adds this when in a huddle (older versions)
-            if windowTitle.contains("🎤") {
-                NSLog("[MeetingDetector] ✓ Found huddle indicator (🎤) in window title!")
+            // Check for huddle indicators in CGWindow names
+            if name.contains("🎤") {
+                NSLog("[MeetingDetector] ✓ Found huddle indicator (🎤) in CGWindow name!")
                 return true
             }
-
-            // Also check for "Huddle" in title (for pop-out huddle window)
-            if windowTitle.lowercased().contains("huddle") {
-                NSLog("[MeetingDetector] ✓ Found 'huddle' in window title!")
+            if name.lowercased().contains("huddle") {
+                NSLog("[MeetingDetector] ✓ Found 'huddle' in CGWindow name!")
                 return true
             }
-
-            // Debug: Explore UI hierarchy to find new huddle indicators
-            debugExploreSlackWindowHierarchy(
-                window: window, windowIndex: windowIndex, depth: 0, maxDepth: 3)
         }
 
         NSLog("[MeetingDetector] === No huddle indicators found ===")
         return false
-    }
-
-    /// Debug helper to explore the accessibility hierarchy of a Slack window
-    /// This helps us find new heuristics for detecting huddles in newer Slack versions
-    private func debugExploreSlackWindowHierarchy(
-        window: AXUIElement, windowIndex: Int, depth: Int, maxDepth: Int
-    ) {
-        guard depth < maxDepth else { return }
-
-        let indent = String(repeating: "  ", count: depth)
-
-        // Get children
-        var childrenRef: CFTypeRef?
-        guard
-            AXUIElementCopyAttributeValue(window, kAXChildrenAttribute as CFString, &childrenRef)
-                == .success,
-            let children = childrenRef as? [AXUIElement]
-        else {
-            return
-        }
-
-        for (childIndex, child) in children.enumerated() {
-            var roleRef: CFTypeRef?
-            var titleRef: CFTypeRef?
-            var descRef: CFTypeRef?
-            var valueRef: CFTypeRef?
-            var identifierRef: CFTypeRef?
-
-            AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &roleRef)
-            AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &titleRef)
-            AXUIElementCopyAttributeValue(child, kAXDescriptionAttribute as CFString, &descRef)
-            AXUIElementCopyAttributeValue(child, kAXValueAttribute as CFString, &valueRef)
-            AXUIElementCopyAttributeValue(child, kAXIdentifierAttribute as CFString, &identifierRef)
-
-            let role = (roleRef as? String) ?? ""
-            let title = (titleRef as? String) ?? ""
-            let desc = (descRef as? String) ?? ""
-            let value = (valueRef as? String) ?? ""
-            let identifier = (identifierRef as? String) ?? ""
-
-            // Only log elements that might be relevant (have meaningful content or are buttons/groups)
-            let hasContent = !title.isEmpty || !desc.isEmpty || !identifier.isEmpty
-            let isInteresting =
-                role == "AXButton" || role == "AXGroup" || role == "AXToolbar"
-                || role == "AXStaticText"
-
-            if hasContent || isInteresting {
-                var logParts: [String] = ["\(indent)[\(childIndex)] \(role)"]
-                if !title.isEmpty { logParts.append("title='\(title)'") }
-                if !desc.isEmpty { logParts.append("desc='\(desc)'") }
-                if !identifier.isEmpty { logParts.append("id='\(identifier)'") }
-                if !value.isEmpty && value.count < 100 { logParts.append("value='\(value)'") }
-
-                NSLog("[MeetingDetector] DEBUG W\(windowIndex): \(logParts.joined(separator: " "))")
-            }
-
-            // Recursively explore children
-            debugExploreSlackWindowHierarchy(
-                window: child, windowIndex: windowIndex, depth: depth + 1, maxDepth: maxDepth)
-        }
     }
 
     // MARK: - Multi-App Detection
