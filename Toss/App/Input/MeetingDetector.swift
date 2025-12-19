@@ -16,6 +16,7 @@ final class MeetingDetector {
     // Slack huddle monitoring
     private var slackHuddleCheckTimer: Timer?
     private var wasInSlackHuddle = false
+    private var recordingStartedFromSlackHuddle = false  // Track if recording was triggered by Slack huddle detection
 
     var onMeetingDetected: (() -> Void)?
     var onMeetingEnded: (() -> Void)?  // New callback for meeting end
@@ -170,15 +171,29 @@ final class MeetingDetector {
     }
 
     // Call this when meeting recording starts
-    func setRecordingActive(_ active: Bool) {
+    // startedFromDetection: true if the recording was triggered by auto-detection (e.g., Slack huddle detected)
+    //                       false if the user manually started the recording (ad-hoc)
+    func setRecordingActive(_ active: Bool, startedFromDetection: Bool = false) {
         isRecordingMeeting = active
         if active {
-            // Start monitoring for Slack huddle end
-            startSlackHuddleMonitoring()
+            // Only monitor for Slack huddle end if:
+            // 1. Recording was started from detection (not ad-hoc)
+            // 2. We're currently in a Slack huddle
+            recordingStartedFromSlackHuddle = startedFromDetection && isSlackInHuddle()
+
+            NSLog(
+                "[MeetingDetector] Recording active: \(active), startedFromDetection: \(startedFromDetection), startedFromSlackHuddle: \(recordingStartedFromSlackHuddle)"
+            )
+
+            if recordingStartedFromSlackHuddle {
+                // Only monitor Slack huddle state if we started from a Slack huddle
+                startSlackHuddleMonitoring()
+            }
             startMeetingEndMonitoring()
         } else {
             stopSlackHuddleMonitoring()
             stopMeetingEndMonitoring()
+            recordingStartedFromSlackHuddle = false
         }
         NSLog("[MeetingDetector] Recording active: \(active)")
     }
@@ -234,7 +249,14 @@ final class MeetingDetector {
             return false
         }
 
-        NSLog("[MeetingDetector] Found Slack app, PID: \(slackApp.processIdentifier)")
+        let slackVersion =
+            slackApp.bundleURL?.path.contains("Slack.app") == true
+            ? (Bundle(url: slackApp.bundleURL!)?.infoDictionary?["CFBundleShortVersionString"]
+                as? String ?? "unknown")
+            : "unknown"
+        NSLog(
+            "[MeetingDetector] Found Slack app, PID: \(slackApp.processIdentifier), Version: \(slackVersion)"
+        )
 
         let slackElement = AXUIElementCreateApplication(slackApp.processIdentifier)
 
@@ -257,9 +279,19 @@ final class MeetingDetector {
             AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &titleRef)
             let windowTitle = (titleRef as? String) ?? "<no title>"
 
-            NSLog("[MeetingDetector] Window \(windowIndex): '\(windowTitle)'")
+            // Get window role and subrole for debugging
+            var roleRef: CFTypeRef?
+            var subroleRef: CFTypeRef?
+            AXUIElementCopyAttributeValue(window, kAXRoleAttribute as CFString, &roleRef)
+            AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subroleRef)
+            let role = (roleRef as? String) ?? "<no role>"
+            let subrole = (subroleRef as? String) ?? "<no subrole>"
 
-            // Check for 🎤 emoji in title - Slack adds this when in a huddle!
+            NSLog(
+                "[MeetingDetector] Window \(windowIndex): title='\(windowTitle)' role='\(role)' subrole='\(subrole)'"
+            )
+
+            // Check for 🎤 emoji in title - Slack adds this when in a huddle (older versions)
             if windowTitle.contains("🎤") {
                 NSLog("[MeetingDetector] ✓ Found huddle indicator (🎤) in window title!")
                 return true
@@ -270,10 +302,74 @@ final class MeetingDetector {
                 NSLog("[MeetingDetector] ✓ Found 'huddle' in window title!")
                 return true
             }
+
+            // Debug: Explore UI hierarchy to find new huddle indicators
+            debugExploreSlackWindowHierarchy(
+                window: window, windowIndex: windowIndex, depth: 0, maxDepth: 3)
         }
 
         NSLog("[MeetingDetector] === No huddle indicators found ===")
         return false
+    }
+
+    /// Debug helper to explore the accessibility hierarchy of a Slack window
+    /// This helps us find new heuristics for detecting huddles in newer Slack versions
+    private func debugExploreSlackWindowHierarchy(
+        window: AXUIElement, windowIndex: Int, depth: Int, maxDepth: Int
+    ) {
+        guard depth < maxDepth else { return }
+
+        let indent = String(repeating: "  ", count: depth)
+
+        // Get children
+        var childrenRef: CFTypeRef?
+        guard
+            AXUIElementCopyAttributeValue(window, kAXChildrenAttribute as CFString, &childrenRef)
+                == .success,
+            let children = childrenRef as? [AXUIElement]
+        else {
+            return
+        }
+
+        for (childIndex, child) in children.enumerated() {
+            var roleRef: CFTypeRef?
+            var titleRef: CFTypeRef?
+            var descRef: CFTypeRef?
+            var valueRef: CFTypeRef?
+            var identifierRef: CFTypeRef?
+
+            AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &roleRef)
+            AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &titleRef)
+            AXUIElementCopyAttributeValue(child, kAXDescriptionAttribute as CFString, &descRef)
+            AXUIElementCopyAttributeValue(child, kAXValueAttribute as CFString, &valueRef)
+            AXUIElementCopyAttributeValue(child, kAXIdentifierAttribute as CFString, &identifierRef)
+
+            let role = (roleRef as? String) ?? ""
+            let title = (titleRef as? String) ?? ""
+            let desc = (descRef as? String) ?? ""
+            let value = (valueRef as? String) ?? ""
+            let identifier = (identifierRef as? String) ?? ""
+
+            // Only log elements that might be relevant (have meaningful content or are buttons/groups)
+            let hasContent = !title.isEmpty || !desc.isEmpty || !identifier.isEmpty
+            let isInteresting =
+                role == "AXButton" || role == "AXGroup" || role == "AXToolbar"
+                || role == "AXStaticText"
+
+            if hasContent || isInteresting {
+                var logParts: [String] = ["\(indent)[\(childIndex)] \(role)"]
+                if !title.isEmpty { logParts.append("title='\(title)'") }
+                if !desc.isEmpty { logParts.append("desc='\(desc)'") }
+                if !identifier.isEmpty { logParts.append("id='\(identifier)'") }
+                if !value.isEmpty && value.count < 100 { logParts.append("value='\(value)'") }
+
+                NSLog("[MeetingDetector] DEBUG W\(windowIndex): \(logParts.joined(separator: " "))")
+            }
+
+            // Recursively explore children
+            debugExploreSlackWindowHierarchy(
+                window: child, windowIndex: windowIndex, depth: depth + 1, maxDepth: maxDepth)
+        }
     }
 
     // MARK: - Multi-App Detection
@@ -350,8 +446,14 @@ final class MeetingDetector {
 
         switch detectedMeetingApp {
         case .slack:
-            if !isSlackInHuddle() {
+            // Only auto-end Slack meetings if the recording was started from a Slack huddle detection
+            // This prevents ad-hoc meetings from being auto-ended when user leaves a Slack huddle
+            if recordingStartedFromSlackHuddle && !isSlackInHuddle() {
                 triggerMeetingEnded(reason: "Slack huddle ended")
+            } else if !recordingStartedFromSlackHuddle {
+                NSLog(
+                    "[MeetingDetector] Skipping Slack huddle check - recording was not started from Slack huddle detection"
+                )
             }
         case .zoom:
             if !isZoomInMeeting() {

@@ -144,8 +144,8 @@ final class PillController {
             case .setAlwaysOn(let on):
                 viewModel.isAlwaysOn = on
 
-            case .startMeetingRecording(let meetingId):
-                handleStartMeetingRecording(meetingId)
+            case .startMeetingRecording(let meetingId, let startedFromDetection):
+                handleStartMeetingRecording(meetingId, startedFromDetection: startedFromDetection)
 
             case .stopMeetingRecording:
                 handleStopMeetingRecording()
@@ -367,7 +367,8 @@ final class PillController {
 
     // MARK: - Meeting recording handlers
 
-    private func handleStartMeetingRecording(_ meetingId: UUID) {
+    private func handleStartMeetingRecording(_ meetingId: UUID, startedFromDetection: Bool = false)
+    {
 
         guard ScreenRecordingAuth.status() else {
             toast.show(
@@ -438,8 +439,10 @@ final class PillController {
         }
 
         SoundFeedback.shared.playStart()
-        meetingDetector.setRecordingActive(true)
-        NSLog("[PillController] Meeting recording started for meeting")
+        meetingDetector.setRecordingActive(true, startedFromDetection: startedFromDetection)
+        NSLog(
+            "[PillController] Meeting recording started for meeting (startedFromDetection: \(startedFromDetection))"
+        )
 
         // Bring app to foreground and position for note-taking
         positionWindowForMeeting()

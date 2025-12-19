@@ -108,7 +108,7 @@ enum PillEffect: Equatable {
 
     // meetings
     case scheduleMeetingDetectionTimeout(TimeInterval)
-    case startMeetingRecording(UUID)
+    case startMeetingRecording(UUID, startedFromDetection: Bool)
     case stopMeetingRecording
     case pauseMeetingRecording
     case resumeMeetingRecording
@@ -232,7 +232,7 @@ struct PillStateMachine {
             let meetingId = UUID()
             state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .startMeetingRecording(meetingId),
+                .startMeetingRecording(meetingId, startedFromDetection: false),
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
@@ -298,7 +298,7 @@ struct PillStateMachine {
             let meetingId = UUID()
             state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .startMeetingRecording(meetingId),
+                .startMeetingRecording(meetingId, startedFromDetection: true),
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
@@ -306,7 +306,7 @@ struct PillStateMachine {
             let meetingId = UUID()
             state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .startMeetingRecording(meetingId),
+                .startMeetingRecording(meetingId, startedFromDetection: false),
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
@@ -314,7 +314,7 @@ struct PillStateMachine {
             let meetingId = UUID()
             state = .meetingRecording(meetingId, isPaused: false)
             effects += [
-                .startMeetingRecording(meetingId),
+                .startMeetingRecording(meetingId, startedFromDetection: false),
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
             if let urlStr = meeting.joinUrl, let url = URL(string: urlStr) {
