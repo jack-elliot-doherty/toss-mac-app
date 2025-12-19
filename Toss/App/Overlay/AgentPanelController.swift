@@ -181,6 +181,11 @@ final class AgentPanelController {
             completionHandler: { [weak self] in
                 // Force focus on the text field after animation
                 self?.panel.makeFirstResponder(self?.hostingView)
+                // Notify SwiftUI to focus the text field (more reliable)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("FocusAgentInput"), object: nil)
+                }
             })
     }
 

@@ -6,6 +6,10 @@ struct AgentView: View {
     @FocusState private var isInputFocused: Bool
     @Namespace private var scrollNamespace
 
+    // Listen for focus notification
+    private let focusNotification = NotificationCenter.default.publisher(
+        for: NSNotification.Name("FocusAgentInput"))
+
     var body: some View {
         VStack(spacing: 0) {
             if viewModel.isCompactMode {
@@ -34,6 +38,9 @@ struct AgentView: View {
                             name: NSNotification.Name("HideAgentPanel"), object: nil)
                     }
                 )
+                .onReceive(focusNotification) { _ in
+                    isInputFocused = true
+                }
             } else {
                 // MARK: - Full Mode
                 // Header
@@ -159,57 +166,97 @@ private struct CompactInputView: View {
     @State private var isHoveringClose = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Text input
-            TextField("Ask anything...", text: $inputText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .foregroundColor(.white)
-                .focused(isInputFocused)
-                .onSubmit {
-                    if !inputText.isEmpty {
-                        onSend()
+        VStack(spacing: 8) {
+            // Input row
+            HStack(spacing: 12) {
+                // Text input
+                TextField("Ask anything...", text: $inputText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .focused(isInputFocused)
+                    .onSubmit {
+                        if !inputText.isEmpty {
+                            onSend()
+                        }
                     }
+
+                // Send button
+                Button {
+                    onSend()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            Circle()
+                                .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
+                        )
                 }
+                .buttonStyle(.plain)
+                .disabled(inputText.isEmpty)
 
-            // Send button
-            Button {
-                onSend()
-            } label: {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
-                    .frame(width: 28, height: 28)
-                    .background(
-                        Circle()
-                            .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
-                    )
+                // Close button
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(isHoveringClose ? 0.8 : 0.5))
+                        .frame(width: 24, height: 24)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(isHoveringClose ? 0.15 : 0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+                .onHover { isHoveringClose = $0 }
             }
-            .buttonStyle(.plain)
-            .disabled(inputText.isEmpty)
 
-            // Close button
-            Button {
-                onClose()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white.opacity(isHoveringClose ? 0.8 : 0.5))
-                    .frame(width: 24, height: 24)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(isHoveringClose ? 0.15 : 0.08))
-                    )
+            // Voice hint
+            HStack(spacing: 4) {
+                Text("Hold")
+                    .foregroundColor(.white.opacity(0.4))
+                KeyboardShortcutHint(keys: ["fn", "⌘"])
+                Text("to speak to Toss")
+                    .foregroundColor(.white.opacity(0.4))
+                Spacer()
             }
-            .buttonStyle(.plain)
-            .onHover { isHoveringClose = $0 }
+            .font(.system(size: 11))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
         .onAppear {
-            // Auto-focus the text field when compact view appears
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Auto-focus the text field when compact view appears (backup, main trigger is notification)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 isInputFocused.wrappedValue = true
+            }
+        }
+    }
+}
+
+// MARK: - Keyboard Shortcut Hint
+
+private struct KeyboardShortcutHint: View {
+    let keys: [String]
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(keys, id: \.self) { key in
+                Text(key)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                    )
             }
         }
     }
@@ -329,12 +376,27 @@ private struct AgentFooter: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
 
-        // Keyboard hint
-        HStack {
+        // Keyboard hints
+        HStack(spacing: 16) {
+            // Voice hint
+            HStack(spacing: 4) {
+                Text("Hold")
+                    .foregroundColor(.white.opacity(0.35))
+                KeyboardShortcutHint(keys: ["fn", "⌘"])
+                Text("to speak to Toss")
+                    .foregroundColor(.white.opacity(0.35))
+            }
+            .font(.system(size: 10))
+
             Spacer()
-            Text("esc to close")
-                .font(.system(size: 10))
-                .foregroundColor(.white.opacity(0.3))
+
+            // Close hint
+            HStack(spacing: 4) {
+                KeyboardShortcutHint(keys: ["esc"])
+                Text("to close")
+                    .foregroundColor(.white.opacity(0.35))
+            }
+            .font(.system(size: 10))
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
