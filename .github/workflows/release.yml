@@ -34,6 +34,18 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+      - name: Update MARKETING_VERSION in Xcode project
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          PROJECT_FILE="Toss/Toss.xcodeproj/project.pbxproj"
+
+          # Replace all MARKETING_VERSION entries with the actual version
+          sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = ${VERSION};/g" "$PROJECT_FILE"
+
+          # Verify the change
+          echo "Updated MARKETING_VERSION to ${VERSION}:"
+          grep "MARKETING_VERSION" "$PROJECT_FILE" | head -5
+
       - name: Import certificates
         env:
           CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}

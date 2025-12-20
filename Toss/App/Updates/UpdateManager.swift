@@ -28,8 +28,8 @@ final class UpdateManager: NSObject, ObservableObject {
             await checkForUpdatesInBackground()
         }
 
-        // Set up periodic background checks (every 2 hours)
-        Timer.scheduledTimer(withTimeInterval: 7200, repeats: true) { [weak self] _ in
+        // Set up periodic background checks (every 30 minutes)
+        Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.checkForUpdatesInBackground()
             }
