@@ -26,6 +26,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var googleStatus: GoogleConnectionStatus?
 
     @Published var isLoading = false
+    @Published var isLoadingGoogleStatus = false
     @Published var error: String?
 
     func fetchSlackStatus() async {
@@ -98,6 +99,7 @@ final class IntegrationsManager: ObservableObject {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
+        isLoadingGoogleStatus = true
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
@@ -106,6 +108,7 @@ final class IntegrationsManager: ObservableObject {
         } catch {
             NSLog("[Integrations] Failed to fetch Google status: %@", error.localizedDescription)
         }
+        isLoadingGoogleStatus = false
     }
 
     func connectGoogle() async {

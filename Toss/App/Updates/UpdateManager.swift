@@ -38,6 +38,13 @@ final class UpdateManager: NSObject, ObservableObject {
 
     /// Check for updates silently in the background (no UI)
     func checkForUpdatesInBackground() async {
+        #if DEBUG
+            // Skip update checks in debug builds - dev builds report version "1.0"
+            // which would always show as outdated compared to production releases
+            NSLog("[UpdateManager] Skipping update check in DEBUG build")
+            return
+        #endif
+
         guard let updater = updaterController?.updater else {
             NSLog("[UpdateManager] No updater configured")
             return

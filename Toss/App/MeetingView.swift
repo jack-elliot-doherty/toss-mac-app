@@ -1061,6 +1061,16 @@ struct MeetingsListView: View {
         integrations.googleStatus?.connected == true
     }
 
+    /// True while we're still fetching Google status or (calendar is connected and meetings are loading)
+    private var isLoadingUpcoming: Bool {
+        integrations.isLoadingGoogleStatus || (isCalendarConnected && meetingsManager.isLoading)
+    }
+
+    /// True when we know for sure the calendar is not connected (status fetched and connected == false)
+    private var showConnectCalendar: Bool {
+        !integrations.isLoadingGoogleStatus && integrations.googleStatus?.connected != true
+    }
+
     var meetings: [MeetingModel] {
         repository.listMeetings()
     }
@@ -1111,8 +1121,15 @@ struct MeetingsListView: View {
                             .buttonStyle(.plain)
                         }
 
-                        if meetingsManager.upcomingMeetings.isEmpty {
-                            if !isCalendarConnected {
+                        if isLoadingUpcoming {
+                            // Show skeleton cards while loading
+                            HStack(spacing: 12) {
+                                ForEach(0..<3, id: \.self) { _ in
+                                    UpcomingMeetingSkeletonCard()
+                                }
+                            }
+                        } else if meetingsManager.upcomingMeetings.isEmpty {
+                            if showConnectCalendar {
                                 // Calendar not connected - show connect affordance
                                 HStack(spacing: 12) {
                                     Image("GoogleCalendarLogo")
@@ -1649,6 +1666,56 @@ private struct UpcomingMeetingCard: View {
         .frame(width: 22, height: 22)
         .clipShape(Circle())
         .overlay(Circle().stroke(AppTheme.cardBackground, lineWidth: 2))
+    }
+}
+
+private struct UpcomingMeetingSkeletonCard: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Title skeleton
+            RoundedRectangle(cornerRadius: 4)
+                .fill(AppTheme.secondaryText.opacity(0.15))
+                .frame(width: 120, height: 16)
+
+            // Time skeleton
+            RoundedRectangle(cornerRadius: 4)
+                .fill(AppTheme.secondaryText.opacity(0.1))
+                .frame(width: 70, height: 14)
+
+            Spacer()
+
+            // Bottom row skeleton
+            HStack {
+                // Participant avatars skeleton
+                HStack(spacing: -6) {
+                    ForEach(0..<2, id: \.self) { _ in
+                        Circle()
+                            .fill(AppTheme.secondaryText.opacity(0.12))
+                            .frame(width: 22, height: 22)
+                    }
+                }
+
+                Spacer()
+
+                // Button skeleton
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(AppTheme.secondaryText.opacity(0.1))
+                    .frame(width: 50, height: 28)
+            }
+        }
+        .padding(16)
+        .frame(width: 180, height: 140)
+        .background(AppTheme.cardBackground)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+        )
+        .opacity(isAnimating ? 0.6 : 1.0)
+        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+        .onAppear { isAnimating = true }
     }
 }
 
