@@ -1055,6 +1055,11 @@ struct MeetingsListView: View {
 
     // Add Manager
     @StateObject private var meetingsManager = MeetingsManager.shared
+    @StateObject private var integrations = IntegrationsManager.shared
+
+    private var isCalendarConnected: Bool {
+        integrations.googleStatus?.connected == true
+    }
 
     var meetings: [MeetingModel] {
         repository.listMeetings()
@@ -1107,15 +1112,49 @@ struct MeetingsListView: View {
                         }
 
                         if meetingsManager.upcomingMeetings.isEmpty {
-                            HStack {
-                                Text("No upcoming meetings found.")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.secondaryText)
-                                Spacer()
+                            if !isCalendarConnected {
+                                // Calendar not connected - show connect affordance
+                                HStack(spacing: 12) {
+                                    Image("GoogleCalendarLogo")
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 24, height: 24)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Connect your calendar")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(AppTheme.primaryText)
+                                        Text("See upcoming meetings and auto-join calls")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(AppTheme.secondaryText)
+                                    }
+
+                                    Spacer()
+
+                                    Button {
+                                        Task { await integrations.connectGoogle() }
+                                    } label: {
+                                        Text("Connect")
+                                            .font(.system(size: 13, weight: .medium))
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .controlSize(.small)
+                                }
+                                .padding()
+                                .background(AppTheme.cardBackground)
+                                .cornerRadius(12)
+                            } else {
+                                // Calendar connected but no upcoming meetings
+                                HStack {
+                                    Text("No upcoming meetings found.")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                    Spacer()
+                                }
+                                .padding()
+                                .background(AppTheme.cardBackground)
+                                .cornerRadius(12)
                             }
-                            .padding()
-                            .background(AppTheme.cardBackground)
-                            .cornerRadius(12)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
@@ -1184,6 +1223,9 @@ struct MeetingsListView: View {
         .onAppear {
             // Fetch cached upcoming on appear (fast)
             Task { await meetingsManager.fetchUpcoming() }
+
+            // Fetch Google Calendar connection status
+            Task { await integrations.fetchGoogleStatus() }
 
             if let meetingId = pendingMeetingId {
                 navigationPath.append(meetingId)
