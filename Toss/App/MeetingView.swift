@@ -1061,14 +1061,31 @@ struct MeetingsListView: View {
         integrations.googleStatus?.connected == true
     }
 
-    /// True while we're still fetching Google status or (calendar is connected and meetings are loading)
-    private var isLoadingUpcoming: Bool {
-        integrations.isLoadingGoogleStatus || (isCalendarConnected && meetingsManager.isLoading)
+    /// True if we have cached meetings to display
+    private var hasCachedMeetings: Bool {
+        !meetingsManager.upcomingMeetings.isEmpty
     }
 
-    /// True when we know for sure the calendar is not connected (status fetched and connected == false)
+    /// Show loading only when we don't have cached meetings AND we're still determining what to show
+    private var isLoadingUpcoming: Bool {
+        // If we have cached meetings, never show loading - just show them
+        guard !hasCachedMeetings else { return false }
+
+        // If we don't know Google status yet, show loading
+        guard integrations.googleStatus != nil else { return true }
+
+        // If calendar is connected and we're still fetching meetings, show loading
+        if isCalendarConnected && meetingsManager.isLoading {
+            return true
+        }
+
+        return false
+    }
+
+    /// Only show connect calendar if we explicitly know Google is NOT connected
     private var showConnectCalendar: Bool {
-        !integrations.isLoadingGoogleStatus && integrations.googleStatus?.connected != true
+        guard let status = integrations.googleStatus else { return false }
+        return !status.connected
     }
 
     var meetings: [MeetingModel] {
