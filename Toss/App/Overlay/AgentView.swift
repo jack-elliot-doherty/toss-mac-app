@@ -94,6 +94,11 @@ struct AgentView: View {
                                 ErrorBubble(text: error)
                                     .transition(.opacity)
                             }
+
+                            // Invisible anchor for reliable scroll-to-bottom
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottom-anchor")
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -101,10 +106,21 @@ struct AgentView: View {
                     .onChange(of: viewModel.messages.count) { _ in
                         scrollToBottom(proxy)
                     }
+                    .onChange(of: viewModel.messages.last?.content) { _ in
+                        // Scroll as streaming content grows
+                        scrollToBottom(proxy)
+                    }
                     .onChange(of: viewModel.pendingToolCalls.count) { _ in
                         scrollToBottom(proxy)
                     }
+                    .onChange(of: viewModel.pendingToolCalls) { _ in
+                        // Also scroll when tool calls update (e.g., status changes)
+                        scrollToBottom(proxy)
+                    }
                     .onChange(of: viewModel.isProcessing) { _ in
+                        scrollToBottom(proxy)
+                    }
+                    .onChange(of: viewModel.isStreaming) { _ in
                         scrollToBottom(proxy)
                     }
                     .onAppear { scrollToBottom(proxy) }
@@ -147,10 +163,11 @@ struct AgentView: View {
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        if let lastTool = viewModel.pendingToolCalls.last {
-            proxy.scrollTo(lastTool.id, anchor: .bottom)
-        } else if let lastMsg = viewModel.messages.last {
-            proxy.scrollTo(lastMsg.id, anchor: .bottom)
+        // Small delay to ensure view has rendered
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo("bottom-anchor", anchor: .bottom)
+            }
         }
     }
 }

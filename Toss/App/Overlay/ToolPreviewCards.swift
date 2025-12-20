@@ -1,5 +1,42 @@
 import SwiftUI
 
+// MARK: - Linear User Info
+
+struct LinearUserInfo: Codable {
+    let id: String
+    let name: String
+    let displayName: String
+    let email: String?
+    let avatarUrl: String?
+}
+
+// MARK: - Linear API
+
+final class LinearAPI {
+    static let shared = LinearAPI()
+    private let baseURL: URL
+
+    init(baseURL: URL = URL(string: Config.serverURL)!) {
+        self.baseURL = baseURL
+    }
+
+    func getUserInfo(userId: String) async throws -> LinearUserInfo {
+        let url = baseURL.appendingPathComponent("linear/users/\(userId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "LinearAPI", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch user info"])
+        }
+
+        return try JSONDecoder().decode(LinearUserInfo.self, from: data)
+    }
+}
+
 // MARK: - Tool Parameters Wrapper
 
 /// Wrapper to provide unified access to tool parameters from different sources
@@ -114,11 +151,24 @@ struct LinearIssuePreview: View {
     let params: ToolParams
     let compact: Bool
 
+    @State private var assigneeInfo: LinearUserInfo?
+    @State private var isLoadingAssignee = true
+
     private var title: String { params.getString("title") ?? "Untitled Issue" }
     private var description: String? { params.getString("description") }
     private var priority: Int? { params.getInt("priority") }
     private var team: String? { params.getString("teamId") ?? params.getString("team") }
-    private var assignee: String? { params.getString("assigneeId") ?? params.getString("assignee") }
+    private var assigneeId: String? {
+        params.getString("assigneeId") ?? params.getString("assignee")
+    }
+
+    private var assigneeDisplay: String {
+        if let info = assigneeInfo {
+            return info.displayName.isEmpty ? info.name : info.displayName
+        }
+        // Still loading - show assignee ID as placeholder
+        return assigneeId ?? ""
+    }
 
     private var priorityLabel: String {
         switch priority {
@@ -198,14 +248,27 @@ struct LinearIssuePreview: View {
                 }
 
                 // Team & Assignee row
-                if team != nil || assignee != nil {
+                if team != nil || assigneeId != nil {
                     HStack(spacing: 16) {
                         if let team = team {
                             PreviewField(label: "Team", value: team, compact: compact, inline: true)
                         }
-                        if let assignee = assignee {
-                            PreviewField(
-                                label: "Assignee", value: assignee, compact: compact, inline: true)
+                        if assigneeId != nil {
+                            HStack(spacing: 6) {
+                                Text("Assignee")
+                                    .font(.system(size: compact ? 10 : 11, weight: .medium))
+                                    .foregroundColor(AppTheme.secondaryText)
+
+                                if isLoadingAssignee {
+                                    ProgressView()
+                                        .scaleEffect(0.5)
+                                        .frame(width: 10, height: 10)
+                                }
+
+                                Text(assigneeDisplay)
+                                    .font(.system(size: compact ? 11 : 12))
+                                    .foregroundColor(AppTheme.primaryText)
+                            }
                         }
                     }
                 }
@@ -220,6 +283,23 @@ struct LinearIssuePreview: View {
                         .stroke(Color(hex: "5E6AD2").opacity(0.2), lineWidth: 1)
                 )
         )
+        .task {
+            await fetchAssigneeInfo()
+        }
+    }
+
+    private func fetchAssigneeInfo() async {
+        guard let assigneeId = assigneeId, !assigneeId.isEmpty else {
+            isLoadingAssignee = false
+            return
+        }
+
+        do {
+            assigneeInfo = try await LinearAPI.shared.getUserInfo(userId: assigneeId)
+        } catch {
+            NSLog("[LinearIssuePreview] Failed to fetch assignee info: \(error)")
+        }
+        isLoadingAssignee = false
     }
 }
 
@@ -1201,13 +1281,23 @@ struct EditableLinearIssuePreview: View {
 
     @State private var title: String
     @State private var description: String
+    @State private var assigneeInfo: LinearUserInfo?
+    @State private var isLoadingAssignee = true
 
     private var priority: Int? { initialParams.getInt("priority") }
     private var team: String? {
         initialParams.getString("teamId") ?? initialParams.getString("team")
     }
-    private var assignee: String? {
+    private var assigneeId: String? {
         initialParams.getString("assigneeId") ?? initialParams.getString("assignee")
+    }
+
+    private var assigneeDisplay: String {
+        if let info = assigneeInfo {
+            return info.displayName.isEmpty ? info.name : info.displayName
+        }
+        // Still loading - show assignee ID as placeholder
+        return assigneeId ?? ""
     }
 
     private var priorityLabel: String {
@@ -1366,7 +1456,7 @@ struct EditableLinearIssuePreview: View {
                         .foregroundColor(priorityColor)
                 }
 
-                if team != nil || assignee != nil {
+                if team != nil || assigneeId != nil {
                     Divider().background(AppTheme.subtleStroke)
                     HStack(spacing: 0) {
                         if let team = team {
@@ -1376,11 +1466,18 @@ struct EditableLinearIssuePreview: View {
                                     .foregroundColor(AppTheme.primaryText)
                             }
                         }
-                        if let assignee = assignee {
+                        if assigneeId != nil {
                             FormRow(label: "Assignee") {
-                                Text(assignee)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(AppTheme.primaryText)
+                                HStack(spacing: 6) {
+                                    if isLoadingAssignee {
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                            .frame(width: 10, height: 10)
+                                    }
+                                    Text(assigneeDisplay)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.primaryText)
+                                }
                             }
                         }
                     }
@@ -1412,16 +1509,33 @@ struct EditableLinearIssuePreview: View {
                         .stroke(AppTheme.subtleStroke, lineWidth: 1)
                 )
         )
+        .task {
+            await fetchAssigneeInfo()
+        }
     }
 
     private func notifyParamsChanged() {
         var updatedParams: [String: AnyCodableValue] = [:]
         if let p = priority { updatedParams["priority"] = .int(p) }
         if let t = team { updatedParams["teamId"] = .string(t) }
-        if let a = assignee { updatedParams["assigneeId"] = .string(a) }
+        if let a = assigneeId { updatedParams["assigneeId"] = .string(a) }
         updatedParams["title"] = .string(title)
         updatedParams["description"] = .string(description)
         onParamsChanged?(updatedParams)
+    }
+
+    private func fetchAssigneeInfo() async {
+        guard let assigneeId = assigneeId, !assigneeId.isEmpty else {
+            isLoadingAssignee = false
+            return
+        }
+
+        do {
+            assigneeInfo = try await LinearAPI.shared.getUserInfo(userId: assigneeId)
+        } catch {
+            NSLog("[EditableLinearIssuePreview] Failed to fetch assignee info: \(error)")
+        }
+        isLoadingAssignee = false
     }
 }
 

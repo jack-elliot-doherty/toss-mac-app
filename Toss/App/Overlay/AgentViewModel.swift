@@ -645,8 +645,54 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
-    /// Execute a connect tool - opens OAuth flow in browser
+    /// Execute a connect tool - opens OAuth flow in browser (or confirms already connected)
     private func executeConnect(provider: String, endpoint: String) async -> [String: Any] {
+        // First, check if already connected via IntegrationsManager
+        // This handles the case where OAuth was already completed via the UI
+        let integrationsManager = IntegrationsManager.shared
+        
+        switch provider {
+        case "slack":
+            if integrationsManager.slackStatus?.connected == true {
+                let teamName = integrationsManager.slackStatus?.teamName ?? "your workspace"
+                NSLog("[AgentViewModel] \(provider) already connected to \(teamName)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "teamName": teamName,
+                    "message": "Slack is now connected to \(teamName).",
+                ]
+            }
+        case "linear":
+            if integrationsManager.linearStatus?.connected == true {
+                let orgName = integrationsManager.linearStatus?.organizationName ?? "your organization"
+                NSLog("[AgentViewModel] \(provider) already connected to \(orgName)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "organizationName": orgName,
+                    "message": "Linear is now connected to \(orgName).",
+                ]
+            }
+        case "google":
+            if integrationsManager.googleStatus?.connected == true {
+                let email = integrationsManager.googleStatus?.email ?? "your account"
+                NSLog("[AgentViewModel] \(provider) already connected as \(email)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "email": email,
+                    "message": "Google Calendar is now connected as \(email).",
+                ]
+            }
+        default:
+            break
+        }
+        
+        // Not connected yet - initiate OAuth flow
         guard let token = auth.accessToken else {
             return ["success": false, "error": "Not authenticated"]
         }
