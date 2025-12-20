@@ -93,24 +93,54 @@ final class UpdateManager: NSObject, ObservableObject {
 
     /// Parse the latest version from appcast XML
     private func parseLatestVersion(from appcast: String) -> String? {
-        // Look for sparkle:shortVersionString first, then sparkle:version
-        // Pattern: sparkle:shortVersionString="X.X.X" or sparkle:version="X.X.X"
+        // The appcast uses XML element format with namespace prefix (ns0: or sparkle:)
+        // e.g., <ns0:shortVersionString>1.2.54</ns0:shortVersionString>
+        // or <sparkle:shortVersionString>1.2.54</sparkle:shortVersionString>
 
-        // Try shortVersionString first
-        if let range = appcast.range(of: "sparkle:shortVersionString=\"") {
-            let start = range.upperBound
-            if let endRange = appcast[start...].range(of: "\"") {
-                let version = String(appcast[start..<endRange.lowerBound])
-                return version
+        // Try to find the first shortVersionString element with any namespace prefix
+        // Pattern: <PREFIX:shortVersionString>VERSION</PREFIX:shortVersionString>
+        let patterns = [
+            // Element format with ns0 prefix (our current format)
+            "<ns0:shortVersionString>",
+            // Element format with sparkle prefix
+            "<sparkle:shortVersionString>",
+            // Attribute format (some appcasts use this)
+            "sparkle:shortVersionString=\"",
+            "ns0:shortVersionString=\"",
+        ]
+
+        for pattern in patterns {
+            if let range = appcast.range(of: pattern) {
+                let start = range.upperBound
+                // Determine the closing delimiter based on whether it's element or attribute format
+                let closingDelimiter = pattern.hasSuffix("\"") ? "\"" : "<"
+                if let endRange = appcast[start...].range(of: closingDelimiter) {
+                    let version = String(appcast[start..<endRange.lowerBound])
+                    if !version.isEmpty {
+                        return version
+                    }
+                }
             }
         }
 
-        // Fall back to sparkle:version
-        if let range = appcast.range(of: "sparkle:version=\"") {
-            let start = range.upperBound
-            if let endRange = appcast[start...].range(of: "\"") {
-                let version = String(appcast[start..<endRange.lowerBound])
-                return version
+        // Fall back to version element/attribute
+        let versionPatterns = [
+            "<ns0:version>",
+            "<sparkle:version>",
+            "sparkle:version=\"",
+            "ns0:version=\"",
+        ]
+
+        for pattern in versionPatterns {
+            if let range = appcast.range(of: pattern) {
+                let start = range.upperBound
+                let closingDelimiter = pattern.hasSuffix("\"") ? "\"" : "<"
+                if let endRange = appcast[start...].range(of: closingDelimiter) {
+                    let version = String(appcast[start..<endRange.lowerBound])
+                    if !version.isEmpty {
+                        return version
+                    }
+                }
             }
         }
 
