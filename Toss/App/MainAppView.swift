@@ -84,7 +84,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 @MainActor
 struct MainAppView: View {
     @ObservedObject private var auth = AuthManager.shared
-    @ObservedObject private var subscription = SubscriptionManager.shared
+    // NOTE: Removed unused @ObservedObject subscription - it was causing unnecessary re-renders
     @ObservedObject private var updateManager = UpdateManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .home

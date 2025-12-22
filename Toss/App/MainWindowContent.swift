@@ -21,6 +21,167 @@ struct MainWindowContent: View {
         }
         .frame(minWidth: 500, minHeight: 500)
         .background(MainWindowConfigurationView())
+        .background(WindowKeyPrevention())
+    }
+}
+
+/// Prevents the main window from automatically becoming key when the app is activated
+/// This stops the focus-stealing behavior when switching desktops
+private struct WindowKeyPrevention: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = KeyPreventionView()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private class KeyPreventionView: NSView {
+        private var windowDelegate: WindowKeyDelegate?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window = self.window else { return }
+
+            // Install our custom delegate to control key behavior
+            windowDelegate = WindowKeyDelegate(originalDelegate: window.delegate, window: window)
+            window.delegate = windowDelegate
+
+            NSLog("[WindowKeyPrevention] Installed key prevention delegate")
+        }
+    }
+
+    /// Custom window delegate that prevents automatic key focus when app activates
+    private class WindowKeyDelegate: NSObject, NSWindowDelegate {
+        weak var originalDelegate: NSWindowDelegate?
+        weak var targetWindow: NSWindow?
+
+        /// Track if user explicitly clicked to activate - only true for a brief moment after click
+        private var userClickedOnWindow = false
+
+        /// Track if activation came from dock icon or menu bar
+        private var activatedFromDockOrMenu = false
+
+        /// Event monitor for mouse clicks
+        private var clickMonitor: Any?
+
+        /// Observer for reopen events (dock icon clicks)
+        private var reopenObserver: NSObjectProtocol?
+
+        init(originalDelegate: NSWindowDelegate?, window: NSWindow) {
+            self.originalDelegate = originalDelegate
+            self.targetWindow = window
+            super.init()
+
+            // Use a LOCAL event monitor to detect clicks ON THIS WINDOW specifically
+            clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [
+                .leftMouseDown, .rightMouseDown,
+            ]) { [weak self] event in
+                guard let self = self, let targetWindow = self.targetWindow else { return event }
+
+                // Check if the click was on our window
+                if event.window === targetWindow {
+                    NSLog("[WindowKeyPrevention] Detected mouse click ON window")
+                    self.userClickedOnWindow = true
+
+                    // Reset after a very short delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                        self?.userClickedOnWindow = false
+                    }
+                }
+                return event
+            }
+
+            // Listen for dock icon clicks (applicationShouldHandleReopen sends this)
+            reopenObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                // Check if the mouse is in the dock area (bottom of screen)
+                let mouseLocation = NSEvent.mouseLocation
+                if NSScreen.main != nil {
+                    let dockHeight: CGFloat = 80  // Approximate dock area height
+                    if mouseLocation.y < dockHeight {
+                        NSLog("[WindowKeyPrevention] Activation likely from dock click")
+                        self?.activatedFromDockOrMenu = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                            self?.activatedFromDockOrMenu = false
+                        }
+                    }
+                }
+            }
+        }
+
+        deinit {
+            if let monitor = clickMonitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            if let observer = reopenObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+
+        // MARK: - NSWindowDelegate methods that control focus
+
+        func windowShouldClose(_ sender: NSWindow) -> Bool {
+            originalDelegate?.windowShouldClose?(sender) ?? true
+        }
+
+        func windowWillClose(_ notification: Notification) {
+            originalDelegate?.windowWillClose?(notification)
+        }
+
+        func windowDidBecomeKey(_ notification: Notification) {
+            guard let window = notification.object as? NSWindow else { return }
+
+            // Allow key focus if user clicked on window OR clicked dock icon
+            let userInitiated = userClickedOnWindow || activatedFromDockOrMenu
+
+            if !userInitiated {
+                // The window became key without user clicking on it
+                // This is the unwanted automatic activation - resign key
+                NSLog(
+                    "[WindowKeyPrevention] Automatic key detected (no user action) - resigning key status"
+                )
+
+                DispatchQueue.main.async {
+                    window.resignKey()
+                    window.resignMain()
+                }
+            } else {
+                NSLog("[WindowKeyPrevention] User-initiated focus (click or dock) - allowing")
+            }
+
+            originalDelegate?.windowDidBecomeKey?(notification)
+        }
+
+        func windowDidBecomeMain(_ notification: Notification) {
+            originalDelegate?.windowDidBecomeMain?(notification)
+        }
+
+        func windowDidResignKey(_ notification: Notification) {
+            originalDelegate?.windowDidResignKey?(notification)
+        }
+
+        func windowDidResignMain(_ notification: Notification) {
+            originalDelegate?.windowDidResignMain?(notification)
+        }
+
+        func windowWillMove(_ notification: Notification) {
+            originalDelegate?.windowWillMove?(notification)
+        }
+
+        func windowDidMove(_ notification: Notification) {
+            originalDelegate?.windowDidMove?(notification)
+        }
+
+        func windowDidResize(_ notification: Notification) {
+            originalDelegate?.windowDidResize?(notification)
+        }
+
+        func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+            originalDelegate?.windowWillResize?(sender, to: frameSize) ?? frameSize
+        }
     }
 }
 
