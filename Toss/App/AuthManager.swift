@@ -325,8 +325,11 @@ final class AuthManager: ObservableObject {
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 if let token = json["token"] as? String, !token.isEmpty {
                     try? writeToken(token)
-                    // CHANGED: Set directly
-                    self.accessToken = token
+                    // Only update the published property if the token actually changed
+                    // This prevents unnecessary SwiftUI re-renders and window focus issues
+                    if self.accessToken != token {
+                        self.accessToken = token
+                    }
                     return true
                 }
             }

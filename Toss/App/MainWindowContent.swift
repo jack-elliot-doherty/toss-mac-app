@@ -27,26 +27,43 @@ struct MainWindowContent: View {
 private struct MainWindowConfigurationView: NSViewRepresentable {
     @ObservedObject private var auth = AuthManager.shared
 
+    // Track which windows have been configured to avoid repeated configuration
+    // Using a static set since this is a struct and we need state across instances
+    private static var configuredWindows = Set<ObjectIdentifier>()
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
+            configureMainWindow(window, isAuthenticated: auth.isAuthenticated, isInitial: true)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let window = nsView.window else { return }
-        configureMainWindow(window, isAuthenticated: auth.isAuthenticated)
+        // Only handle visibility changes, not full reconfiguration
+        // This prevents repeated window property changes that can cause focus issues
+        if !auth.isAuthenticated {
+            window.orderOut(nil)
+        }
+        // Don't reconfigure the window on every update - only configure once in makeNSView
     }
 
-    private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool) {
+    private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool, isInitial: Bool) {
         // Hide window entirely if not authenticated
         if !isAuthenticated {
             window.orderOut(nil)
             return
         }
+
+        // Only configure window properties once to prevent focus stealing
+        let windowId = ObjectIdentifier(window)
+        guard isInitial || !Self.configuredWindows.contains(windowId) else {
+            return
+        }
+        Self.configuredWindows.insert(windowId)
+
         // Visual styling (same frosted glass look)
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true

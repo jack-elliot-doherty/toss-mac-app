@@ -150,11 +150,19 @@ final class OnboardingManager: ObservableObject {
     }
 
     func refresh() {
-        axGranted = AccessibilityAuth.isTrusted()
-        micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        isSignedIn = AuthManager.shared.isAuthenticated
-        screenGranted = ScreenRecordingAuth.status()
-        completedVersion = UserDefaults.standard.integer(forKey: onboardingVersionKey)
+        // Only update @Published properties if values actually changed
+        // to prevent unnecessary SwiftUI re-renders and potential window focus issues
+        let newAxGranted = AccessibilityAuth.isTrusted()
+        let newMicStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        let newIsSignedIn = AuthManager.shared.isAuthenticated
+        let newScreenGranted = ScreenRecordingAuth.status()
+        let newCompletedVersion = UserDefaults.standard.integer(forKey: onboardingVersionKey)
+
+        if axGranted != newAxGranted { axGranted = newAxGranted }
+        if micStatus != newMicStatus { micStatus = newMicStatus }
+        if isSignedIn != newIsSignedIn { isSignedIn = newIsSignedIn }
+        if screenGranted != newScreenGranted { screenGranted = newScreenGranted }
+        if completedVersion != newCompletedVersion { completedVersion = newCompletedVersion }
     }
 
     // MARK: - Permission Requests
