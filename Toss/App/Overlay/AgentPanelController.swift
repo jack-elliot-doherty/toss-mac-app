@@ -12,10 +12,11 @@ final class AgentPanelController {
     private let panel: KeyablePanel
     private let viewModel: AgentViewModel
     private let anchorFrameProvider: () -> NSRect?
-    private let anchorOffset: CGFloat = 12
+    private let anchorOffset: CGFloat = 24
     private let hostingView: NSHostingView<AgentView>
     private var cancellables = Set<AnyCancellable>()
-    private var initialXPosition: CGFloat?  // NEW: Store the X position once
+    private var initialXPosition: CGFloat?  // Store the X position once
+    private var initialYPosition: CGFloat?  // Store the Y position once
     private(set) var isMinimized = false  // Track if we have a minimized session
 
     // Callback for when minimize/restore happens (to update pill state)
@@ -158,6 +159,7 @@ final class AgentPanelController {
 
         NSLog("[AgentPanelController] Showing empty agent panel for text chat")
         initialXPosition = nil
+        initialYPosition = nil
 
         // Clear first, then set compact mode (clearConversation resets it)
         viewModel.clearConversation()
@@ -202,6 +204,7 @@ final class AgentPanelController {
         NSLog("[AgentPanelController] Starting new agent session")
         viewModel.isCompactMode = false
         initialXPosition = nil
+        initialYPosition = nil
 
         viewModel.startConversation(with: initialMessage)
 
@@ -232,22 +235,16 @@ final class AgentPanelController {
 
         let targetSize = NSSize(width: fixedWidth, height: finalHeight)
 
-        // Calculate X position only once, then reuse it
+        // Calculate X and Y positions only once, then reuse them
         let x: CGFloat
         let y: CGFloat
 
-        if let storedX = initialXPosition {
-            // Reuse the initial X position
+        if let storedX = initialXPosition, let storedY = initialYPosition {
+            // Reuse the initial positions
             x = storedX
-            if let anchor = anchorFrameProvider() {
-                y = anchor.maxY + anchorOffset
-            } else if let screen = NSScreen.main {
-                y = screen.visibleFrame.minY + 80
-            } else {
-                y = panel.frame.origin.y
-            }
+            y = storedY
         } else {
-            // First time: calculate and store X position
+            // First time: calculate and store positions
             if let anchor = anchorFrameProvider() {
                 x = anchor.midX - fixedWidth / 2
                 y = anchor.maxY + anchorOffset
@@ -259,7 +256,8 @@ final class AgentPanelController {
                 x = panel.frame.origin.x
                 y = panel.frame.origin.y
             }
-            initialXPosition = x  // Store for future resizes
+            initialXPosition = x
+            initialYPosition = y
         }
 
         let targetFrame = NSRect(origin: NSPoint(x: x, y: y), size: targetSize)
