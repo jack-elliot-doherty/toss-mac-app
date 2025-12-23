@@ -229,7 +229,9 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
-        window.isMovableByWindowBackground = true
+        // Note: Do NOT set isMovableByWindowBackground = true here!
+        // It interferes with resize cursor detection at window edges.
+        // The sidebar and title bar areas can handle window dragging instead.
         window.isOpaque = false
         window.backgroundColor = .clear
         window.titlebarSeparatorStyle = .none
