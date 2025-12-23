@@ -12,6 +12,7 @@ final class PillController {
     private var isTranscribing = false
     private var lastRecordingURL: URL?
     private var detectedDictationMode: DictationMode = .plain
+    private var vocabularyHints: String?  // For STT vocabulary hints (e.g., recipient names in emails)
 
     private var activeMeetingId: UUID?
     private var meetingRecorder: MeetingRecorder?  // create this on demand as we dont need it until we start a meeting
@@ -222,14 +223,28 @@ final class PillController {
         // Guard against re-entry
         guard !isRecording else { return }
 
+        // Start audio engine FIRST for lowest latency
+        audio.start()
+        isRecording = true
+
+        // Play feedback sound (async, shouldn't block)
         SoundFeedback.shared.playStart()
 
-        // Detect context BEFORE starting recording (while user's cursor is in the target field)
+        // Detect context (fast - just checks bundle ID, or gets browser window title)
         detectedDictationMode = DictationContextDetector.shared.detectContext()
         NSLog("[PillController] Detected dictation mode: \(detectedDictationMode.rawValue)")
 
-        // Start audio engine; provide level callback to update the waveform
-        audio.start()
+        // Vocabulary hints require deep tree traversal - do async to not block UI
+        vocabularyHints = nil
+        Task.detached { [weak self] in
+            let hints = DictationContextDetector.shared.getContextVocabularyHints()
+            await MainActor.run {
+                self?.vocabularyHints = hints
+                if let hints = hints {
+                    NSLog("[PillController] Vocabulary hints loaded: \(hints)")
+                }
+            }
+        }
         audio.onLevelUpdate = { [weak self] rms in self?.viewModel.updateLevelRMS(rms) }
 
         audio.onError = { error in
@@ -237,9 +252,6 @@ final class PillController {
             self.toast.show(title: "Audio error: \(error)", duration: 3.0)
             self.pillPanel.setState(.idle)
         }
-
-        isRecording = true
-
     }
 
     private var stopTime: Date?
@@ -283,7 +295,8 @@ final class PillController {
     @MainActor
     private func startUpload(with url: URL) {
         let mode = self.detectedDictationMode
-        transcriber.transcribe(fileURL: url, mode: mode) { [weak self] result in
+        let prompt = self.vocabularyHints
+        transcriber.transcribe(fileURL: url, mode: mode, prompt: prompt) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
 

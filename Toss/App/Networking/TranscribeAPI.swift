@@ -24,10 +24,13 @@ final class TranscribeAPI {
     func transcribe(
         fileURL: URL,
         mode: DictationMode = .plain,
+        prompt: String? = nil,
         completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/transcribe")
-        NSLog("[TranscribeAPI] POST %@ (mode: %@)", url.absoluteString, mode.rawValue)
+        NSLog(
+            "[TranscribeAPI] POST %@ (mode: %@, prompt: %@)", url.absoluteString, mode.rawValue,
+            prompt ?? "none")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -42,6 +45,13 @@ final class TranscribeAPI {
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"mode\"\r\n\r\n")
         append("\(mode.rawValue)\r\n")
+
+        // Add prompt field if provided (for vocabulary hints like recipient names)
+        if let prompt = prompt, !prompt.isEmpty {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
+            append("\(prompt)\r\n")
+        }
 
         // Add file field
         append("--\(boundary)\r\n")
