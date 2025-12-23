@@ -23,10 +23,11 @@ final class TranscribeAPI {
 
     func transcribe(
         fileURL: URL,
+        mode: DictationMode = .plain,
         completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/transcribe")
-        NSLog("[TranscribeAPI] POST %@", url.absoluteString)
+        NSLog("[TranscribeAPI] POST %@ (mode: %@)", url.absoluteString, mode.rawValue)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -36,6 +37,13 @@ final class TranscribeAPI {
 
         var body = Data()
         func append(_ s: String) { body.append(s.data(using: .utf8)!) }
+        
+        // Add mode field
+        append("--\(boundary)\r\n")
+        append("Content-Disposition: form-data; name=\"mode\"\r\n\r\n")
+        append("\(mode.rawValue)\r\n")
+        
+        // Add file field
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n")
         append("Content-Type: audio/wav\r\n\r\n")

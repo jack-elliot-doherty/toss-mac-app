@@ -79,6 +79,7 @@
 		DAEEBF342EDCF7A7009DE3CF /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF332EDCF7A7009DE3CF /* Sentry */; };
 		DAEEBF372EDD07C2009DE3CF /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF362EDD07C2009DE3CF /* PostHog */; };
 		DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF382EDF1148009DE3CF /* APIClient.swift */; };
+		DAF7DFFF2EFACB670052182B /* DictationContextDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -170,6 +171,7 @@
 		DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLRequest+Extensions.swift"; sourceTree = "<group>"; };
 		DAEEBF382EDF1148009DE3CF /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationContextDetector.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -203,6 +205,7 @@
 		DA3623442EB23FCE000207F0 /* Input */ = {
 			isa = PBXGroup;
 			children = (
+				DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */,
 				DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */,
 				DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */,
 				DA7827A12EBE94CC0040ED92 /* audio */,
@@ -609,6 +612,7 @@
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
 				DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */,
+				DAF7DFFF2EFACB670052182B /* DictationContextDetector.swift in Sources */,
 				DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */,
 				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
 				DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */,

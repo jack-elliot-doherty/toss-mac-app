@@ -11,6 +11,7 @@ final class PillController {
     private var isRecording = false
     private var isTranscribing = false
     private var lastRecordingURL: URL?
+    private var detectedDictationMode: DictationMode = .plain
 
     private var activeMeetingId: UUID?
     private var meetingRecorder: MeetingRecorder?  // create this on demand as we dont need it until we start a meeting
@@ -222,6 +223,10 @@ final class PillController {
         guard !isRecording else { return }
 
         SoundFeedback.shared.playStart()
+        
+        // Detect context BEFORE starting recording (while user's cursor is in the target field)
+        detectedDictationMode = DictationContextDetector.shared.detectContext()
+        NSLog("[PillController] Detected dictation mode: \(detectedDictationMode.rawValue)")
 
         // Start audio engine; provide level callback to update the waveform
         audio.start()
@@ -277,7 +282,8 @@ final class PillController {
 
     @MainActor
     private func startUpload(with url: URL) {
-        transcriber.transcribe(fileURL: url) { [weak self] result in
+        let mode = self.detectedDictationMode
+        transcriber.transcribe(fileURL: url, mode: mode) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
 
