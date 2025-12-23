@@ -62,7 +62,9 @@ struct AgentView: View {
                                     )
                             }
 
-                            ForEach(viewModel.pendingToolCalls) { call in
+                            // Show only ONE pending approval at a time (sequential UX)
+                            // This avoids scroll chaos and matches natural workflow
+                            if let call = viewModel.currentPendingApproval {
                                 if call.isConnectTool {
                                     ConnectToolCard(
                                         toolCall: call,
@@ -110,11 +112,8 @@ struct AgentView: View {
                         // Scroll as streaming content grows
                         scrollToBottom(proxy)
                     }
-                    .onChange(of: viewModel.pendingToolCalls.count) { _ in
-                        scrollToBottom(proxy)
-                    }
-                    .onChange(of: viewModel.pendingToolCalls) { _ in
-                        // Also scroll when tool calls update (e.g., status changes)
+                    .onChange(of: viewModel.currentPendingApproval?.id) { _ in
+                        // Scroll when the current pending approval changes
                         scrollToBottom(proxy)
                     }
                     .onChange(of: viewModel.isProcessing) { _ in
@@ -149,7 +148,10 @@ struct AgentView: View {
         .appGlass(.surface, radius: 18, opacity: 0.001)
         .preferredColorScheme(.dark)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.messages)
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.pendingToolCalls)
+        .animation(
+            .spring(response: 0.3, dampingFraction: 0.85),
+            value: viewModel.currentPendingApproval?.id
+        )
         .animation(.easeInOut(duration: 0.15), value: viewModel.isProcessing)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.isCompactMode)
         .onAppear {

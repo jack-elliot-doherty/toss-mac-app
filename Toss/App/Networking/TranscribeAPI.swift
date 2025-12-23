@@ -37,12 +37,12 @@ final class TranscribeAPI {
 
         var body = Data()
         func append(_ s: String) { body.append(s.data(using: .utf8)!) }
-        
+
         // Add mode field
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"mode\"\r\n\r\n")
         append("\(mode.rawValue)\r\n")
-        
+
         // Add file field
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\n")

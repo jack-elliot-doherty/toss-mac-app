@@ -11,6 +11,15 @@ final class AgentViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isCompactMode: Bool = false  // Just input field, no header/messages
 
+    /// Returns only the first tool awaiting approval (for sequential UX)
+    /// We show one approval card at a time to avoid scroll chaos and match natural workflow
+    var currentPendingApproval: ToolCall? {
+        pendingToolCalls.first {
+            if case .awaitingApproval = $0.status { return true }
+            return false
+        }
+    }
+
     struct ExecutingTool: Identifiable, Equatable {
         let id: String
         let name: String
@@ -172,6 +181,27 @@ final class AgentViewModel: ObservableObject {
             }
         }
 
+        // Include pending tool calls that are still awaiting approval
+        // This prevents the model from re-requesting tools it already called
+        for pendingCall in pendingToolCalls where pendingCall.status == .awaitingApproval {
+            let argsDict = pendingCall.arguments.mapValues { $0.value }
+            apiMessages.append([
+                "id": UUID().uuidString,
+                "role": "assistant",
+                "parts": [
+                    [
+                        "type": "tool-\(pendingCall.name)",
+                        "toolCallId": pendingCall.id,
+                        "state": "input-available",
+                        "input": argsDict,
+                    ]
+                ],
+            ])
+            NSLog(
+                "[AgentViewModel] Including pending tool call in context: \(pendingCall.name) (\(pendingCall.id))"
+            )
+        }
+
         do {
             try await streamFromAgentWithParts(messages: apiMessages)
         } catch {
@@ -194,43 +224,7 @@ final class AgentViewModel: ObservableObject {
         isCompactMode = false
     }
 
-    /// Continue the conversation after a tool execution
-    /// Uses the AI SDK v6 UIMessage protocol format
-    private func continueAfterToolExecution(
-        toolCallId: String,
-        toolName: String,
-        arguments: [String: Any],
-        result: [String: Any]
-    ) async {
-        // Add the assistant message with completed tool invocation (for UI and history)
-        let toolMessage = DisplayMessage(
-            id: UUID(),
-            role: .assistant,
-            content: "",
-            timestamp: Date(),
-            toolCall: ToolCallInfo(
-                toolCallId: toolCallId,
-                toolName: toolName,
-                arguments: arguments
-            ),
-            toolResult: ToolResultInfo(
-                toolCallId: toolCallId,
-                result: result
-            )
-        )
-        messages.append(toolMessage)
-
-        // Continue the conversation with the agent
-        NSLog("[AgentViewModel] Continuing conversation after tool execution")
-        do {
-            try await streamFromAgentContinuation()
-        } catch {
-            errorMessage = error.localizedDescription
-            NSLog("[AgentViewModel] Error continuing after tool: \(error)")
-        }
-    }
-
-    /// Continue the agent conversation after tool execution
+    /// Continue the agent conversation after all tool executions are complete
     /// Uses the AI SDK v6 UIMessage protocol format with proper tool parts
     private func streamFromAgentContinuation() async throws {
         guard let token = auth.accessToken else {
@@ -294,6 +288,27 @@ final class AgentViewModel: ObservableObject {
                     ],
                 ])
             }
+        }
+
+        // CRITICAL: Include pending tool calls that are still awaiting approval
+        // This prevents the model from re-requesting tools it already called
+        for pendingCall in pendingToolCalls where pendingCall.status == .awaitingApproval {
+            let argsDict = pendingCall.arguments.mapValues { $0.value }
+            apiMessages.append([
+                "id": UUID().uuidString,
+                "role": "assistant",
+                "parts": [
+                    [
+                        "type": "tool-\(pendingCall.name)",
+                        "toolCallId": pendingCall.id,
+                        "state": "input-available",
+                        "input": argsDict,
+                    ]
+                ],
+            ])
+            NSLog(
+                "[AgentViewModel] Including pending tool call in context: \(pendingCall.name) (\(pendingCall.id))"
+            )
         }
 
         let payload: [String: Any] = ["messages": apiMessages]
@@ -592,6 +607,27 @@ final class AgentViewModel: ObservableObject {
                 NSLog("[AgentViewModel] Got server tool result for: \(toolCall.name)")
             }
 
+            // Convert arguments to [String: Any]
+            let argsDict = toolCall.arguments.mapValues { $0.value }
+
+            // Add the tool result to messages immediately (for history)
+            let toolMessage = DisplayMessage(
+                id: UUID(),
+                role: .assistant,
+                content: "",
+                timestamp: Date(),
+                toolCall: ToolCallInfo(
+                    toolCallId: toolCall.id,
+                    toolName: toolCall.name,
+                    arguments: argsDict
+                ),
+                toolResult: ToolResultInfo(
+                    toolCallId: toolCall.id,
+                    result: toolResult
+                )
+            )
+            messages.append(toolMessage)
+
             // Mark complete in UI
             if let idx = self.pendingToolCalls.firstIndex(where: { $0.id == toolCall.id }) {
                 var completedCall = self.pendingToolCalls[idx]
@@ -607,17 +643,28 @@ final class AgentViewModel: ObservableObject {
                 }
             }
 
-            // Convert arguments to [String: Any]
-            let argsDict = toolCall.arguments.mapValues { $0.value }
+            // Check if there are more tools still awaiting approval
+            let stillPendingApproval = pendingToolCalls.contains {
+                if case .awaitingApproval = $0.status { return true }
+                return false
+            }
 
-            // Continue the conversation with the tool result
-            // This sends the tool call + result back to the agent so it can continue
-            await continueAfterToolExecution(
-                toolCallId: toolCall.id,
-                toolName: toolCall.name,
-                arguments: argsDict,
-                result: toolResult
-            )
+            if stillPendingApproval {
+                // More tools pending - don't continue conversation yet
+                // User needs to approve the remaining tools first
+                NSLog(
+                    "[AgentViewModel] More tools awaiting approval, not continuing conversation yet"
+                )
+            } else {
+                // All tools approved! Now continue the conversation
+                NSLog("[AgentViewModel] All pending tools approved, continuing conversation")
+                do {
+                    try await streamFromAgentContinuation()
+                } catch {
+                    errorMessage = error.localizedDescription
+                    NSLog("[AgentViewModel] Error continuing after tools: \(error)")
+                }
+            }
 
         } catch {
             errorMessage = "Failed to approve tool: \(error.localizedDescription)"
@@ -650,7 +697,7 @@ final class AgentViewModel: ObservableObject {
         // First, check if already connected via IntegrationsManager
         // This handles the case where OAuth was already completed via the UI
         let integrationsManager = IntegrationsManager.shared
-        
+
         switch provider {
         case "slack":
             if integrationsManager.slackStatus?.connected == true {
@@ -666,7 +713,8 @@ final class AgentViewModel: ObservableObject {
             }
         case "linear":
             if integrationsManager.linearStatus?.connected == true {
-                let orgName = integrationsManager.linearStatus?.organizationName ?? "your organization"
+                let orgName =
+                    integrationsManager.linearStatus?.organizationName ?? "your organization"
                 NSLog("[AgentViewModel] \(provider) already connected to \(orgName)")
                 return [
                     "success": true,
@@ -691,7 +739,7 @@ final class AgentViewModel: ObservableObject {
         default:
             break
         }
-        
+
         // Not connected yet - initiate OAuth flow
         guard let token = auth.accessToken else {
             return ["success": false, "error": "Not authenticated"]
@@ -830,10 +878,10 @@ final class AgentViewModel: ObservableObject {
             return
         }
 
-        // Remove from UI
+        // Remove from pending UI list
         pendingToolCalls.remove(at: index)
 
-        // Send rejection to server and continue conversation
+        // Send rejection to server
         Task {
             do {
                 try await sendToolApproval(
@@ -847,14 +895,45 @@ final class AgentViewModel: ObservableObject {
                 // Convert arguments to [String: Any]
                 let argsDict = toolCall.arguments.mapValues { $0.value }
 
-                // Continue the conversation with a rejection result
-                // This tells the agent the user rejected the tool call
-                await continueAfterToolExecution(
-                    toolCallId: toolCall.id,
-                    toolName: toolCall.name,
-                    arguments: argsDict,
-                    result: ["rejected": true, "reason": "User rejected this action"]
+                // Add rejection result to messages (for history)
+                let toolMessage = DisplayMessage(
+                    id: UUID(),
+                    role: .assistant,
+                    content: "",
+                    timestamp: Date(),
+                    toolCall: ToolCallInfo(
+                        toolCallId: toolCall.id,
+                        toolName: toolCall.name,
+                        arguments: argsDict
+                    ),
+                    toolResult: ToolResultInfo(
+                        toolCallId: toolCall.id,
+                        result: ["rejected": true, "reason": "User rejected this action"]
+                    )
                 )
+                messages.append(toolMessage)
+
+                // Check if there are more tools still awaiting approval
+                let stillPendingApproval = pendingToolCalls.contains {
+                    if case .awaitingApproval = $0.status { return true }
+                    return false
+                }
+
+                if stillPendingApproval {
+                    // More tools pending - don't continue conversation yet
+                    NSLog(
+                        "[AgentViewModel] More tools awaiting approval after rejection, not continuing yet"
+                    )
+                } else {
+                    // All tools handled! Now continue the conversation
+                    NSLog("[AgentViewModel] All pending tools handled, continuing conversation")
+                    do {
+                        try await streamFromAgentContinuation()
+                    } catch {
+                        errorMessage = error.localizedDescription
+                        NSLog("[AgentViewModel] Error continuing after tools: \(error)")
+                    }
+                }
             } catch {
                 errorMessage = "Failed to reject tool: \(error.localizedDescription)"
             }

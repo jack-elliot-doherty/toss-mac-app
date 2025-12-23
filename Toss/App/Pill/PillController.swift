@@ -223,7 +223,7 @@ final class PillController {
         guard !isRecording else { return }
 
         SoundFeedback.shared.playStart()
-        
+
         // Detect context BEFORE starting recording (while user's cursor is in the target field)
         detectedDictationMode = DictationContextDetector.shared.detectContext()
         NSLog("[PillController] Detected dictation mode: \(detectedDictationMode.rawValue)")
