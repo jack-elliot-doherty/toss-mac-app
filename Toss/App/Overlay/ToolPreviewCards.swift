@@ -37,6 +37,50 @@ final class LinearAPI {
     }
 }
 
+// MARK: - Slack Channel Info
+
+struct SlackChannelInfo: Codable {
+    let id: String
+    let name: String
+    let type: String  // "dm", "group_dm", or "channel"
+    let isPrivate: Bool
+
+    var isDirectMessage: Bool {
+        type == "dm"
+    }
+
+    var isGroupDM: Bool {
+        type == "group_dm"
+    }
+}
+
+// MARK: - Slack API
+
+final class SlackAPI {
+    static let shared = SlackAPI()
+    private let baseURL: URL
+
+    init(baseURL: URL = URL(string: Config.serverURL)!) {
+        self.baseURL = baseURL
+    }
+
+    func getChannelInfo(channelId: String) async throws -> SlackChannelInfo {
+        let url = baseURL.appendingPathComponent("slack/channels/\(channelId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "SlackAPI", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch channel info"])
+        }
+
+        return try JSONDecoder().decode(SlackChannelInfo.self, from: data)
+    }
+}
+
 // MARK: - Tool Parameters Wrapper
 
 /// Wrapper to provide unified access to tool parameters from different sources
@@ -114,7 +158,7 @@ struct ToolPreviewFactory {
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
-            SlackMessagePreview(params: wrapped, compact: compact)
+            EditableSlackMessagePreview(params: wrapped, compact: compact)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
         }
@@ -134,7 +178,7 @@ struct ToolPreviewFactory {
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
-            SlackMessagePreview(params: wrapped, compact: compact)
+            EditableSlackMessagePreview(params: wrapped, compact: compact)
         case "cursorOpenPrompt":
             // Note: CursorPromptPreview needs title/context, so use GenericToolPreview as fallback
             // The full CursorPromptPreview is used directly in ActionItemCard
@@ -443,129 +487,6 @@ struct CalendarEventPreview: View {
                         .stroke(Color(hex: "4285F4").opacity(0.2), lineWidth: 1)
                 )
         )
-    }
-}
-
-// MARK: - Slack Message Preview
-
-struct SlackMessagePreview: View {
-    let params: ToolParams
-    let compact: Bool
-
-    @State private var channelInfo: SlackChannelInfo?
-    @State private var isLoadingChannel = true
-
-    private var channelId: String {
-        params.getString("channelId") ?? params.getString("channel") ?? ""
-    }
-
-    private var message: String { params.getString("message") ?? "" }
-
-    private var channelDisplay: String {
-        if let info = channelInfo {
-            if info.isDirectMessage {
-                return "@\(info.name)"
-            } else if info.isGroupDM {
-                return info.name
-            } else {
-                return "#\(info.name)"
-            }
-        }
-        // Still loading - show channel ID
-        return channelId
-    }
-
-    private var isDirectMessage: Bool {
-        channelInfo?.isDirectMessage ?? false
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 8 : 12) {
-            // Header with Slack colors
-            HStack(spacing: 8) {
-                Image("SlackLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: compact ? 20 : 24, height: compact ? 20 : 24)
-
-                Text("Send Slack Message")
-                    .font(.system(size: compact ? 12 : 14, weight: .semibold))
-                    .foregroundColor(AppTheme.primaryText)
-
-                Spacer()
-            }
-
-            Divider()
-                .background(AppTheme.subtleStroke)
-
-            // Message details
-            VStack(alignment: .leading, spacing: compact ? 6 : 10) {
-                // Channel or DM
-                HStack(spacing: 6) {
-                    if isLoadingChannel {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 10, height: 10)
-                    } else {
-                        Image(systemName: isDirectMessage ? "person.fill" : "number")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.secondaryText)
-                    }
-
-                    Text(channelDisplay)
-                        .font(.system(size: compact ? 12 : 13, weight: .medium))
-                        .foregroundColor(AppTheme.primaryText)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(hex: "4A154B").opacity(0.1))
-                        )
-                }
-
-                // Message
-                Text(message)
-                    .font(.system(size: compact ? 12 : 13))
-                    .foregroundColor(AppTheme.primaryText)
-                    .lineLimit(compact ? 3 : 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(compact ? 8 : 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(AppTheme.cardBackground)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(AppTheme.subtleStroke, lineWidth: 1)
-                            )
-                    )
-            }
-        }
-        .padding(compact ? 10 : 14)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: "4A154B").opacity(0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(hex: "4A154B").opacity(0.2), lineWidth: 1)
-                )
-        )
-        .task {
-            await fetchChannelInfo()
-        }
-    }
-
-    private func fetchChannelInfo() async {
-        guard !channelId.isEmpty else {
-            isLoadingChannel = false
-            return
-        }
-
-        do {
-            channelInfo = try await SlackAPI.shared.getChannelInfo(channelId: channelId)
-        } catch {
-            NSLog("[SlackMessagePreview] Failed to fetch channel info: \(error)")
-        }
-        isLoadingChannel = false
     }
 }
 
@@ -1001,9 +922,9 @@ extension Color {
 }
 
 #Preview("Slack Message") {
-    SlackMessagePreview(
+    EditableSlackMessagePreview(
         params: ToolParams([
-            "channel": AnyCodable("#engineering"),
+            "channelId": AnyCodable("C12345"),
             "message": AnyCodable("Hey team! The deployment is ready for review."),
         ]),
         compact: false
@@ -1558,6 +1479,35 @@ struct EditableSlackMessagePreview: View {
         initialParams.getString("channelId") ?? initialParams.getString("channel") ?? ""
     }
 
+    private var sendAt: String? {
+        initialParams.getString("sendAt")
+    }
+
+    private var isScheduled: Bool {
+        sendAt != nil && !sendAt!.isEmpty
+    }
+
+    private var formattedScheduleTime: String? {
+        guard let sendAt = sendAt, !sendAt.isEmpty else { return nil }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        // Try parsing with fractional seconds first, then without
+        var date = formatter.date(from: sendAt)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            date = formatter.date(from: sendAt)
+        }
+
+        guard let parsedDate = date else { return sendAt }
+
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateStyle = .medium
+        displayFormatter.timeStyle = .short
+        return displayFormatter.string(from: parsedDate)
+    }
+
     private var channelDisplay: String {
         if let info = channelInfo {
             if info.isDirectMessage {
@@ -1605,13 +1555,17 @@ struct EditableSlackMessagePreview: View {
                     .frame(width: 24, height: 24)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Send Slack Message")
+                    Text(isScheduled ? "Schedule Slack Message" : "Send Slack Message")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppTheme.primaryText)
 
-                    Text("Toss will send this message to Slack")
-                        .font(.system(size: 11))
-                        .foregroundColor(AppTheme.secondaryText)
+                    Text(
+                        isScheduled
+                            ? "Toss will schedule this message to Slack"
+                            : "Toss will send this message to Slack"
+                    )
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.secondaryText)
                 }
 
                 Spacer()
@@ -1625,7 +1579,7 @@ struct EditableSlackMessagePreview: View {
                             HStack(spacing: 6) {
                                 ProgressView()
                                     .scaleEffect(0.6)
-                                Text("Sending...")
+                                Text(isScheduled ? "Scheduling..." : "Sending...")
                                     .font(.system(size: 12, weight: .medium))
                             }
                             .foregroundColor(.white)
@@ -1636,9 +1590,9 @@ struct EditableSlackMessagePreview: View {
                                     Color(hex: "4A154B").opacity(0.7)))
                         } else {
                             HStack(spacing: 4) {
-                                Image(systemName: "paperplane.fill")
+                                Image(systemName: isScheduled ? "clock.fill" : "paperplane.fill")
                                     .font(.system(size: 10))
-                                Text("Send Message")
+                                Text(isScheduled ? "Schedule Message" : "Send Message")
                                     .font(.system(size: 12, weight: .semibold))
                             }
                             .foregroundColor(.white)
@@ -1694,24 +1648,41 @@ struct EditableSlackMessagePreview: View {
             // Key-value rows
             VStack(spacing: 0) {
                 // Channel or DM row
-                FormRow(label: isDirectMessage ? "To" : "Channel") {
-                    HStack(spacing: 4) {
-                        if isLoadingChannel {
-                            ProgressView()
-                                .scaleEffect(0.5)
-                                .frame(width: 10, height: 10)
-                        } else {
+                FormRow(label: isLoadingChannel ? "To" : (isDirectMessage ? "To" : "Channel")) {
+                    if isLoadingChannel {
+                        // Skeleton loader
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(AppTheme.secondaryText.opacity(0.2))
+                            .frame(width: 80, height: 16)
+                    } else {
+                        HStack(spacing: 4) {
                             Image(systemName: isDirectMessage ? "person.fill" : "number")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(AppTheme.secondaryText)
+                            Text(channelDisplay)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
                         }
-                        Text(channelDisplay)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(AppTheme.primaryText)
                     }
                 }
 
                 Divider().background(AppTheme.subtleStroke)
+
+                // Scheduled row (only shown when scheduling)
+                if let scheduledTime = formattedScheduleTime {
+                    FormRow(label: "Scheduled for", labelWidth: 90) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                            Text(scheduledTime)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                        }
+                    }
+
+                    Divider().background(AppTheme.subtleStroke)
+                }
 
                 // Message - editable text area
                 VStack(alignment: .leading, spacing: 6) {
@@ -1772,6 +1743,7 @@ struct EditableSlackMessagePreview: View {
 // Helper view for key-value form rows
 private struct FormRow<Content: View>: View {
     let label: String
+    var labelWidth: CGFloat = 70
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -1779,7 +1751,7 @@ private struct FormRow<Content: View>: View {
             Text(label)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(AppTheme.secondaryText)
-                .frame(width: 70, alignment: .leading)
+                .frame(width: labelWidth, alignment: .leading)
 
             content
                 .frame(maxWidth: .infinity, alignment: .leading)

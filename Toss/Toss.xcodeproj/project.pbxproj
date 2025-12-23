@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DA3427532EC37F3A00F85DEB /* SlackMessageCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */; };
 		DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427522EC37F3A00F85DEB /* ToolCall.swift */; };
 		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
 		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
@@ -101,7 +100,6 @@
 
 /* Begin PBXFileReference section */
 		DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamParser.swift; sourceTree = "<group>"; };
-		DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlackMessageCard.swift; sourceTree = "<group>"; };
 		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
 		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
 		DA3427582EC9258F00F85DEB /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
@@ -233,7 +231,6 @@
 				DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */,
 				DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */,
 				DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */,
-				DA3427512EC37F3A00F85DEB /* SlackMessageCard.swift */,
 				DA3427522EC37F3A00F85DEB /* ToolCall.swift */,
 				DA36238A2EB95D2E000207F0 /* AgentPanelController.swift */,
 				DA36238B2EB95D2E000207F0 /* AgentView.swift */,
@@ -611,7 +608,6 @@
 				DA9C43DA2EED9FE700C6D778 /* MemoriesView.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
-				DA3427532EC37F3A00F85DEB /* SlackMessageCard.swift in Sources */,
 				DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */,
 				DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */,
 				DA36238E2EB95D2E000207F0 /* AgentView.swift in Sources */,
