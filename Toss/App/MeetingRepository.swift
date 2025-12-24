@@ -23,6 +23,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var source: MeetingSource = .adhoc
     var actionItems: [StoredActionItem] = []  // Extracted action items
     var syncedAt: Date?  // Last sync to server
+    var joinUrl: String?  // URL to join the call (e.g., Google Meet, Zoom)
+    var externalId: String?  // External calendar event ID (for linking to Google Calendar)
 
     // Custom decoder for backwards compatibility with existing data
     init(from decoder: Decoder) throws {
@@ -39,12 +41,15 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         actionItems =
             try container.decodeIfPresent([StoredActionItem].self, forKey: .actionItems) ?? []
         syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
+        joinUrl = try container.decodeIfPresent(String.self, forKey: .joinUrl)
+        externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
     }
 
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
         notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc,
-        actionItems: [StoredActionItem] = [], syncedAt: Date? = nil
+        actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
+        joinUrl: String? = nil, externalId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -57,6 +62,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.source = source
         self.actionItems = actionItems
         self.syncedAt = syncedAt
+        self.joinUrl = joinUrl
+        self.externalId = externalId
     }
 }
 
@@ -99,6 +106,8 @@ protocol MeetingRepositoryProtocol {
     func createMeeting(id: UUID, title: String, source: MeetingSource) -> MeetingModel
     func endMeeting(id: UUID)
     func getMeeting(id: UUID) -> MeetingModel?
+    func findMeetingByExternalId(_ externalId: String) -> MeetingModel?
+    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting) -> MeetingModel
     func appendChunk(
         meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
     ) -> MeetingChunkModel?  // Optional since we might want to remove a duplicate chunk
@@ -183,6 +192,50 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         }
         // Notify AFTER releasing the lock
         save()
+        return meeting
+    }
+
+    func findMeetingByExternalId(_ externalId: String) -> MeetingModel? {
+        return queue.sync {
+            meetings.values.first { $0.externalId == externalId }
+        }
+    }
+
+    /// Creates a meeting from an upcoming calendar event, or returns existing if already created
+    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting) -> MeetingModel {
+        // First check if we already have this meeting (by external ID)
+        let externalId = upcoming.id.uuidString
+
+        if let existing = findMeetingByExternalId(externalId) {
+            NSLog("[Meetings] Found existing meeting for external ID: \(externalId)")
+            return existing
+        }
+
+        // Create new meeting from upcoming
+        let meeting = queue.sync { () -> MeetingModel in
+            let now = Date()
+            let meeting = MeetingModel(
+                id: UUID(),  // Generate new local ID
+                title: upcoming.displayTitle,
+                startTime: upcoming.startedAt,
+                endTime: upcoming.endedAt,
+                createdAt: now,
+                updatedAt: now,
+                notes: "",
+                userNotes: "",
+                source: .calendar,
+                actionItems: [],
+                syncedAt: nil,
+                joinUrl: upcoming.joinUrl,
+                externalId: externalId
+            )
+            meetings[meeting.id] = meeting
+            chunks[meeting.id] = []
+            return meeting
+        }
+
+        save()
+        NSLog("[Meetings] Created meeting from upcoming: \(upcoming.displayTitle)")
         return meeting
     }
 

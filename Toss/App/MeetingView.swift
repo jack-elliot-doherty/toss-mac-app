@@ -272,13 +272,37 @@ struct MeetingView: View {
             }
 
             // Horizontal metadata with colon
-            HStack(spacing: 6) {
-                Text("Created:")
-                    .font(.system(size: 13))
-                    .foregroundColor(AppTheme.secondaryText)
-                Text(createdAtString)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.primaryText)
+            HStack(spacing: 16) {
+                HStack(spacing: 6) {
+                    Text("Created:")
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.secondaryText)
+                    Text(createdAtString)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.primaryText)
+                }
+
+                // Join Call button (only shown if meeting has a join URL)
+                if let joinUrl = meeting?.joinUrl, let url = URL(string: joinUrl) {
+                    Button {
+                        NSWorkspace.shared.open(url)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "video.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Join Call")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             // Removed Divider
@@ -1124,6 +1148,16 @@ struct MeetingsListView: View {
                                 Text("Syncing...")
                                     .font(.system(size: 12))
                                     .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                            } else if isCalendarConnected {
+                                Button {
+                                    Task { await meetingsManager.syncCalendar() }
+                                } label: {
+                                    Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Sync calendar")
                             }
 
                             Spacer()

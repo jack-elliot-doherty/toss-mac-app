@@ -37,6 +37,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var wasAuthenticated = false
     private var pendingWindowWorkItem: DispatchWorkItem?
 
+    // Menu bar upcoming meetings
+    private var todaysMeetings: [UpcomingMeeting] = []
+    private var menuBarUpdateTimer: Timer?
+    private var meetingsSubscription: AnyCancellable?
+
     override init() {
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
@@ -99,59 +104,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem = statusItem
 
         if let button = statusItem.button {
-            let font = NSFont.systemFont(ofSize: 20, weight: .bold)
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .baselineOffset: -3,
-            ]
-            let attributedTitle = NSAttributedString(string: "T", attributes: attributes)
-            button.attributedTitle = attributedTitle
-            button.image = nil
+            // Use menu bar icon if available, otherwise fall back to "T"
+            if let menuBarIcon = NSImage(named: "MenuBarIcon") {
+                menuBarIcon.isTemplate = true  // Adapts to light/dark mode
+                button.image = menuBarIcon
+                button.imagePosition = .imageLeading
+            } else {
+                let font = NSFont.systemFont(ofSize: 20, weight: .bold)
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .baselineOffset: -3,
+                ]
+                let attributedTitle = NSAttributedString(string: "T", attributes: attributes)
+                button.attributedTitle = attributedTitle
+            }
         }
-        // Create the menu
-        let menu = NSMenu()
 
-        // Add "Open Toss" menu item
-        let openItem = NSMenuItem(
-            title: "Open Toss", action: #selector(openMainWindow), keyEquivalent: "")
-        openItem.target = self
-        menu.addItem(openItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Add "Settings" menu item
-        let settingsItem = NSMenuItem(
-            title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Add version info (non-clickable)
-        let versionString =
-            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let versionItem = NSMenuItem(
-            title: "Toss v\(versionString)", action: nil, keyEquivalent: "")
-        versionItem.isEnabled = false
-        menu.addItem(versionItem)
-
-        // Add "Check for updates" menu item
-        let updateItem = NSMenuItem(
-            title: "Check for updates", action: #selector(checkForUpdates), keyEquivalent: "")
-        updateItem.target = self
-        menu.addItem(updateItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        // Add "Quit Toss Completely" menu item
-        let quitItem = NSMenuItem(
-            title: "Quit Toss Completely", action: #selector(quitApp), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        statusItem.menu = menu
+        // Build initial menu (will be rebuilt dynamically with meetings)
+        rebuildMenu()
 
         // Pill panel idle and visible (non-activating)
         // Small delay to ensure window system is ready
@@ -325,6 +295,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         await self.fetchMeetingsFromServer()
                     }
 
+                    // Start menu bar meetings feature
+                    self.startMenuBarMeetingsFeature()
+
                     self.closeSignInWindow()
                     // Small delay to let window fully close
                     let workItem = DispatchWorkItem { [weak self] in
@@ -333,6 +306,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.pendingWindowWorkItem = workItem
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
                 } else if !isAuthenticated && wasAuthenticated {
+                    // Stop menu bar meetings feature
+                    self.stopMenuBarMeetingsFeature()
+
                     self.closeMainWindow()
                     let workItem = DispatchWorkItem { [weak self] in
                         self?.showSignInWindow()
@@ -353,6 +329,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             if AuthManager.shared.isAuthenticated {
                 self?.showMainWindow()
+                // Start menu bar meetings feature on launch
+                self?.startMenuBarMeetingsFeature()
             } else {
                 // Hide main window again in case SwiftUI made it visible after our initial hide
                 self?.closeMainWindow()
@@ -461,6 +439,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.stop()
         _ = recorder.stop()
         meetingDetector.stop()
+        stopMenuBarMeetingsFeature()
         NSLog("[AppDelegate] Meeting detection disabled")
     }
 
@@ -595,9 +574,396 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSLog("[AppDelegate] closeSignInWindow END (visible=\(window.isVisible))")
     }
+
+    // MARK: - Menu Bar Upcoming Meetings
+
+    private func startMenuBarMeetingsFeature() {
+        // Subscribe to MeetingsManager's upcoming meetings
+        meetingsSubscription = MeetingsManager.shared.$upcomingMeetings
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] allUpcoming in
+                self?.updateTodaysMeetings(from: allUpcoming)
+            }
+
+        // Trigger initial fetch from MeetingsManager
+        Task {
+            await MeetingsManager.shared.fetchUpcoming()
+        }
+
+        // Update menu bar text every 60 seconds (for relative time updates)
+        menuBarUpdateTimer?.invalidate()
+        menuBarUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) {
+            [weak self] _ in
+            Task { @MainActor in
+                self?.updateMenuBarButton()
+            }
+        }
+    }
+
+    private func stopMenuBarMeetingsFeature() {
+        menuBarUpdateTimer?.invalidate()
+        menuBarUpdateTimer = nil
+        meetingsSubscription?.cancel()
+        meetingsSubscription = nil
+        todaysMeetings = []
+        updateMenuBarButton()
+        rebuildMenu()
+    }
+
+    private func updateTodaysMeetings(from allUpcoming: [UpcomingMeeting]) {
+        // Filter to only today's meetings
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+
+        todaysMeetings = allUpcoming.filter { meeting in
+            meeting.startedAt >= today && meeting.startedAt < tomorrow
+        }.sorted { $0.startedAt < $1.startedAt }
+
+        NSLog("[AppDelegate] Updated menu bar with \(todaysMeetings.count) meetings for today")
+        updateMenuBarButton()
+        rebuildMenu()
+    }
+
+    private func updateMenuBarButton() {
+        guard let button = statusItem?.button else { return }
+
+        // Set up menu bar icon
+        let hasMenuBarIcon = NSImage(named: "MenuBarIcon") != nil
+        if let menuBarIcon = NSImage(named: "MenuBarIcon") {
+            menuBarIcon.isTemplate = true
+            button.image = menuBarIcon
+            button.imagePosition = .imageLeading
+        }
+
+        // Find the next upcoming meeting (hasn't started yet)
+        let now = Date()
+        let nextMeeting = todaysMeetings.first { $0.startedAt > now }
+
+        if let meeting = nextMeeting {
+            // Build the attributed string: "title • in Xm"
+            let title = truncateTitle(meeting.displayTitle, maxWidth: 50)
+            let timeString = formatRelativeTime(meeting.startedAt)
+
+            let fullString = NSMutableAttributedString()
+
+            // If no icon, add "T" as fallback
+            if !hasMenuBarIcon {
+                let logoFont = NSFont.systemFont(ofSize: 20, weight: .bold)
+                let logoAttrs: [NSAttributedString.Key: Any] = [
+                    .font: logoFont,
+                    .baselineOffset: -3,
+                ]
+                fullString.append(NSAttributedString(string: "T", attributes: logoAttrs))
+
+                let spaceAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 12)
+                ]
+                fullString.append(NSAttributedString(string: "  ", attributes: spaceAttrs))
+            } else {
+                // Add spacing after icon
+                let spaceAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 12)
+                ]
+                fullString.append(NSAttributedString(string: " ", attributes: spaceAttrs))
+            }
+
+            // Meeting title
+            let titleFont = NSFont.systemFont(ofSize: 12, weight: .medium)
+            let titleAttrs: [NSAttributedString.Key: Any] = [
+                .font: titleFont,
+                .baselineOffset: 0,
+            ]
+            fullString.append(NSAttributedString(string: title, attributes: titleAttrs))
+
+            // Separator and time
+            let timeFont = NSFont.systemFont(ofSize: 12, weight: .regular)
+            let timeAttrs: [NSAttributedString.Key: Any] = [
+                .font: timeFont,
+                .baselineOffset: 0,
+            ]
+            fullString.append(NSAttributedString(string: " • \(timeString)", attributes: timeAttrs))
+
+            button.attributedTitle = fullString
+        } else {
+            // No meeting today - just show logo (or "T" fallback)
+            if hasMenuBarIcon {
+                button.attributedTitle = NSAttributedString(string: "")
+            } else {
+                let logoFont = NSFont.systemFont(ofSize: 20, weight: .bold)
+                let logoAttrs: [NSAttributedString.Key: Any] = [
+                    .font: logoFont,
+                    .baselineOffset: -3,
+                ]
+                button.attributedTitle = NSAttributedString(string: "T", attributes: logoAttrs)
+            }
+        }
+    }
+
+    private func truncateTitle(_ title: String, maxWidth: CGFloat) -> String {
+        let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+
+        var truncated = title
+        var size = (truncated as NSString).size(withAttributes: attributes)
+
+        while size.width > maxWidth && truncated.count > 1 {
+            truncated = String(truncated.dropLast(2)) + "…"
+            size = (truncated as NSString).size(withAttributes: attributes)
+        }
+
+        return truncated
+    }
+
+    private func formatRelativeTime(_ date: Date) -> String {
+        let now = Date()
+        let seconds = date.timeIntervalSince(now)
+
+        guard seconds > 0 else { return "now" }
+
+        let minutes = Int(ceil(seconds / 60))
+
+        if minutes < 60 {
+            return "in \(minutes)m"
+        } else {
+            let hours = minutes / 60
+            let remainingMins = minutes % 60
+            if remainingMins == 0 {
+                return "in \(hours)h"
+            } else {
+                return "in \(hours)h \(remainingMins)m"
+            }
+        }
+    }
+
+    private func rebuildMenu() {
+        let menu = NSMenu()
+
+        // Add today's meetings section if there are any
+        let now = Date()
+        let upcomingToday = todaysMeetings.filter { $0.startedAt > now }
+
+        if !upcomingToday.isEmpty {
+            // Header
+            if let nextMeeting = upcomingToday.first {
+                let headerItem = NSMenuItem(
+                    title: "Starts \(formatRelativeTime(nextMeeting.startedAt))", action: nil,
+                    keyEquivalent: "")
+                headerItem.isEnabled = false
+                menu.addItem(headerItem)
+            }
+
+            // Meeting items
+            for meeting in upcomingToday {
+                let meetingItem = createMeetingMenuItem(meeting)
+                menu.addItem(meetingItem)
+            }
+
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // Add "Open Toss" menu item
+        let openItem = NSMenuItem(
+            title: "Open Toss", action: #selector(openMainWindow), keyEquivalent: "")
+        openItem.target = self
+        menu.addItem(openItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add "Settings" menu item
+        let settingsItem = NSMenuItem(
+            title: "Settings", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add version info (non-clickable)
+        let versionString =
+            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let versionItem = NSMenuItem(
+            title: "Toss v\(versionString)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+
+        // Add "Check for updates" menu item
+        let updateItem = NSMenuItem(
+            title: "Check for updates", action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        menu.addItem(updateItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Add "Quit Toss Completely" menu item
+        let quitItem = NSMenuItem(
+            title: "Quit Toss Completely", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        statusItem?.menu = menu
+    }
+
+    private func createMeetingMenuItem(_ meeting: UpcomingMeeting) -> NSMenuItem {
+        // Format: "Meeting Title\n10:30 - 11:00"
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+
+        let startTime = timeFormatter.string(from: meeting.startedAt)
+        let endTime = meeting.endedAt.map { timeFormatter.string(from: $0) } ?? ""
+        let timeRange = endTime.isEmpty ? startTime : "\(startTime) - \(endTime)"
+
+        // Create a custom hoverable view for the menu item
+        let menuItem = NSMenuItem()
+
+        // Match native menu item dimensions
+        let containerView = HoverableMenuItemView(frame: NSRect(x: 0, y: 0, width: 250, height: 42))
+
+        let titleLabel = NSTextField(labelWithString: meeting.displayTitle)
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        titleLabel.textColor = .labelColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.frame = NSRect(x: 19, y: 22, width: 212, height: 16)
+        titleLabel.drawsBackground = false
+        titleLabel.isBordered = false
+
+        let timeLabel = NSTextField(labelWithString: timeRange)
+        timeLabel.font = NSFont.systemFont(ofSize: 11)
+        timeLabel.textColor = .secondaryLabelColor
+        timeLabel.frame = NSRect(x: 19, y: 5, width: 212, height: 14)
+        timeLabel.drawsBackground = false
+        timeLabel.isBordered = false
+
+        containerView.addSubview(titleLabel)
+        containerView.addSubview(timeLabel)
+        containerView.setLabels(title: titleLabel, time: timeLabel)
+
+        // Store meeting ID and set click handler
+        let upcomingId = meeting.id
+        containerView.onClick = { [weak self] in
+            self?.statusItem?.menu?.cancelTracking()
+            self?.openUpcomingMeeting(upcomingId: upcomingId)
+        }
+
+        menuItem.view = containerView
+
+        return menuItem
+    }
+
+    private func openUpcomingMeeting(upcomingId: UUID) {
+        // Find the upcoming meeting from our cached list
+        guard let upcoming = todaysMeetings.first(where: { $0.id == upcomingId }) else {
+            NSLog("[AppDelegate] Could not find upcoming meeting with ID: \(upcomingId)")
+            return
+        }
+
+        // Create or find the local meeting
+        let localMeeting = meetingRepository.getOrCreateFromUpcoming(upcoming)
+
+        NSLog(
+            "[AppDelegate] Opening meeting page for \(localMeeting.id) (from upcoming: \(upcomingId))"
+        )
+
+        // Activate the app
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Post notification to navigate to meeting
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OpenMeetingView"),
+            object: nil,
+            userInfo: ["meetingId": localMeeting.id]
+        )
+    }
 }
 
 extension Notification.Name {
     static let plannerDemoRequested = Notification.Name("plannerDemoRequested")
     static let requestMeetingRecording = Notification.Name("requestMeetingRecording")
+}
+
+// MARK: - Hoverable Menu Item View
+
+class HoverableMenuItemView: NSView {
+    private var trackingArea: NSTrackingArea?
+    private var isHovered = false {
+        didSet {
+            needsDisplay = true
+            updateTextColors()
+        }
+    }
+
+    var onClick: (() -> Void)?
+    private var titleLabel: NSTextField?
+    private var timeLabel: NSTextField?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = false  // Use draw() instead
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func setLabels(title: NSTextField, time: NSTextField) {
+        self.titleLabel = title
+        self.timeLabel = time
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // Ensure tracking area is set up when added to window
+        updateTrackingAreas()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let existingArea = trackingArea {
+            removeTrackingArea(existingArea)
+        }
+
+        trackingArea = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea!)
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if bounds.contains(convert(event.locationInWindow, from: nil)) {
+            onClick?()
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        if isHovered {
+            // Draw rounded rect background with 5px inset from edges
+            let highlightRect = bounds.insetBy(dx: 5, dy: 1)
+            let path = NSBezierPath(roundedRect: highlightRect, xRadius: 5, yRadius: 5)
+            NSColor.selectedContentBackgroundColor.setFill()
+            path.fill()
+        }
+    }
+
+    private func updateTextColors() {
+        if isHovered {
+            titleLabel?.textColor = .white
+            timeLabel?.textColor = .white.withAlphaComponent(0.85)
+        } else {
+            titleLabel?.textColor = .labelColor
+            timeLabel?.textColor = .secondaryLabelColor
+        }
+    }
 }
