@@ -242,11 +242,38 @@ final class DictationContextDetector {
         {
             let windowElement = focusedWindow as! AXUIElement
 
+            // DEBUG: Uncomment to dump AX tree
+            // NSLog("[DictationContextDetector] ========== DUMPING AX TREE ==========")
+            // dumpAccessibilityTree(element: windowElement, depth: 0, maxDepth: 30)
+            // NSLog("[DictationContextDetector] ========== END AX TREE DUMP ==========")
+
             // Try Gmail-specific detection first (look for compose window)
             if let gmailRecipient = findGmailComposeRecipients(in: windowElement) {
                 NSLog(
                     "[DictationContextDetector] Found Gmail compose recipients: \(gmailRecipient)")
                 return gmailRecipient
+            }
+
+            // For Gmail replies - check if browser window indicates a reply and search more broadly
+            var windowTitleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(
+                windowElement, kAXTitleAttribute as CFString, &windowTitleRef) == .success,
+                let windowTitle = windowTitleRef as? String
+            {
+                let lowerTitle = windowTitle.lowercased()
+
+                // If this is a Gmail reply/forward, search for email addresses broadly
+                if lowerTitle.contains("gmail")
+                    && (lowerTitle.hasPrefix("re:") || lowerTitle.hasPrefix("fwd:"))
+                {
+                    NSLog(
+                        "[DictationContextDetector] Detected Gmail reply/forward, searching broadly"
+                    )
+                    if let emails = findEmailAddressesInDescendants(windowElement, maxDepth: 15) {
+                        NSLog("[DictationContextDetector] Found emails in reply context: \(emails)")
+                        return emails
+                    }
+                }
             }
 
             // Search within the focused window for traditional To: fields
@@ -266,23 +293,88 @@ final class DictationContextDetector {
         return nil
     }
 
-    /// Gmail-specific: Find recipients in a Gmail compose window
-    /// Gmail compose windows have title like "Compose: <subject>" and contain email addresses
+    /// Gmail-specific: Find recipients in a Gmail compose or reply window
+    /// - New emails: title like "Compose: <subject>"
+    /// - Replies: title like "RE: <subject>" or contains reply indicators
+    /// - Forwards: title like "Fwd: <subject>"
     private func findGmailComposeRecipients(in element: AXUIElement, depth: Int = 0) -> String? {
         guard depth < 25 else { return nil }
 
-        // Check if this is a compose window
+        // Check if this is a compose/reply window
         var titleRef: CFTypeRef?
+        var descRef: CFTypeRef?
         _ = AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleRef)
-        let title = (titleRef as? String) ?? ""
+        _ = AXUIElementCopyAttributeValue(element, kAXDescriptionAttribute as CFString, &descRef)
+        let title = (titleRef as? String)?.lowercased() ?? ""
+        let desc = (descRef as? String)?.lowercased() ?? ""
 
-        // Gmail compose windows have "Compose:" in title
-        if title.lowercased().hasPrefix("compose:") || title.lowercased().contains("compose:") {
-            NSLog("[DictationContextDetector] Found Gmail compose window: \(title)")
+        // Gmail compose/reply windows have these patterns:
+        // - New: "Compose: <subject>"
+        // - Reply: "RE: <subject>" or just contains email thread
+        // - Forward: "Fwd: <subject>"
+        let isComposeWindow =
+            title.hasPrefix("compose:") || title.contains("compose:")
+            || title.hasPrefix("re:") || title.hasPrefix("fwd:")
+            || desc.contains("compose") || desc.contains("reply")
+
+        if isComposeWindow {
+            NSLog("[DictationContextDetector] Found Gmail compose/reply window: \(title)")
 
             // Search for email addresses within this compose window
             if let emails = findEmailAddressesInDescendants(element, maxDepth: 10) {
                 return emails
+            }
+        }
+
+        // For inline replies, look for sender info in group titles
+        // ONLY match "Name (email@domain.com)" or "Name <email@domain.com>" patterns
+        // These are standard email sender formats, nothing else
+        let originalTitle = (titleRef as? String) ?? ""
+
+        // Pattern 1: "Name (email@domain.com)" - email in parentheses
+        // Must have content before the opening paren, and email inside
+        if let parenStart = originalTitle.firstIndex(of: "("),
+            let parenEnd = originalTitle.firstIndex(of: ")"),
+            parenStart < parenEnd
+        {
+            let beforeParen = String(originalTitle[..<parenStart]).trimmingCharacters(
+                in: .whitespaces)
+            let insideParen = String(
+                originalTitle[originalTitle.index(after: parenStart)..<parenEnd])
+
+            // Must have a name before the paren, and the paren must contain an email
+            if !beforeParen.isEmpty && insideParen.contains("@") && insideParen.contains(".") {
+                // Make sure the "name" isn't just UI junk (should be relatively short)
+                if beforeParen.count < 60 && !beforeParen.lowercased().contains("unread") {
+                    if let name = extractNameFromEmail(originalTitle) {
+                        NSLog(
+                            "[DictationContextDetector] Found sender in group title: '\(originalTitle.prefix(50))...' -> '\(name)'"
+                        )
+                        return name
+                    }
+                }
+            }
+        }
+
+        // Pattern 2: "Name <email@domain.com>" - email in angle brackets
+        if let angleStart = originalTitle.firstIndex(of: "<"),
+            let angleEnd = originalTitle.firstIndex(of: ">"),
+            angleStart < angleEnd
+        {
+            let beforeAngle = String(originalTitle[..<angleStart]).trimmingCharacters(
+                in: .whitespaces)
+            let insideAngle = String(
+                originalTitle[originalTitle.index(after: angleStart)..<angleEnd])
+
+            if !beforeAngle.isEmpty && insideAngle.contains("@") && insideAngle.contains(".") {
+                if beforeAngle.count < 60 {
+                    if let name = extractNameFromEmail(originalTitle) {
+                        NSLog(
+                            "[DictationContextDetector] Found sender in group title: '\(originalTitle.prefix(50))...' -> '\(name)'"
+                        )
+                        return name
+                    }
+                }
             }
         }
 
@@ -313,7 +405,7 @@ final class DictationContextDetector {
 
         var names: [String] = []
 
-        // Check this element for email address
+        // Check this element's value for email address (not title - that contains sender info)
         var valueRef: CFTypeRef?
         var roleRef: CFTypeRef?
 
@@ -323,10 +415,19 @@ final class DictationContextDetector {
         let role = (roleRef as? String) ?? ""
         let value = (valueRef as? String) ?? ""
 
-        // Look for static text elements containing email addresses
+        // Look for static text elements containing email addresses in their value
         if role == kAXStaticTextRole as String && value.contains("@") && value.contains(".") {
-            // This looks like an email address - extract name from it
-            if let name = extractNameFromEmail(value) {
+            // Skip Gmail autocomplete suggestions (they contain "Press Tab to insert" or similar)
+            let lowerValue = value.lowercased()
+            let isAutocompleteSuggestion =
+                lowerValue.contains("press tab")
+                || lowerValue.contains("to insert")
+                || lowerValue.contains("tab to")
+
+            if isAutocompleteSuggestion {
+                NSLog("[DictationContextDetector] Skipping autocomplete suggestion: \(value)")
+            } else if let name = extractNameFromEmail(value) {
+                // This looks like a real email address - extract name from it
                 NSLog("[DictationContextDetector] Found email '\(value)' -> name hint '\(name)'")
                 names.append(name)
             }
@@ -351,20 +452,44 @@ final class DictationContextDetector {
         return names.joined(separator: ", ")
     }
 
-    /// Extract a name hint from an email address
-    /// "bryan.smith@gmail.com" -> "Bryan Smith"
-    /// "bryan@gmail.com" -> "Bryan"
-    /// "b.smith@company.com" -> "B Smith"
-    private func extractNameFromEmail(_ email: String) -> String? {
-        // Get the username part before @
-        guard let atIndex = email.firstIndex(of: "@") else { return nil }
-        let username = String(email[..<atIndex])
+    /// Extract a name hint from an email string
+    /// Handles various formats:
+    /// - "Melisa from PAFORY (newsletter@pafory.com)" -> "Melisa from PAFORY"
+    /// - "John Smith <john@example.com>" -> "John Smith"
+    /// - "bryan.smith@gmail.com" -> "Bryan Smith"
+    /// - "bryan@gmail.com" -> "Bryan"
+    private func extractNameFromEmail(_ emailText: String) -> String? {
+        let trimmed = emailText.trimmingCharacters(in: .whitespaces)
+
+        // Check for "Name (email)" format - common in Gmail reply headers
+        if let parenIndex = trimmed.firstIndex(of: "("),
+            let closeParen = trimmed.firstIndex(of: ")"),
+            parenIndex < closeParen
+        {
+            let namePart = String(trimmed[..<parenIndex]).trimmingCharacters(in: .whitespaces)
+            if !namePart.isEmpty && namePart.count > 1 {
+                return namePart
+            }
+        }
+
+        // Check for "Name <email>" format
+        if let angleBracket = trimmed.firstIndex(of: "<") {
+            let namePart = String(trimmed[..<angleBracket]).trimmingCharacters(in: .whitespaces)
+            if !namePart.isEmpty && namePart.count > 1 && !namePart.contains("@") {
+                return namePart
+            }
+        }
+
+        // Fall back to extracting from email username
+        guard let atIndex = trimmed.firstIndex(of: "@") else { return nil }
+        let username = String(trimmed[..<atIndex])
+            .trimmingCharacters(in: .whitespaces)
 
         // Skip very short usernames or generic ones
         if username.count < 2 { return nil }
         let genericUsernames = [
             "info", "hello", "contact", "support", "admin", "noreply", "no-reply", "notifications",
-            "team",
+            "team", "newsletter", "news", "updates", "marketing",
         ]
         if genericUsernames.contains(username.lowercased()) { return nil }
 
