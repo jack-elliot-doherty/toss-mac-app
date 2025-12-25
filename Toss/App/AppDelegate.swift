@@ -642,7 +642,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if let meeting = nextMeeting {
             // Build the attributed string: "title • in Xm"
-            let title = truncateTitle(meeting.displayTitle, maxWidth: 50)
+            let title = truncateTitle(meeting.displayTitle, maxWidth: 80)
             let timeString = formatRelativeTime(meeting.startedAt)
 
             let fullString = NSMutableAttributedString()

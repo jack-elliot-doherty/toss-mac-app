@@ -171,9 +171,9 @@ final class PillPanelController {
         case .hovered:
             return NSSize(width: 300, height: 48)  // 3 labeled buttons with padding
         case .listening:
-            return NSSize(width: 160, height: 32)  // Waveform + buttons
+            return NSSize(width: 175, height: 32)  // Waveform + AgentChip in command mode
         case .transcribing:
-            return NSSize(width: 160, height: 32)  // Waveform + spinner + buttons
+            return NSSize(width: 185, height: 32)  // Waveform + spinner + AgentChip in command mode
         case .meetingDetected:
             return NSSize(width: 380, height: 48)
         case .upcomingMeeting:
