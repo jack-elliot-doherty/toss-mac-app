@@ -503,14 +503,98 @@ struct GenericToolPreview: View {
             .capitalized
     }
 
+    private var isNotionTool: Bool {
+        toolName.lowercased().hasPrefix("notion")
+    }
+
+    private var isSlackTool: Bool {
+        toolName.lowercased().hasPrefix("slack")
+    }
+
+    private var isLinearTool: Bool {
+        toolName.lowercased().hasPrefix("linear")
+    }
+
+    private var isCalendarTool: Bool {
+        toolName.lowercased().hasPrefix("calendar")
+    }
+
+    // Internal app tools (meetings, contacts, memory, screenshot)
+    private var isAppTool: Bool {
+        let name = toolName.lowercased()
+        let appToolPrefixes = [
+            "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
+            "search", "delete",
+        ]
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+            return false
+        }
+        return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
+    }
+
+    private var toolColor: Color {
+        if isNotionTool { return Color.black }
+        if isSlackTool { return Color(hex: "4A154B") }
+        if isLinearTool { return Color(hex: "5E6AD2") }
+        if isCalendarTool { return Color(hex: "4285F4") }
+        if isAppTool { return Color.clear }  // TossLogo has its own background
+        return .orange
+    }
+
+    @ViewBuilder
+    private var toolIcon: some View {
+        if isNotionTool {
+            Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isSlackTool {
+            Image("SlackLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isLinearTool {
+            Image("LinearLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isCalendarTool {
+            Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isAppTool {
+            Image("TossLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 24, height: 24)  // Full size since app icon has its own styling
+        } else {
+            Image(systemName: "wrench.and.screwdriver")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+
+    // Use a purple accent for app tools
+    private var appToolColor: Color {
+        Color(hex: "8B5CF6")  // Purple accent
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "wrench.and.screwdriver")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
+                if isAppTool {
+                    // App tools show the app icon directly
+                    toolIcon
+                        .frame(width: 24, height: 24)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    ZStack {
+                        Circle().fill(toolColor)
+                        toolIcon
+                    }
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(.orange))
+                }
 
                 Text(displayName)
                     .font(.system(size: 14, weight: .semibold))
@@ -536,10 +620,10 @@ struct GenericToolPreview: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.orange.opacity(0.08))
+                .fill((isAppTool ? appToolColor : toolColor).opacity(0.08))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                        .stroke((isAppTool ? appToolColor : toolColor).opacity(0.2), lineWidth: 1)
                 )
         )
     }

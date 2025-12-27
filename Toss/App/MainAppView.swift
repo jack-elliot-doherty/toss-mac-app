@@ -51,6 +51,7 @@ final class AppScreenLayout: ObservableObject {
 enum SidebarItem: String, CaseIterable, Identifiable {
     case home
     case meetings
+    case flows
     case activity
     case memories
     case integrations
@@ -62,6 +63,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "Home"
         case .meetings: return "Meetings"
+        case .flows: return "Flows"
         case .activity: return "Activity"
         case .memories: return "Memories"
         case .integrations: return "Integrations"
@@ -73,6 +75,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         switch self {
         case .home: return "house"
         case .meetings: return "mic.fill"
+        case .flows: return "command"
         case .activity: return "clock.fill"
         case .memories: return "brain.head.profile"
         case .integrations: return "square.stack.3d.down.right.fill"
@@ -349,13 +352,14 @@ struct MainAppView: View {
             MeetingsListView(
                 repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
                 navigationPath: $meetingsNavigationPath)
+        case .flows:
+            FlowsView()
         case .activity:
             ActivityView()
         case .memories:
             MemoriesView()
         case .integrations:
             IntegrationsView()
-        // IntegrationsView()
         case .settings, .none:
             OnboardingGate()
         }
@@ -537,6 +541,8 @@ struct MainAppView: View {
             return "Overview"
         case .meetings:
             return "Calls"
+        case .flows:
+            return "Flows"
         case .activity:
             return "Activity"
         case .memories:

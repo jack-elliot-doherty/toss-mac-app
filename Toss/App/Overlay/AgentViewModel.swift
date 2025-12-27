@@ -224,6 +224,144 @@ final class AgentViewModel: ObservableObject {
         isCompactMode = false
     }
 
+    // MARK: - Retry & Edit (Branch from here)
+
+    /// Retry from a specific message - truncates conversation and regenerates
+    /// - If assistant message: remove it and all after, resend the previous user message
+    /// - If user message: remove all messages from here (inclusive), resend this user message
+    func retryFromMessage(_ messageId: UUID) {
+        guard let index = messages.firstIndex(where: { $0.id == messageId }) else {
+            NSLog("[AgentViewModel] retryFromMessage: message not found")
+            return
+        }
+
+        let targetMessage = messages[index]
+
+        if targetMessage.role == .assistant {
+            // Find the previous user message to resend
+            var userMessageContent: String?
+            for i in stride(from: index - 1, through: 0, by: -1) {
+                if messages[i].role == .user && !messages[i].content.isEmpty {
+                    userMessageContent = messages[i].content
+                    break
+                }
+            }
+
+            guard let content = userMessageContent else {
+                NSLog(
+                    "[AgentViewModel] retryFromMessage: no user message found before assistant message"
+                )
+                return
+            }
+
+            // Truncate from the assistant message onwards
+            messages.removeSubrange(index...)
+            pendingToolCalls.removeAll()
+            executingTools.removeAll()
+            currentAssistantMessage = nil
+            errorMessage = nil
+
+            // Resend the user's message (don't add it again, it's already there)
+            Task {
+                await resendLastUserMessage()
+            }
+        } else if targetMessage.role == .user {
+            let content = targetMessage.content
+
+            // Truncate from this message onwards (including this message)
+            messages.removeSubrange(index...)
+            pendingToolCalls.removeAll()
+            executingTools.removeAll()
+            currentAssistantMessage = nil
+            errorMessage = nil
+
+            // Resend this user message
+            Task {
+                await sendMessageStreaming(content)
+            }
+        }
+    }
+
+    /// Edit a user message and resubmit - truncates conversation and regenerates with new content
+    func editAndResend(messageId: UUID, newContent: String) {
+        guard let index = messages.firstIndex(where: { $0.id == messageId }) else {
+            NSLog("[AgentViewModel] editAndResend: message not found")
+            return
+        }
+
+        // Truncate from this message onwards (including this message)
+        messages.removeSubrange(index...)
+        pendingToolCalls.removeAll()
+        executingTools.removeAll()
+        currentAssistantMessage = nil
+        errorMessage = nil
+
+        // Send the edited content as new message
+        Task {
+            await sendMessageStreaming(newContent)
+        }
+    }
+
+    /// Resend by rebuilding messages from existing conversation (no new user message added)
+    private func resendLastUserMessage() async {
+        isProcessing = true
+        errorMessage = nil
+
+        // Build messages array for API using existing messages
+        var apiMessages: [[String: Any]] = []
+
+        for msg in messages {
+            if msg.role == .system && msg.toolCall == nil { continue }
+            if msg.role == .tool { continue }
+
+            if let toolCall = msg.toolCall, let toolResult = msg.toolResult {
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": "assistant",
+                    "parts": [
+                        [
+                            "type": "tool-\(toolCall.toolName)",
+                            "toolCallId": toolCall.toolCallId,
+                            "state": "output-available",
+                            "input": toolCall.arguments,
+                            "output": toolResult.result,
+                        ]
+                    ],
+                ])
+            } else if let toolCall = msg.toolCall {
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": "assistant",
+                    "parts": [
+                        [
+                            "type": "tool-\(toolCall.toolName)",
+                            "toolCallId": toolCall.toolCallId,
+                            "state": "input-available",
+                            "input": toolCall.arguments,
+                        ]
+                    ],
+                ])
+            } else if !msg.content.isEmpty {
+                apiMessages.append([
+                    "id": msg.id.uuidString,
+                    "role": msg.role.rawValue,
+                    "parts": [
+                        ["type": "text", "text": msg.content]
+                    ],
+                ])
+            }
+        }
+
+        do {
+            try await streamFromAgentWithParts(messages: apiMessages)
+        } catch {
+            errorMessage = error.localizedDescription
+            NSLog("[AgentViewModel] Retry error: \(error)")
+        }
+
+        isProcessing = false
+    }
+
     /// Continue the agent conversation after all tool executions are complete
     /// Uses the AI SDK v6 UIMessage protocol format with proper tool parts
     private func streamFromAgentContinuation() async throws {

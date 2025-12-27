@@ -17,6 +17,12 @@ struct GoogleConnectionStatus: Codable {
     let lastErrorAt: String?
 }
 
+struct NotionConnectionStatus: Codable {
+    let connected: Bool
+    let workspaceName: String?
+    let workspaceIcon: String?
+}
+
 @MainActor
 final class IntegrationsManager: ObservableObject {
     static let shared = IntegrationsManager()
@@ -24,6 +30,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var slackStatus: SlackConnectionStatus?
     @Published var linearStatus: LinearConnectionStatus?
     @Published var googleStatus: GoogleConnectionStatus?
+    @Published var notionStatus: NotionConnectionStatus?
 
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
@@ -176,6 +183,11 @@ final class IntegrationsManager: ObservableObject {
                 }
             }
             return true
+        } else if url.path == "/notion" {
+            if connected {
+                Task { await fetchNotionStatus() }
+            }
+            return true
         }
         return false
     }
@@ -239,6 +251,67 @@ final class IntegrationsManager: ObservableObject {
             NSLog("[Integrations] Failed to disconnect Linear: %@", error.localizedDescription)
         }
     }
+
+    // MARK: - Notion
+
+    func fetchNotionStatus() async {
+        guard let token = AuthManager.shared.accessToken else { return }
+        guard let url = URL(string: "\(Config.serverURL)/notion/status") else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                notionStatus = try JSONDecoder().decode(NotionConnectionStatus.self, from: data)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to fetch Notion status: %@", error.localizedDescription)
+        }
+    }
+
+    func connectNotion() async {
+        guard let token = AuthManager.shared.accessToken else { return }
+        guard let url = URL(string: "\(Config.serverURL)/notion/connect") else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let urlString = json["url"] as? String,
+                let authURL = URL(string: urlString)
+            {
+                NSWorkspace.shared.open(authURL)
+            }
+        } catch {
+            self.error = "Failed to start Notion connection"
+            NSLog("[Integrations] Failed to connect Notion: %@", error.localizedDescription)
+        }
+    }
+
+    func disconnectNotion() async {
+        guard let token = AuthManager.shared.accessToken else { return }
+        guard let url = URL(string: "\(Config.serverURL)/notion/disconnect") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                notionStatus = NotionConnectionStatus(
+                    connected: false, workspaceName: nil, workspaceIcon: nil)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to disconnect Notion: %@", error.localizedDescription)
+        }
+    }
 }
 
 @MainActor
@@ -278,10 +351,14 @@ struct IntegrationsView: View {
 
                     CursorIntegrationCard()
 
+                    NotionIntegrationCard(
+                        status: manager.notionStatus,
+                        isLoading: manager.isLoading,
+                        onConnect: { Task { await manager.connectNotion() } },
+                        onDisconnect: { Task { await manager.disconnectNotion() } }
+                    )
+
                     // Future integrations go here
-                    ComingSoonCard(
-                        name: "Notion", imageName: "NotionLogo", fallbackIcon: "doc.text",
-                        description: "Access your workspace")
                     ComingSoonCard(
                         name: "GitHub", imageName: "GitHubLogo",
                         fallbackIcon: "chevron.left.forwardslash.chevron.right",
@@ -295,6 +372,7 @@ struct IntegrationsView: View {
             Task { await manager.fetchSlackStatus() }
             Task { await manager.fetchLinearStatus() }
             Task { await manager.fetchGoogleStatus() }
+            Task { await manager.fetchNotionStatus() }
         }
     }
 
@@ -555,6 +633,78 @@ struct CursorIntegrationCard: View {
             Text("Always available")
                 .font(.system(size: 12))
                 .foregroundColor(.green)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(AppTheme.elevatedBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+        )
+    }
+}
+
+struct NotionIntegrationCard: View {
+    let status: NotionConnectionStatus?
+    let isLoading: Bool
+    let onConnect: () -> Void
+    let onDisconnect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Notion logo
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white)
+                if NSImage(named: "NotionLogo") != nil {
+                    Image("NotionLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
+                } else {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.black)
+                }
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Notion")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                if let status, status.connected, let workspace = status.workspaceName {
+                    Text("Connected to \(workspace)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.green)
+                } else {
+                    Text("Save meeting notes and search your workspace")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+            }
+
+            Spacer()
+
+            if isLoading {
+                ProgressView()
+                    .scaleEffect(0.7)
+            } else if let status, status.connected {
+                Button("Disconnect") {
+                    onDisconnect()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else {
+                Button("Connect") {
+                    onConnect()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
         }
         .padding(16)
         .background(

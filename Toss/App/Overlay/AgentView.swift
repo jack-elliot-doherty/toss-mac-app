@@ -1,3 +1,4 @@
+import PostHog
 import SwiftUI
 
 struct AgentView: View {
@@ -54,7 +55,7 @@ struct AgentView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(viewModel.messages) { msg in
-                                MessageBubble(message: msg)
+                                MessageBubble(message: msg, viewModel: viewModel)
                                     .id(msg.id)
                                     .transition(
                                         .move(edge: .bottom)
@@ -450,7 +451,12 @@ private struct ErrorBubble: View {
 
 private struct MessageBubble: View {
     let message: AgentViewModel.DisplayMessage
+    @ObservedObject var viewModel: AgentViewModel
     @State private var isExpanded = false
+    @State private var isHovering = false
+    @State private var isEditing = false
+    @State private var editText = ""
+    @State private var feedbackGiven: String? = nil  // "positive" or "negative"
 
     var body: some View {
         // Special handling for different notification types
@@ -466,33 +472,121 @@ private struct MessageBubble: View {
     }
 
     private var regularMessageView: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if message.role == .user { Spacer() }
+        VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                if message.role == .user { Spacer() }
 
-            VStack(
-                alignment: message.role == .user ? .trailing : .leading,
-                spacing: 4
-            ) {
-                // Use markdown for assistant, plain for user
-                if message.role == .assistant {
-                    Text(markdownAttributedString)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
-                        .textSelection(.enabled)
-                } else {
-                    Text(message.content)
-                        .font(.system(size: 14))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 10)
-                        .background(bubbleBackground)
-                        .foregroundColor(.white)
-                        .cornerRadius(18)
+                VStack(
+                    alignment: message.role == .user ? .trailing : .leading,
+                    spacing: 4
+                ) {
+                    if isEditing {
+                        // Edit mode for user messages
+                        editModeView
+                    } else {
+                        // Normal display
+                        if message.role == .assistant {
+                            Text(markdownAttributedString)
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                                .textSelection(.enabled)
+                        } else {
+                            Text(message.content)
+                                .font(.system(size: 14))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(bubbleBackground)
+                                .foregroundColor(.white)
+                                .cornerRadius(18)
+                        }
+                    }
                 }
+
+                if message.role == .assistant { Spacer() }
             }
 
-            if message.role == .assistant { Spacer() }
+            // Action bar - always present to reserve space, just fade opacity
+            if !isEditing && !message.content.isEmpty {
+                MessageActionBar(
+                    message: message,
+                    viewModel: viewModel,
+                    feedbackGiven: $feedbackGiven,
+                    onEdit: {
+                        editText = message.content
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            isEditing = true
+                        }
+                    }
+                )
+                .opacity(isHovering ? 1 : 0)
+            }
+        }
+        .contentShape(Rectangle())  // Make entire VStack hoverable
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private var editModeView: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            TextField("Edit message...", text: $editText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 14))
+                .foregroundColor(.white)
+                .lineLimit(1...10)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.blue.opacity(0.5), lineWidth: 1)
+                        )
+                )
+
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        isEditing = false
+                    }
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    let newContent = editText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !newContent.isEmpty {
+                        viewModel.editAndResend(messageId: message.id, newContent: newContent)
+                    }
+                    isEditing = false
+                } label: {
+                    Text("Submit")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
     }
 
     private var markdownAttributedString: AttributedString {
@@ -519,6 +613,123 @@ private struct MessageBubble: View {
         } else {
             Color.clear
         }
+    }
+}
+
+// MARK: - Message Action Bar
+
+private struct MessageActionBar: View {
+    let message: AgentViewModel.DisplayMessage
+    @ObservedObject var viewModel: AgentViewModel
+    @Binding var feedbackGiven: String?
+    let onEdit: () -> Void
+
+    @State private var copiedFeedback = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            // Copy button (for both user and assistant)
+            ActionButton(icon: copiedFeedback ? "checkmark" : "doc.on.doc", tooltip: "Copy") {
+                copyToClipboard()
+            }
+
+            if message.role == .assistant {
+                // Thumbs up
+                ActionButton(
+                    icon: "hand.thumbsup",
+                    tooltip: "Good response",
+                    isActive: feedbackGiven == "positive"
+                ) {
+                    submitFeedback(rating: "positive")
+                }
+
+                // Thumbs down
+                ActionButton(
+                    icon: "hand.thumbsdown",
+                    tooltip: "Poor response",
+                    isActive: feedbackGiven == "negative"
+                ) {
+                    submitFeedback(rating: "negative")
+                }
+
+                // Retry (regenerate from this point)
+                ActionButton(icon: "arrow.clockwise", tooltip: "Regenerate") {
+                    viewModel.retryFromMessage(message.id)
+                }
+            } else if message.role == .user {
+                // Edit button
+                ActionButton(icon: "pencil", tooltip: "Edit") {
+                    onEdit()
+                }
+
+                // Retry (resend from this point)
+                ActionButton(icon: "arrow.clockwise", tooltip: "Retry from here") {
+                    viewModel.retryFromMessage(message.id)
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+    }
+
+    private func copyToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(message.content, forType: .string)
+
+        // Show feedback
+        withAnimation {
+            copiedFeedback = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation {
+                copiedFeedback = false
+            }
+        }
+    }
+
+    private func submitFeedback(rating: String) {
+        feedbackGiven = rating
+
+        PostHogSDK.shared.capture(
+            "agent_feedback",
+            properties: [
+                "rating": rating,
+                "message_id": message.id.uuidString,
+                "message_role": message.role.rawValue,
+                "message_content": String(message.content.prefix(500)),
+                "conversation_length": viewModel.messages.count,
+            ])
+    }
+}
+
+// MARK: - Action Button
+
+private struct ActionButton: View {
+    let icon: String
+    let tooltip: String
+    var isActive: Bool = false
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(isActive ? .blue : (isHovering ? .white : .white.opacity(0.6)))
+                .frame(width: 24, height: 24)
+                .background(
+                    Circle()
+                        .fill(
+                            isActive
+                                ? Color.blue.opacity(0.2)
+                                : (isHovering ? Color.white.opacity(0.1) : Color.clear))
+                )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .help(tooltip)
     }
 }
 
@@ -598,6 +809,25 @@ private struct ToolExecutionNotification: View {
         toolName.lowercased().hasPrefix("calendar")
     }
 
+    private var isNotionTool: Bool {
+        toolName.lowercased().hasPrefix("notion")
+    }
+
+    // Internal app tools (meetings, contacts, memory, screenshot)
+    private var isAppTool: Bool {
+        let name = toolName.lowercased()
+        let appToolPrefixes = [
+            "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
+            "search", "delete",
+        ]
+        // Check if it's an app tool (not an integration tool)
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+            return false
+        }
+        // Check common app tool patterns
+        return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
+    }
+
     private var actionText: String {
         let name = toolName.lowercased()
         if isSlackTool {
@@ -613,6 +843,32 @@ private struct ToolExecutionNotification: View {
             if name.contains("create") { return "Created calendar event" }
             if name.contains("list") { return "Listed calendar events" }
             return "Read from Calendar"
+        }
+        if isNotionTool {
+            if name.contains("createdatabase") { return "Created Notion database" }
+            if name.contains("create") { return "Created Notion page" }
+            if name.contains("append") { return "Added to Notion page" }
+            if name.contains("search") { return "Searched Notion" }
+            if name.contains("list") { return "Listed Notion databases" }
+            return "Read from Notion"
+        }
+        if isAppTool {
+            if name.contains("meeting") {
+                if name.contains("list") { return "Listed meetings" }
+                if name.contains("search") { return "Searched meetings" }
+                if name.contains("share") { return "Shared meeting" }
+                return "Loaded meeting"
+            }
+            if name.contains("contact") || name.contains("company") {
+                if name.contains("search") { return "Searched contacts" }
+                return "Loaded contacts"
+            }
+            if name.contains("memory") || name.contains("save") {
+                if name.contains("save") { return "Saved memory" }
+                if name.contains("delete") { return "Deleted memory" }
+                return "Loaded memories"
+            }
+            if name.contains("screenshot") { return "Took screenshot" }
         }
         // Convert snake_case to readable
         return toolName.replacingOccurrences(of: "_", with: " ").capitalized
@@ -633,6 +889,32 @@ private struct ToolExecutionNotification: View {
             if name.contains("create") { return "Creating calendar event..." }
             if name.contains("list") { return "Listing calendar events..." }
             return "Reading from Calendar..."
+        }
+        if isNotionTool {
+            if name.contains("createdatabase") { return "Creating Notion database..." }
+            if name.contains("create") { return "Creating Notion page..." }
+            if name.contains("append") { return "Adding to Notion page..." }
+            if name.contains("search") { return "Searching Notion..." }
+            if name.contains("list") { return "Listing Notion databases..." }
+            return "Reading from Notion..."
+        }
+        if isAppTool {
+            if name.contains("meeting") {
+                if name.contains("list") { return "Loading meetings..." }
+                if name.contains("search") { return "Searching meetings..." }
+                if name.contains("share") { return "Sharing meeting..." }
+                return "Loading meeting..."
+            }
+            if name.contains("contact") || name.contains("company") {
+                if name.contains("search") { return "Searching contacts..." }
+                return "Loading contacts..."
+            }
+            if name.contains("memory") || name.contains("save") {
+                if name.contains("save") { return "Saving memory..." }
+                if name.contains("delete") { return "Deleting memory..." }
+                return "Loading memories..."
+            }
+            if name.contains("screenshot") { return "Taking screenshot..." }
         }
         return toolName.replacingOccurrences(of: "_", with: " ").capitalized + "..."
     }
@@ -713,6 +995,16 @@ private struct ToolExecutionNotification: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 14, height: 14)
+        } else if isNotionTool {
+            Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isAppTool {
+            Image("TossLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
         } else {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 12))
@@ -753,6 +1045,23 @@ private struct ToolApprovalWaitingNotification: View {
         toolName.lowercased().hasPrefix("calendar")
     }
 
+    private var isNotionTool: Bool {
+        toolName.lowercased().hasPrefix("notion")
+    }
+
+    // Internal app tools (meetings, contacts, memory, screenshot)
+    private var isAppTool: Bool {
+        let name = toolName.lowercased()
+        let appToolPrefixes = [
+            "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
+            "search", "delete",
+        ]
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+            return false
+        }
+        return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
+    }
+
     private var waitingText: String {
         let name = toolName.lowercased()
         if isSlackTool && name.contains("send") {
@@ -763,6 +1072,11 @@ private struct ToolApprovalWaitingNotification: View {
         }
         if isCalendarTool && name.contains("create") {
             return "Waiting to create calendar event"
+        }
+        if isNotionTool {
+            if name.contains("createdatabase") { return "Waiting to create Notion database" }
+            if name.contains("create") { return "Waiting to create Notion page" }
+            if name.contains("append") { return "Waiting to add to Notion page" }
         }
         return "Waiting for approval"
     }
@@ -829,6 +1143,16 @@ private struct ToolApprovalWaitingNotification: View {
                 .frame(width: 14, height: 14)
         } else if isCalendarTool {
             Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isNotionTool {
+            Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isAppTool {
+            Image("TossLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 14, height: 14)
@@ -987,6 +1311,19 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "connectNotion":
+            ConnectIntegrationCard(
+                provider: "Notion",
+                icon: "NotionLogo",
+                color: Color.black,
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         default:
             // Fallback to generic preview with separate approve button
             VStack(alignment: .leading, spacing: 12) {
@@ -1095,6 +1432,7 @@ private struct ConnectToolCard: View {
         case "connectSlack": return "Slack"
         case "connectLinear": return "Linear"
         case "connectGoogleCalendar": return "Google Calendar"
+        case "connectNotion": return "Notion"
         default: return "Integration"
         }
     }
@@ -1104,6 +1442,7 @@ private struct ConnectToolCard: View {
         case "connectSlack": return "SlackLogo"
         case "connectLinear": return "LinearLogo"
         case "connectGoogleCalendar": return "GoogleCalendarLogo"
+        case "connectNotion": return "NotionLogo"
         default: return "gearshape"
         }
     }
@@ -1113,6 +1452,7 @@ private struct ConnectToolCard: View {
         case "connectSlack": return Color(hex: "4A154B")
         case "connectLinear": return Color(hex: "5E6AD2")
         case "connectGoogleCalendar": return Color(hex: "4285F4")
+        case "connectNotion": return Color.black
         default: return .blue
         }
     }
@@ -1125,6 +1465,8 @@ private struct ConnectToolCard: View {
             return integrationsManager.linearStatus?.connected == true
         case "connectGoogleCalendar":
             return integrationsManager.googleStatus?.connected == true
+        case "connectNotion":
+            return integrationsManager.notionStatus?.connected == true
         default:
             return false
         }
@@ -1138,6 +1480,8 @@ private struct ConnectToolCard: View {
             return integrationsManager.linearStatus?.organizationName
         case "connectGoogleCalendar":
             return integrationsManager.googleStatus?.email
+        case "connectNotion":
+            return integrationsManager.notionStatus?.workspaceName
         default:
             return nil
         }
@@ -1260,6 +1604,8 @@ private struct ConnectToolCard: View {
                     await integrationsManager.fetchLinearStatus()
                 case "connectGoogleCalendar":
                     await integrationsManager.fetchGoogleStatus()
+                case "connectNotion":
+                    await integrationsManager.fetchNotionStatus()
                 default:
                     break
                 }
@@ -1284,6 +1630,8 @@ private struct ConnectToolCard: View {
                 await integrationsManager.connectLinear()
             case "connectGoogleCalendar":
                 await integrationsManager.connectGoogle()
+            case "connectNotion":
+                await integrationsManager.connectNotion()
             default:
                 break
             }
