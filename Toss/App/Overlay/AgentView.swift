@@ -1081,6 +1081,25 @@ private struct ToolApprovalWaitingNotification: View {
         return "Waiting for approval"
     }
 
+    private var completedText: String {
+        let name = toolName.lowercased()
+        if isSlackTool && name.contains("send") {
+            return "Sent Slack message"
+        }
+        if isLinearTool && name.contains("create") {
+            return "Created Linear issue"
+        }
+        if isCalendarTool && name.contains("create") {
+            return "Created calendar event"
+        }
+        if isNotionTool {
+            if name.contains("createdatabase") { return "Created Notion database" }
+            if name.contains("create") { return "Created Notion page" }
+            if name.contains("append") { return "Added to Notion page" }
+        }
+        return "Completed"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // Collapsed: subtle inline text with tool icon and chevron
@@ -1097,23 +1116,30 @@ private struct ToolApprovalWaitingNotification: View {
                     toolIcon
                         .frame(width: 14, height: 14)
 
-                    Text(waitingText)
+                    Text(message.toolExecutionComplete ? completedText : waitingText)
                         .font(.system(size: 12))
                         .foregroundColor(.white.opacity(0.4))
                         .italic()
 
-                    // Pulsing dot to indicate waiting
-                    Circle()
-                        .fill(Color.orange.opacity(0.6))
-                        .frame(width: 6, height: 6)
+                    if message.toolExecutionComplete {
+                        // Green checkmark when complete
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.green.opacity(0.6))
+                    } else {
+                        // Orange dot to indicate waiting
+                        Circle()
+                            .fill(Color.orange.opacity(0.6))
+                            .frame(width: 6, height: 6)
+                    }
                 }
             }
             .buttonStyle(.plain)
 
-            // Expanded: show args
+            // Expanded: show args and result
             if isExpanded {
-                if let args = message.toolExecutionArgs, !args.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let args = message.toolExecutionArgs, !args.isEmpty {
                         Text("Input:")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.white.opacity(0.35))
@@ -1122,8 +1148,18 @@ private struct ToolApprovalWaitingNotification: View {
                             .foregroundColor(.white.opacity(0.45))
                             .textSelection(.enabled)
                     }
-                    .padding(.leading, 15)
+
+                    if let result = message.toolExecutionResult, message.toolExecutionComplete {
+                        Text("Output:")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.green.opacity(0.5))
+                        Text(formatJSON(result))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.green.opacity(0.6))
+                            .textSelection(.enabled)
+                    }
                 }
+                .padding(.leading, 15)
             }
         }
         .padding(.vertical, 2)
@@ -1318,6 +1354,45 @@ private struct ToolApprovalCard: View {
                 color: Color.black,
                 isExecuting: executing,
                 onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "notionCreateDatabase":
+            EditableNotionCreateDatabasePreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "notionCreatePage":
+            EditableNotionCreatePagePreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "notionAppendBlocks":
+            EditableNotionAppendBlocksPreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
                     ? {
                         isExecuting = true
                         onApprove()

@@ -766,6 +766,14 @@ final class AgentViewModel: ObservableObject {
             )
             messages.append(toolMessage)
 
+            // Update the original "waiting for approval" message to mark it as complete
+            if let waitingMsgIndex = messages.firstIndex(where: {
+                $0.toolExecutionId == toolCall.id && $0.isToolApprovalWaiting
+            }) {
+                messages[waitingMsgIndex].toolExecutionComplete = true
+                messages[waitingMsgIndex].toolExecutionResult = toolResult
+            }
+
             // Mark complete in UI
             if let idx = self.pendingToolCalls.firstIndex(where: { $0.id == toolCall.id }) {
                 var completedCall = self.pendingToolCalls[idx]

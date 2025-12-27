@@ -29,6 +29,10 @@ struct ToolCall: Identifiable, Equatable {
         name.lowercased().hasPrefix("calendar")
     }
 
+    private var isNotionTool: Bool {
+        name.lowercased().hasPrefix("notion")
+    }
+
     // Check if this is a connect tool
     var isConnectTool: Bool {
         name.lowercased().hasPrefix("connect")
@@ -59,6 +63,20 @@ struct ToolCall: Identifiable, Equatable {
             return "Connect Linear"
         case "connectGoogleCalendar":
             return "Connect Google Calendar"
+        case "connectNotion":
+            return "Connect Notion"
+        case "notionSearch":
+            return "Search Notion"
+        case "notionListDatabases":
+            return "List Notion Databases"
+        case "notionCreateDatabase":
+            return "Create Notion Database"
+        case "notionCreatePage":
+            return "Create Notion Page"
+        case "notionReadPage":
+            return "Read Notion Page"
+        case "notionAppendBlocks":
+            return "Add to Notion Page"
         default:
             // Convert camelCase to readable
             return
@@ -86,6 +104,11 @@ struct ToolCall: Identifiable, Equatable {
 
         // Calendar create requires approval
         if lowerName.contains("create") && isCalendarTool {
+            return true
+        }
+
+        // Notion create/append requires approval
+        if (lowerName.contains("create") || lowerName.contains("append")) && isNotionTool {
             return true
         }
 
