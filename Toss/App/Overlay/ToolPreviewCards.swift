@@ -201,6 +201,8 @@ struct ToolPreviewFactory {
             EditableNotionCreatePagePreview(params: wrapped, compact: compact)
         case "notionAppendBlocks":
             EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "createFlow":
+            EditableFlowPreview(params: wrapped, compact: compact)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
         }
@@ -227,6 +229,8 @@ struct ToolPreviewFactory {
             EditableNotionCreatePagePreview(params: wrapped, compact: compact)
         case "notionAppendBlocks":
             EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "createFlow":
+            EditableFlowPreview(params: wrapped, compact: compact)
         case "cursorOpenPrompt":
             // Note: CursorPromptPreview needs title/context, so use GenericToolPreview as fallback
             // The full CursorPromptPreview is used directly in ActionItemCard
@@ -1868,6 +1872,177 @@ struct EditableSlackMessagePreview: View {
             updatedParams["channelId"] = .string(ch)
         }
         updatedParams["message"] = .string(message)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Flow Preview
+
+struct EditableFlowPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var definition: String
+
+    private var trigger: String {
+        initialParams.getString("trigger") ?? "meeting_ended"
+    }
+
+    private var enabled: Bool {
+        initialParams.getBool("enabled") ?? true
+    }
+
+    private var triggerDisplay: String {
+        switch trigger {
+        case "meeting_ended":
+            return "After every meeting"
+        default:
+            return trigger.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _definition = State(initialValue: params.getString("definition") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("TossLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Flow")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will run this automation \(triggerDisplay.lowercased())")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "8B5CF6").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 10))
+                                Text("Create Flow")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "8B5CF6")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            VStack(spacing: 0) {
+                // Trigger row
+                FormRow(label: "Trigger", labelWidth: 70) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.badge.checkmark")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(triggerDisplay)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Status row
+                FormRow(label: "Status", labelWidth: 70) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(enabled ? Color.green : Color.gray)
+                            .frame(width: 6, height: 6)
+                        Text(enabled ? "Enabled" : "Disabled")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Definition
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What to do")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Describe what should happen...", text: $definition, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...8)
+                        .onChange(of: definition) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(hex: "8B5CF6").opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["definition"] = .string(definition)
+        updatedParams["trigger"] = .string(trigger)
+        updatedParams["enabled"] = .bool(enabled)
         onParamsChanged?(updatedParams)
     }
 }

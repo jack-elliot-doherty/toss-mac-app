@@ -1049,7 +1049,11 @@ private struct ToolApprovalWaitingNotification: View {
         toolName.lowercased().hasPrefix("notion")
     }
 
-    // Internal app tools (meetings, contacts, memory, screenshot)
+    private var isFlowTool: Bool {
+        toolName.lowercased() == "createflow"
+    }
+
+    // Internal app tools (meetings, contacts, memory, screenshot, flows)
     private var isAppTool: Bool {
         let name = toolName.lowercased()
         let appToolPrefixes = [
@@ -1058,6 +1062,9 @@ private struct ToolApprovalWaitingNotification: View {
         ]
         if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
             return false
+        }
+        if isFlowTool {
+            return true
         }
         return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
     }
@@ -1078,6 +1085,9 @@ private struct ToolApprovalWaitingNotification: View {
             if name.contains("create") { return "Waiting to create Notion page" }
             if name.contains("append") { return "Waiting to add to Notion page" }
         }
+        if isFlowTool {
+            return "Waiting to create flow"
+        }
         return "Waiting for approval"
     }
 
@@ -1096,6 +1106,9 @@ private struct ToolApprovalWaitingNotification: View {
             if name.contains("createdatabase") { return "Created Notion database" }
             if name.contains("create") { return "Created Notion page" }
             if name.contains("append") { return "Added to Notion page" }
+        }
+        if isFlowTool {
+            return "Created flow"
         }
         return "Completed"
     }
@@ -1388,6 +1401,19 @@ private struct ToolApprovalCard: View {
 
         case "notionAppendBlocks":
             EditableNotionAppendBlocksPreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "createFlow":
+            EditableFlowPreview(
                 params: params,
                 compact: false,
                 onParamsChanged: nil,

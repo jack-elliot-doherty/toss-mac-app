@@ -77,6 +77,8 @@ struct ToolCall: Identifiable, Equatable {
             return "Read Notion Page"
         case "notionAppendBlocks":
             return "Add to Notion Page"
+        case "createFlow":
+            return "Create Flow"
         default:
             // Convert camelCase to readable
             return
@@ -109,6 +111,11 @@ struct ToolCall: Identifiable, Equatable {
 
         // Notion create/append requires approval
         if (lowerName.contains("create") || lowerName.contains("append")) && isNotionTool {
+            return true
+        }
+
+        // Flow creation requires approval
+        if lowerName == "createflow" {
             return true
         }
 
