@@ -151,6 +151,12 @@ struct MeetingView: View {
     @State private var actionExecutionResult: (id: String, success: Bool, message: String)?
     @State private var showingApprovalFor: ExtractedAction?
 
+    // Flow runs state (for Flows tab)
+    @State private var flowRuns: [MeetingFlowRun] = []
+    @State private var userFlows: [Flow] = []  // All user's enabled flows (shown during recording)
+    @State private var isLoadingFlows = false
+    @State private var expandedFlowRunId: String?
+
     // Computed property to convert between raw string and enum
     private var selectedTab: MeetingDetailTab {
         get { MeetingDetailTab(rawValue: selectedTabRaw) ?? .overview }
@@ -175,11 +181,13 @@ struct MeetingView: View {
     private enum MeetingDetailTab: String, CaseIterable {
         case overview = "Overview"
         case transcript = "Transcript"
+        case flows = "Flows"
 
         var icon: String {
             switch self {
             case .overview: return "list.bullet.rectangle"
             case .transcript: return "text.alignleft"
+            case .flows: return "command"
             }
         }
 
@@ -378,6 +386,8 @@ struct MeetingView: View {
                 chunks: chunks,
                 meetingStartTime: meeting?.startTime ?? Date()
             )
+        case .flows:
+            flowsTabView
         }
     }
 
@@ -593,6 +603,308 @@ struct MeetingView: View {
             }
         }
         .padding(.top, 24)
+    }
+
+    // MARK: - Flows Tab
+
+    private var flowsTabView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Header
+            HStack {
+                Text("Automations")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                if isLoadingFlows {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                }
+
+                Spacer()
+
+                Button {
+                    if isRecording {
+                        loadUserFlows()
+                    } else {
+                        loadFlowRuns()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingFlows)
+            }
+
+            // Different subtitle based on recording state
+            if isRecording {
+                Text("These flows will run automatically when this meeting ends.")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+            } else {
+                Text("These flows ran automatically when this meeting ended.")
+                    .font(.system(size: 13))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            // Show different content based on recording state
+            if isRecording {
+                // During recording: show user's enabled flows
+                if userFlows.isEmpty && !isLoadingFlows {
+                    emptyFlowsStateDuringRecording
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(userFlows.filter { $0.enabled }) { flow in
+                            pendingFlowCard(flow)
+                        }
+                    }
+                }
+            } else {
+                // After meeting: show flow runs
+                if flowRuns.isEmpty && !isLoadingFlows {
+                    emptyFlowsState
+                } else {
+                    VStack(spacing: 12) {
+                        ForEach(flowRuns) { run in
+                            flowRunCard(run)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            if isRecording {
+                loadUserFlows()
+            } else {
+                loadFlowRuns()
+            }
+        }
+        .onChange(of: isRecording) { _, newValue in
+            // When recording stops, switch to loading flow runs
+            if !newValue {
+                loadFlowRuns()
+            }
+        }
+    }
+
+    private var emptyFlowsState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bolt.circle")
+                .font(.system(size: 32))
+                .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+
+            Text("No flows ran for this meeting")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(AppTheme.primaryText)
+
+            Text("Set up flows to automatically sync notes to Notion, share to Slack, and more.")
+                .font(.system(size: 13))
+                .foregroundColor(AppTheme.secondaryText)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private var emptyFlowsStateDuringRecording: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bolt.circle")
+                .font(.system(size: 32))
+                .foregroundColor(AppTheme.secondaryText.opacity(0.5))
+
+            Text("No flows configured")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(AppTheme.primaryText)
+
+            Text(
+                "Set up flows to automatically sync notes to Notion, share to Slack, and more when this meeting ends."
+            )
+            .font(.system(size: 13))
+            .foregroundColor(AppTheme.secondaryText)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 300)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private func pendingFlowCard(_ flow: Flow) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Pending icon (clock)
+            Image(systemName: "clock.badge.checkmark")
+                .font(.system(size: 18))
+                .foregroundColor(.blue)
+
+            VStack(alignment: .leading, spacing: 4) {
+                // Flow definition
+                Text(flow.definition)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(AppTheme.primaryText)
+                    .lineLimit(2)
+
+                // Status
+                Text("Will run when meeting ends")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText)
+            }
+
+            Spacer()
+
+            // TODO: Future - add toggle to disable for this meeting
+            // Toggle to enable/disable for this meeting
+            // Toggle(isOn: .constant(true)) {}
+            //     .labelsHidden()
+            //     .scaleEffect(0.8)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.cardBackground.opacity(0.6))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+    }
+
+    private func flowRunCard(_ run: MeetingFlowRun) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Header row: status icon + definition + expand button
+            HStack(alignment: .top, spacing: 12) {
+                // Status icon
+                Image(systemName: run.statusIcon)
+                    .font(.system(size: 18))
+                    .foregroundColor(run.statusColor)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    // Flow definition
+                    Text(run.flowDefinition)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(expandedFlowRunId == run.id ? nil : 2)
+
+                    // Result summary or error
+                    if let error = run.errorMessage {
+                        Text(error)
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.8))
+                            .lineLimit(2)
+                    } else if let summary = run.resultSummary {
+                        Text(summary)
+                            .font(.system(size: 12))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .lineLimit(expandedFlowRunId == run.id ? nil : 2)
+                    }
+                }
+
+                Spacer()
+
+                // Expand/collapse button
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        if expandedFlowRunId == run.id {
+                            expandedFlowRunId = nil
+                        } else {
+                            expandedFlowRunId = run.id
+                        }
+                    }
+                } label: {
+                    Image(systemName: expandedFlowRunId == run.id ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Expanded: show execution steps
+            if expandedFlowRunId == run.id, let steps = run.steps, !steps.isEmpty {
+                Divider()
+                    .background(AppTheme.subtleStroke)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Execution Steps")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    ForEach(steps) { step in
+                        flowStepRow(step)
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppTheme.cardBackground.opacity(0.6))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(
+                    run.status == "failed" ? Color.red.opacity(0.3) : Color.white.opacity(0.08),
+                    lineWidth: 1
+                )
+        )
+    }
+
+    private func flowStepRow(_ step: FlowExecutionStep) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            // Step type icon
+            Image(systemName: step.icon)
+                .font(.system(size: 12))
+                .foregroundColor(step.iconColor)
+                .frame(width: 16)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.content)
+                    .font(.system(size: 13))
+                    .foregroundColor(
+                        step.type == "tool_result" ? AppTheme.secondaryText : AppTheme.primaryText
+                    )
+                    .lineLimit(3)
+
+                // Show tool name for tool calls
+                if let toolName = step.toolName, step.type == "tool_call" {
+                    Text(toolName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                }
+            }
+        }
+        .padding(.vertical, 4)
+        .padding(.leading, 8)
+    }
+
+    private func loadFlowRuns() {
+        guard !isLoadingFlows else { return }
+        isLoadingFlows = true
+
+        Task {
+            do {
+                flowRuns = try await FlowsAPI.shared.getMeetingFlowRuns(meetingId: meetingId)
+            } catch {
+                NSLog("[MeetingView] Failed to load flow runs: \(error)")
+            }
+            isLoadingFlows = false
+        }
+    }
+
+    private func loadUserFlows() {
+        guard !isLoadingFlows else { return }
+        isLoadingFlows = true
+
+        Task {
+            do {
+                userFlows = try await FlowsAPI.shared.listFlows()
+            } catch {
+                NSLog("[MeetingView] Failed to load user flows: \(error)")
+            }
+            isLoadingFlows = false
+        }
     }
 
     private func loadStoredActions() {

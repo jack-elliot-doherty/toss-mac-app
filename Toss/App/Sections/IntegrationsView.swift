@@ -8,6 +8,8 @@ struct SlackConnectionStatus: Codable {
 struct LinearConnectionStatus: Codable {
     let connected: Bool
     let organizationName: String?
+    let requiresReauth: Bool?
+    let lastErrorAt: String?
 }
 
 struct GoogleConnectionStatus: Codable {
@@ -245,7 +247,8 @@ final class IntegrationsManager: ObservableObject {
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                linearStatus = LinearConnectionStatus(connected: false, organizationName: nil)
+                linearStatus = LinearConnectionStatus(
+                    connected: false, organizationName: nil, requiresReauth: nil, lastErrorAt: nil)
             }
         } catch {
             NSLog("[Integrations] Failed to disconnect Linear: %@", error.localizedDescription)
@@ -461,16 +464,29 @@ struct LinearIntegrationCard: View {
     let onConnect: () -> Void
     let onDisconnect: () -> Void
 
+    private var requiresReauth: Bool {
+        status?.requiresReauth == true
+    }
+
     var body: some View {
         HStack(spacing: 16) {
             // Linear logo
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(red: 0.36, green: 0.38, blue: 0.96))  // Linear Purple
-                Image("LinearLogo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 28, height: 28)
+                    .fill(
+                        requiresReauth
+                            ? Color.orange.opacity(0.15) : Color(red: 0.36, green: 0.38, blue: 0.96)
+                    )
+                if requiresReauth {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.orange)
+                } else {
+                    Image("LinearLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 28, height: 28)
+                }
             }
             .frame(width: 48, height: 48)
 
@@ -479,7 +495,11 @@ struct LinearIntegrationCard: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppTheme.primaryText)
 
-                if let status, status.connected, let org = status.organizationName {
+                if requiresReauth, let org = status?.organizationName {
+                    Text("Reconnect required for \(org)")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+                } else if let status, status.connected, let org = status.organizationName {
                     Text("Connected to \(org)")
                         .font(.system(size: 12))
                         .foregroundColor(.green)
@@ -492,7 +512,14 @@ struct LinearIntegrationCard: View {
 
             Spacer()
 
-            if let status, status.connected {
+            if requiresReauth {
+                Button("Reconnect") {
+                    onConnect()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .controlSize(.small)
+            } else if let status, status.connected {
                 Button("Disconnect") {
                     onDisconnect()
                 }
@@ -513,7 +540,9 @@ struct LinearIntegrationCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                .stroke(
+                    requiresReauth ? Color.orange.opacity(0.5) : AppTheme.subtleStroke,
+                    lineWidth: requiresReauth ? 2 : 1)
         )
     }
 }

@@ -51,8 +51,107 @@ struct FlowRun: Codable, Identifiable {
     }
 }
 
+// Flow execution step for detailed history playback (Cofounder-style)
+struct FlowExecutionStep: Codable, Identifiable {
+    var id: Int { index }
+    let index: Int
+    let type: String  // "thinking", "tool_call", "tool_result", "text"
+    let content: String
+    let toolName: String?
+    let toolInput: [String: AnyCodableValue]?
+    let toolOutput: AnyCodableValue?
+    let timestamp: String
+
+    var icon: String {
+        switch type {
+        case "tool_call":
+            return "arrow.right.circle"
+        case "tool_result":
+            return "checkmark.circle"
+        case "text":
+            return "text.bubble"
+        case "thinking":
+            return "brain"
+        default:
+            return "circle"
+        }
+    }
+
+    var iconColor: Color {
+        switch type {
+        case "tool_call":
+            return .blue
+        case "tool_result":
+            return .green
+        case "text":
+            return .primary
+        case "thinking":
+            return .purple
+        default:
+            return .secondary
+        }
+    }
+}
+
+// Flow run with full execution details (for meeting flow runs)
+struct MeetingFlowRun: Codable, Identifiable {
+    let id: String
+    let flowId: String
+    let flowDefinition: String
+    let status: String
+    let resultSummary: String?
+    let errorMessage: String?
+    let toolCalls: [FlowToolCall]?
+    let steps: [FlowExecutionStep]?
+    let startedAt: String
+    let completedAt: String?
+
+    var startedAtDate: Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: startedAt)
+    }
+
+    var statusIcon: String {
+        switch status {
+        case "completed":
+            return "checkmark.circle.fill"
+        case "failed":
+            return "xmark.circle.fill"
+        case "running":
+            return "circle.dotted"
+        default:
+            return "questionmark.circle"
+        }
+    }
+
+    var statusColor: Color {
+        switch status {
+        case "completed":
+            return .green
+        case "failed":
+            return .red
+        case "running":
+            return .blue
+        default:
+            return .secondary
+        }
+    }
+}
+
+struct FlowToolCall: Codable {
+    let toolName: String
+    let args: [String: AnyCodableValue]?
+    let result: AnyCodableValue?
+    let timestamp: String
+}
+
 struct FlowRunsResponse: Codable {
     let runs: [FlowRun]
+}
+
+struct MeetingFlowRunsResponse: Codable {
+    let runs: [MeetingFlowRun]
 }
 
 // MARK: - Flows API
@@ -139,6 +238,18 @@ final class FlowsAPI {
 
         let (data, _) = try await APIClient.shared.perform(request)
         let response = try JSONDecoder().decode(FlowRunsResponse.self, from: data)
+        return response.runs
+    }
+
+    /// Get all flow runs for a specific meeting (for the Flows tab in MeetingView)
+    func getMeetingFlowRuns(meetingId: UUID) async throws -> [MeetingFlowRun] {
+        let url = baseURL.appendingPathComponent(
+            "flows/meeting/\(meetingId.uuidString.lowercased())/runs")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, _) = try await APIClient.shared.perform(request)
+        let response = try JSONDecoder().decode(MeetingFlowRunsResponse.self, from: data)
         return response.runs
     }
 }
