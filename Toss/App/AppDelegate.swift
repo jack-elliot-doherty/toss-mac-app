@@ -590,12 +590,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await MeetingsManager.shared.fetchUpcoming()
         }
 
-        // Update menu bar text every 60 seconds (for relative time updates)
+        // Schedule first update aligned to the next minute boundary
+        scheduleNextMenuBarUpdate()
+    }
+
+    private func scheduleNextMenuBarUpdate() {
         menuBarUpdateTimer?.invalidate()
-        menuBarUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) {
+
+        // Calculate seconds until the next minute boundary
+        let now = Date()
+        let calendar = Calendar.current
+        let seconds = calendar.component(.second, from: now)
+        let secondsUntilNextMinute = 60 - seconds
+
+        // Schedule timer to fire at the next minute boundary
+        menuBarUpdateTimer = Timer.scheduledTimer(
+            withTimeInterval: TimeInterval(secondsUntilNextMinute), repeats: false
+        ) {
             [weak self] _ in
             Task { @MainActor in
                 self?.updateMenuBarButton()
+                self?.rebuildMenu()  // Also rebuild menu so dropdown times stay in sync
+
+                // Now schedule recurring updates every 60 seconds (aligned to minute)
+                self?.menuBarUpdateTimer?.invalidate()
+                self?.menuBarUpdateTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true)
+                {
+                    [weak self] _ in
+                    Task { @MainActor in
+                        self?.updateMenuBarButton()
+                        self?.rebuildMenu()  // Keep dropdown times in sync
+                    }
+                }
             }
         }
     }

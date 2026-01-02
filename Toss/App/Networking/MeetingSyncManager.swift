@@ -47,7 +47,8 @@ final class MeetingSyncManager: ObservableObject {
     // MARK: - Public API
 
     /// Sync a meeting to the server (called after meeting ends or after edits)
-    func syncMeeting(_ meetingId: UUID) async {
+    /// Set triggerFlows to true for initial sync after meeting ends (not for subsequent edits)
+    func syncMeeting(_ meetingId: UUID, triggerFlows: Bool = false) async {
         NSLog("[MeetingSyncManager] Syncing meeting: \(meetingId)")
 
         guard let repository = getRepository() else {
@@ -82,10 +83,38 @@ final class MeetingSyncManager: ObservableObject {
 
             NSLog("[MeetingSyncManager] Successfully synced meeting: \(meetingId)")
             isSyncing = false
+
+            // Trigger flows if requested (only for initial sync after meeting ends)
+            if triggerFlows {
+                await triggerFlowsForMeeting(meetingId)
+            }
         } catch {
             NSLog("[MeetingSyncManager] Sync failed for meeting \(meetingId): \(error)")
             queueForRetry(meetingId: meetingId, operation: .sync)
             isSyncing = false
+        }
+    }
+
+    /// Trigger flows for a meeting and start polling for completion
+    private func triggerFlowsForMeeting(_ meetingId: UUID) async {
+        NSLog("[MeetingSyncManager] Triggering flows for meeting: \(meetingId)")
+
+        do {
+            let response = try await FlowsAPI.shared.triggerFlows(for: meetingId)
+
+            if response.triggered, let flows = response.flows, !flows.isEmpty {
+                NSLog(
+                    "[MeetingSyncManager] Triggered \(flows.count) flow(s) for meeting: \(meetingId)"
+                )
+                // Start polling for flow completion with flow details for notifications
+                await FlowNotificationManager.shared.startPolling(for: meetingId, flows: flows)
+            } else {
+                NSLog(
+                    "[MeetingSyncManager] No flows triggered: \(response.message ?? "unknown reason")"
+                )
+            }
+        } catch {
+            NSLog("[MeetingSyncManager] Failed to trigger flows: \(error)")
         }
     }
 

@@ -524,7 +524,8 @@ final class PillController {
                 }
 
                 // Sync meeting to server after summary is saved (or failed)
-                await MeetingSyncManager.shared.syncMeeting(meetingId)
+                // Pass triggerFlows: true to kick off post-meeting automations
+                await MeetingSyncManager.shared.syncMeeting(meetingId, triggerFlows: true)
             }
         }
 

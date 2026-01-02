@@ -81,6 +81,42 @@ final class SlackAPI {
     }
 }
 
+// MARK: - Notion Page Info
+
+struct NotionPageInfo: Codable {
+    let id: String
+    let title: String
+    let type: String  // "page" or "database"
+    let url: String?
+}
+
+// MARK: - Notion API
+
+final class NotionAPI {
+    static let shared = NotionAPI()
+    private let baseURL: URL
+
+    init(baseURL: URL = URL(string: Config.serverURL)!) {
+        self.baseURL = baseURL
+    }
+
+    func getPageInfo(pageId: String) async throws -> NotionPageInfo {
+        let url = baseURL.appendingPathComponent("notion/pages/\(pageId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "NotionAPI", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch page info"])
+        }
+
+        return try JSONDecoder().decode(NotionPageInfo.self, from: data)
+    }
+}
+
 // MARK: - Tool Parameters Wrapper
 
 /// Wrapper to provide unified access to tool parameters from different sources
@@ -159,6 +195,14 @@ struct ToolPreviewFactory {
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
             EditableSlackMessagePreview(params: wrapped, compact: compact)
+        case "notionCreateDatabase":
+            EditableNotionCreateDatabasePreview(params: wrapped, compact: compact)
+        case "notionCreatePage":
+            EditableNotionCreatePagePreview(params: wrapped, compact: compact)
+        case "notionAppendBlocks":
+            EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "createFlow":
+            EditableFlowPreview(params: wrapped, compact: compact)
         default:
             GenericToolPreview(toolName: toolName, params: wrapped)
         }
@@ -179,6 +223,14 @@ struct ToolPreviewFactory {
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
             EditableSlackMessagePreview(params: wrapped, compact: compact)
+        case "notionCreateDatabase":
+            EditableNotionCreateDatabasePreview(params: wrapped, compact: compact)
+        case "notionCreatePage":
+            EditableNotionCreatePagePreview(params: wrapped, compact: compact)
+        case "notionAppendBlocks":
+            EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "createFlow":
+            EditableFlowPreview(params: wrapped, compact: compact)
         case "cursorOpenPrompt":
             // Note: CursorPromptPreview needs title/context, so use GenericToolPreview as fallback
             // The full CursorPromptPreview is used directly in ActionItemCard
@@ -503,14 +555,98 @@ struct GenericToolPreview: View {
             .capitalized
     }
 
+    private var isNotionTool: Bool {
+        toolName.lowercased().hasPrefix("notion")
+    }
+
+    private var isSlackTool: Bool {
+        toolName.lowercased().hasPrefix("slack")
+    }
+
+    private var isLinearTool: Bool {
+        toolName.lowercased().hasPrefix("linear")
+    }
+
+    private var isCalendarTool: Bool {
+        toolName.lowercased().hasPrefix("calendar")
+    }
+
+    // Internal app tools (meetings, contacts, memory, screenshot)
+    private var isAppTool: Bool {
+        let name = toolName.lowercased()
+        let appToolPrefixes = [
+            "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
+            "search", "delete",
+        ]
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+            return false
+        }
+        return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
+    }
+
+    private var toolColor: Color {
+        if isNotionTool { return Color.black }
+        if isSlackTool { return Color(hex: "4A154B") }
+        if isLinearTool { return Color(hex: "5E6AD2") }
+        if isCalendarTool { return Color(hex: "4285F4") }
+        if isAppTool { return Color.clear }  // TossLogo has its own background
+        return .orange
+    }
+
+    @ViewBuilder
+    private var toolIcon: some View {
+        if isNotionTool {
+            Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isSlackTool {
+            Image("SlackLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isLinearTool {
+            Image("LinearLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isCalendarTool {
+            Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isAppTool {
+            Image("TossLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 24, height: 24)  // Full size since app icon has its own styling
+        } else {
+            Image(systemName: "wrench.and.screwdriver")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+
+    // Use a purple accent for app tools
+    private var appToolColor: Color {
+        Color(hex: "8B5CF6")  // Purple accent
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: "wrench.and.screwdriver")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
+                if isAppTool {
+                    // App tools show the app icon directly
+                    toolIcon
+                        .frame(width: 24, height: 24)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    ZStack {
+                        Circle().fill(toolColor)
+                        toolIcon
+                    }
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(.orange))
+                }
 
                 Text(displayName)
                     .font(.system(size: 14, weight: .semibold))
@@ -536,10 +672,10 @@ struct GenericToolPreview: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.orange.opacity(0.08))
+                .fill((isAppTool ? appToolColor : toolColor).opacity(0.08))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.orange.opacity(0.2), lineWidth: 1)
+                        .stroke((isAppTool ? appToolColor : toolColor).opacity(0.2), lineWidth: 1)
                 )
         )
     }
@@ -1736,6 +1872,703 @@ struct EditableSlackMessagePreview: View {
             updatedParams["channelId"] = .string(ch)
         }
         updatedParams["message"] = .string(message)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Flow Preview
+
+struct EditableFlowPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var definition: String
+
+    private var trigger: String {
+        initialParams.getString("trigger") ?? "meeting_ended"
+    }
+
+    private var enabled: Bool {
+        initialParams.getBool("enabled") ?? true
+    }
+
+    private var triggerDisplay: String {
+        switch trigger {
+        case "meeting_ended":
+            return "After every meeting"
+        default:
+            return trigger.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _definition = State(initialValue: params.getString("definition") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("TossLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Flow")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will run this automation \(triggerDisplay.lowercased())")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "8B5CF6").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 10))
+                                Text("Create Flow")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "8B5CF6")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            VStack(spacing: 0) {
+                // Trigger row
+                FormRow(label: "Trigger", labelWidth: 70) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.badge.checkmark")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(triggerDisplay)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Status row
+                FormRow(label: "Status", labelWidth: 70) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(enabled ? Color.green : Color.gray)
+                            .frame(width: 6, height: 6)
+                        Text(enabled ? "Enabled" : "Disabled")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Definition
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What to do")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Describe what should happen...", text: $definition, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...8)
+                        .onChange(of: definition) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(hex: "8B5CF6").opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["definition"] = .string(definition)
+        updatedParams["trigger"] = .string(trigger)
+        updatedParams["enabled"] = .bool(enabled)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Notion Create Database Preview
+
+struct EditableNotionCreateDatabasePreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var title: String
+    @State private var parentPageInfo: NotionPageInfo?
+    @State private var isLoadingParent = true
+
+    private var parentPageId: String {
+        initialParams.getString("parentPageId") ?? ""
+    }
+
+    // Parse properties from params
+    private var propertyNames: [String] {
+        // Properties is a nested object like { "Summary": { "type": "rich_text" }, ... }
+        // We'll show the property names
+        var names: [String] = ["Name"]  // Always includes Name
+        if let allKeys = initialParams.getAllKeys().first(where: { $0 == "properties" }) {
+            // For now just show that properties are defined
+            names.append(contentsOf: ["(custom properties)"])
+        }
+        return names
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _title = State(initialValue: params.getString("title") ?? "Untitled Database")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("NotionLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Notion Database")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will create a new database in Notion")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 10))
+                                Text("Create Database")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            VStack(spacing: 0) {
+                FormRow(label: "Title") {
+                    TextField("Database title", text: $title)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                FormRow(label: "Parent", labelWidth: 70) {
+                    if isLoadingParent {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(AppTheme.secondaryText.opacity(0.2))
+                            .frame(width: 100, height: 16)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                            Text(parentPageInfo?.title ?? parentPageId)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchParentPageInfo()
+        }
+    }
+
+    private func fetchParentPageInfo() async {
+        guard !parentPageId.isEmpty else {
+            isLoadingParent = false
+            return
+        }
+
+        do {
+            parentPageInfo = try await NotionAPI.shared.getPageInfo(pageId: parentPageId)
+        } catch {
+            NSLog(
+                "[EditableNotionCreateDatabasePreview] Failed to fetch parent page info: \(error)")
+        }
+        isLoadingParent = false
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["parentPageId"] = .string(parentPageId)
+        updatedParams["title"] = .string(title)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Notion Create Page Preview
+
+struct EditableNotionCreatePagePreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var title: String
+    @State private var content: String
+    @State private var parentPageInfo: NotionPageInfo?
+    @State private var isLoadingParent = true
+
+    private var parentPageId: String {
+        initialParams.getString("parentPageId") ?? initialParams.getString("databaseId") ?? ""
+    }
+
+    private var isDatabase: Bool {
+        initialParams.getString("databaseId") != nil
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _title = State(initialValue: params.getString("title") ?? "Untitled")
+        _content = State(initialValue: params.getString("content") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("NotionLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Create Notion Page")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text(
+                        isDatabase
+                            ? "Toss will add a new entry to your database"
+                            : "Toss will create a new page in Notion"
+                    )
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Creating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.badge.plus")
+                                    .font(.system(size: 10))
+                                Text("Create Page")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            VStack(spacing: 0) {
+                FormRow(label: "Title") {
+                    TextField("Page title", text: $title)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                FormRow(label: isDatabase ? "Database" : "Parent", labelWidth: 70) {
+                    if isLoadingParent {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(AppTheme.secondaryText.opacity(0.2))
+                            .frame(width: 100, height: 16)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: isDatabase ? "tablecells" : "doc.text")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                            Text(parentPageInfo?.title ?? parentPageId)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
+                if !content.isEmpty {
+                    Divider().background(AppTheme.subtleStroke)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Content")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+
+                        TextField("Page content...", text: $content, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(3...6)
+                            .onChange(of: content) { _, _ in notifyParamsChanged() }
+                    }
+                    .padding(14)
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchParentPageInfo()
+        }
+    }
+
+    private func fetchParentPageInfo() async {
+        guard !parentPageId.isEmpty else {
+            isLoadingParent = false
+            return
+        }
+
+        do {
+            parentPageInfo = try await NotionAPI.shared.getPageInfo(pageId: parentPageId)
+        } catch {
+            NSLog("[EditableNotionCreatePagePreview] Failed to fetch parent page info: \(error)")
+        }
+        isLoadingParent = false
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        if isDatabase {
+            updatedParams["databaseId"] = .string(parentPageId)
+        } else {
+            updatedParams["parentPageId"] = .string(parentPageId)
+        }
+        updatedParams["title"] = .string(title)
+        updatedParams["content"] = .string(content)
+        onParamsChanged?(updatedParams)
+    }
+}
+
+// MARK: - Editable Notion Append Blocks Preview
+
+struct EditableNotionAppendBlocksPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var content: String
+    @State private var pageInfo: NotionPageInfo?
+    @State private var isLoadingPage = true
+
+    private var pageId: String {
+        initialParams.getString("pageId") ?? ""
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _content = State(initialValue: params.getString("content") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("NotionLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Append to Notion Page")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("Toss will add content to an existing page")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Adding...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 4) {
+                                Image(systemName: "text.badge.plus")
+                                    .font(.system(size: 10))
+                                Text("Add Content")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.black))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            VStack(spacing: 0) {
+                FormRow(label: "Page", labelWidth: 70) {
+                    if isLoadingPage {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(AppTheme.secondaryText.opacity(0.2))
+                            .frame(width: 100, height: 16)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.text")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(AppTheme.secondaryText)
+                            Text(pageInfo?.title ?? pageId)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Content")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Content to append...", text: $content, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...8)
+                        .onChange(of: content) { _, _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchPageInfo()
+        }
+    }
+
+    private func fetchPageInfo() async {
+        guard !pageId.isEmpty else {
+            isLoadingPage = false
+            return
+        }
+
+        do {
+            pageInfo = try await NotionAPI.shared.getPageInfo(pageId: pageId)
+        } catch {
+            NSLog("[EditableNotionAppendBlocksPreview] Failed to fetch page info: \(error)")
+        }
+        isLoadingPage = false
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["pageId"] = .string(pageId)
+        updatedParams["content"] = .string(content)
         onParamsChanged?(updatedParams)
     }
 }
