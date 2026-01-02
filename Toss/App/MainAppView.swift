@@ -147,6 +147,7 @@ struct MainAppView: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
+            .overlay(FlowToastOverlay())
 
             .environmentObject(pageChrome)
             .ignoresSafeArea()

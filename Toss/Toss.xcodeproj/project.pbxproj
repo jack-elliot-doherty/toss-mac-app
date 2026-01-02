@@ -81,6 +81,8 @@
 		DAEEBF372EDD07C2009DE3CF /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = DAEEBF362EDD07C2009DE3CF /* PostHog */; };
 		DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEBF382EDF1148009DE3CF /* APIClient.swift */; };
 		DAF7DFFF2EFACB670052182B /* DictationContextDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */; };
+		DAF7E0012F082D330052182B /* FlowNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7E0002F082D330052182B /* FlowNotificationManager.swift */; };
+		DAF7E0032F0836810052182B /* FlowToastOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7E0022F0836810052182B /* FlowToastOverlay.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -174,6 +176,8 @@
 		DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLRequest+Extensions.swift"; sourceTree = "<group>"; };
 		DAEEBF382EDF1148009DE3CF /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationContextDetector.swift; sourceTree = "<group>"; };
+		DAF7E0002F082D330052182B /* FlowNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowNotificationManager.swift; sourceTree = "<group>"; };
+		DAF7E0022F0836810052182B /* FlowToastOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowToastOverlay.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -220,6 +224,7 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DAF7E0002F082D330052182B /* FlowNotificationManager.swift */,
 				DAD36B7E2EE5B91E0040FA21 /* MeetingSyncManager.swift */,
 				DAEEBF382EDF1148009DE3CF /* APIClient.swift */,
 				DAEEBF302EDCF1BD009DE3CF /* URLRequest+Extensions.swift */,
@@ -233,6 +238,7 @@
 		DA36234E2EB23FCE000207F0 /* Overlay */ = {
 			isa = PBXGroup;
 			children = (
+				DAF7E0022F0836810052182B /* FlowToastOverlay.swift */,
 				DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */,
 				DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */,
 				DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */,
@@ -614,6 +620,7 @@
 				DA9C43DA2EED9FE700C6D778 /* MemoriesView.swift in Sources */,
 				DA9C43DC2EEFA00000C6D778 /* FlowsView.swift in Sources */,
 				DA36237B2EB23FCE000207F0 /* Accessibility.swift in Sources */,
+				DAF7E0012F082D330052182B /* FlowNotificationManager.swift in Sources */,
 				DA36238D2EB95D2E000207F0 /* AgentPanelController.swift in Sources */,
 				DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */,
 				DAF7DFFF2EFACB670052182B /* DictationContextDetector.swift in Sources */,
@@ -622,6 +629,7 @@
 				DA36239F2EBB7BC7000207F0 /* SettingsModalView.swift in Sources */,
 				DA7827A22EBE94CC0040ED92 /* MeetingRecorder.swift in Sources */,
 				DA36238F2EB95D2E000207F0 /* AgentViewModel.swift in Sources */,
+				DAF7E0032F0836810052182B /* FlowToastOverlay.swift in Sources */,
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 				DA9C43D52EECB9D000C6D778 /* PermissionCard.swift in Sources */,
 				DA9C43D62EECB9D000C6D778 /* MicTestView.swift in Sources */,

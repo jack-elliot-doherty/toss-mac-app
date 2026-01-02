@@ -4,7 +4,9 @@ import SwiftUI
 
 struct Flow: Codable, Identifiable, Equatable {
     let id: String
+    var title: String?
     var definition: String
+    var icon: String?
     let trigger: String
     var enabled: Bool
     let createdAt: String
@@ -23,6 +25,17 @@ struct Flow: Codable, Identifiable, Equatable {
         default:
             return trigger
         }
+    }
+
+    /// Display title - uses title if set, otherwise truncated definition
+    var displayTitle: String {
+        if let title = title, !title.isEmpty {
+            return title
+        }
+        let maxLength = 30
+        return definition.count > maxLength
+            ? String(definition.prefix(maxLength)) + "..."
+            : definition
     }
 }
 
@@ -97,7 +110,9 @@ struct FlowExecutionStep: Codable, Identifiable {
 struct MeetingFlowRun: Codable, Identifiable {
     let id: String
     let flowId: String
+    let flowTitle: String?
     let flowDefinition: String
+    let flowIcon: String?
     let status: String
     let resultSummary: String?
     let errorMessage: String?
@@ -136,6 +151,17 @@ struct MeetingFlowRun: Codable, Identifiable {
         default:
             return .secondary
         }
+    }
+
+    /// Display title - uses title if set, otherwise truncated definition
+    var displayTitle: String {
+        if let title = flowTitle, !title.isEmpty {
+            return title
+        }
+        let maxLength = 30
+        return flowDefinition.count > maxLength
+            ? String(flowDefinition.prefix(maxLength)) + "..."
+            : flowDefinition
     }
 }
 
@@ -195,15 +221,21 @@ final class FlowsAPI {
         return flowResponse.flow
     }
 
-    func updateFlow(id: String, definition: String? = nil, enabled: Bool? = nil) async throws
-        -> Flow
-    {
+    func updateFlow(
+        id: String,
+        title: String? = nil,
+        definition: String? = nil,
+        enabled: Bool? = nil
+    ) async throws -> Flow {
         let url = baseURL.appendingPathComponent("flows/\(id)")
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var body: [String: Any] = [:]
+        if let title = title {
+            body["title"] = title
+        }
         if let definition = definition {
             body["definition"] = definition
         }
@@ -252,6 +284,35 @@ final class FlowsAPI {
         let response = try JSONDecoder().decode(MeetingFlowRunsResponse.self, from: data)
         return response.runs
     }
+
+    /// Trigger flows for a meeting (called after meeting sync completes)
+    /// Returns the number of flows triggered, or nil if already triggered
+    func triggerFlows(for meetingId: UUID) async throws -> TriggerFlowsResponse {
+        let url = baseURL.appendingPathComponent(
+            "flows/trigger/\(meetingId.uuidString.lowercased())")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(TriggerFlowsResponse.self, from: data)
+    }
+}
+
+struct TriggerFlowsResponse: Codable {
+    let triggered: Bool
+    let flowCount: Int?
+    let message: String?
+    let flows: [TriggeredFlow]?
+}
+
+/// Minimal flow info returned when triggering flows (for notifications)
+struct TriggeredFlow: Codable, Identifiable {
+    let id: String
+    let title: String
+    let icon: String
 }
 
 // MARK: - Flows View
@@ -263,6 +324,7 @@ struct FlowsView: View {
     @State private var errorMessage: String?
     @State private var showCreateModal = false
     @State private var editingFlow: Flow?
+    @State private var editTitle: String = ""
     @State private var editText: String = ""
     @State private var newFlowText: String = ""
     @State private var hoveredId: String?
@@ -435,22 +497,16 @@ struct FlowsView: View {
 
     private func flowCard(_ flow: Flow) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Top row: trigger badge + status
-            HStack {
-                // Trigger badge
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 11))
-                    Text(flow.triggerDisplayName)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundColor(AppTheme.secondaryText)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule()
-                        .fill(Color.white.opacity(0.08))
-                )
+            // Top row: icon, title, and status
+            HStack(spacing: 10) {
+                // Flow icon(s)
+                flowIconView(for: flow.icon)
+
+                // Title
+                Text(flow.displayTitle)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+                    .lineLimit(1)
 
                 Spacer()
 
@@ -465,11 +521,11 @@ struct FlowsView: View {
                 }
             }
 
-            // Definition text
+            // Definition text (secondary)
             Text(flow.definition)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(AppTheme.primaryText)
-                .lineLimit(3)
+                .font(.system(size: 13))
+                .foregroundColor(AppTheme.secondaryText)
+                .lineLimit(2)
 
             // Bottom row: actions
             HStack(spacing: 12) {
@@ -504,6 +560,7 @@ struct FlowsView: View {
 
                 // Edit button
                 Button {
+                    editTitle = flow.title ?? ""
                     editText = flow.definition
                     editingFlow = flow
                 } label: {
@@ -553,6 +610,55 @@ struct FlowsView: View {
             withAnimation(.easeInOut(duration: 0.1)) {
                 hoveredId = hovering ? flow.id : nil
             }
+        }
+    }
+
+    // MARK: - Flow Icon Helper
+
+    /// Displays icon(s) for a flow based on its destinations
+    @ViewBuilder
+    private func flowIconView(for icon: String?) -> some View {
+        let icons = (icon ?? "generic").split(separator: ",").map(String.init)
+
+        HStack(spacing: -6) {
+            ForEach(Array(icons.prefix(2).enumerated()), id: \.offset) { index, iconName in
+                iconImage(for: iconName)
+                    .frame(width: 24, height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(AppTheme.cardBackground, lineWidth: 2)
+                    )
+                    .zIndex(Double(icons.count - index))
+            }
+        }
+    }
+
+    /// Returns the appropriate image for an icon identifier
+    @ViewBuilder
+    private func iconImage(for icon: String) -> some View {
+        switch icon.trimmingCharacters(in: .whitespaces) {
+        case "slack":
+            Image("SlackLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        case "notion":
+            Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        case "linear":
+            Image("LinearLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        case "calendar":
+            Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        default:
+            Image(systemName: "arrow.right.circle.fill")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .foregroundColor(AppTheme.secondaryText)
         }
     }
 
@@ -716,26 +822,53 @@ struct FlowsView: View {
                     .buttonStyle(.plain)
                 }
 
-                // Text editor
-                TextEditor(text: $editText)
-                    .font(.system(size: 14))
-                    .foregroundColor(AppTheme.primaryText)
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .frame(height: 100)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.black.opacity(0.3))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(
-                                isEditFlowFocused
-                                    ? Color.accentColor : AppTheme.secondaryText.opacity(0.3),
-                                lineWidth: isEditFlowFocused ? 2 : 1
-                            )
-                    )
-                    .focused($isEditFlowFocused)
+                // Title field
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Title")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("e.g., Sync to Notion", text: $editTitle)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primaryText)
+                        .padding(10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black.opacity(0.3))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(AppTheme.secondaryText.opacity(0.3), lineWidth: 1)
+                        )
+                }
+
+                // Definition field
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextEditor(text: $editText)
+                        .font(.system(size: 14))
+                        .foregroundColor(AppTheme.primaryText)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(height: 100)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.black.opacity(0.3))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(
+                                    isEditFlowFocused
+                                        ? Color.accentColor : AppTheme.secondaryText.opacity(0.3),
+                                    lineWidth: isEditFlowFocused ? 2 : 1
+                                )
+                        )
+                        .focused($isEditFlowFocused)
+                }
 
                 // Buttons
                 HStack {
@@ -950,13 +1083,17 @@ struct FlowsView: View {
 
     private func saveEdit() {
         guard let flow = editingFlow else { return }
+        let newTitle = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let newDefinition = editText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newDefinition.isEmpty else { return }
 
         Task {
             do {
                 let updated = try await FlowsAPI.shared.updateFlow(
-                    id: flow.id, definition: newDefinition)
+                    id: flow.id,
+                    title: newTitle.isEmpty ? nil : newTitle,
+                    definition: newDefinition
+                )
                 if let index = flows.firstIndex(where: { $0.id == flow.id }) {
                     flows[index] = updated
                 }
