@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA130A422F0B064B0066C108 /* CommandRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A402F0B064B0066C108 /* CommandRegistry.swift */; };
+		DA130A432F0B064B0066C108 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3E2F0B064B0066C108 /* CommandPaletteView.swift */; };
+		DA130A442F0B064B0066C108 /* Command.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3D2F0B064B0066C108 /* Command.swift */; };
+		DA130A452F0B064B0066C108 /* CommandPaletteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3F2F0B064B0066C108 /* CommandPaletteViewModel.swift */; };
 		DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427522EC37F3A00F85DEB /* ToolCall.swift */; };
 		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
 		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
@@ -101,6 +105,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		DA130A3D2F0B064B0066C108 /* Command.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Command.swift; sourceTree = "<group>"; };
+		DA130A3E2F0B064B0066C108 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
+		DA130A3F2F0B064B0066C108 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
+		DA130A402F0B064B0066C108 /* CommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandRegistry.swift; sourceTree = "<group>"; };
 		DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamParser.swift; sourceTree = "<group>"; };
 		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
 		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
@@ -204,6 +212,17 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		DA130A412F0B064B0066C108 /* CommandPalette */ = {
+			isa = PBXGroup;
+			children = (
+				DA130A3D2F0B064B0066C108 /* Command.swift */,
+				DA130A3E2F0B064B0066C108 /* CommandPaletteView.swift */,
+				DA130A3F2F0B064B0066C108 /* CommandPaletteViewModel.swift */,
+				DA130A402F0B064B0066C108 /* CommandRegistry.swift */,
+			);
+			path = CommandPalette;
+			sourceTree = "<group>";
+		};
 		DA3623442EB23FCE000207F0 /* Input */ = {
 			isa = PBXGroup;
 			children = (
@@ -293,6 +312,7 @@
 		DA3623652EB23FCE000207F0 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				DA130A412F0B064B0066C108 /* CommandPalette */,
 				DA9C43CD2EEC4D3800C6D778 /* MainWindowContent.swift */,
 				DAEEBF2C2ED5F065009DE3CF /* Utilities */,
 				DAEEBF272ED265E1009DE3CF /* AppGlass.swift */,
@@ -625,6 +645,10 @@
 				DA36237D2EB23FCE000207F0 /* PillView.swift in Sources */,
 				DA9C43D52EECB9D000C6D778 /* PermissionCard.swift in Sources */,
 				DA9C43D62EECB9D000C6D778 /* MicTestView.swift in Sources */,
+				DA130A422F0B064B0066C108 /* CommandRegistry.swift in Sources */,
+				DA130A432F0B064B0066C108 /* CommandPaletteView.swift in Sources */,
+				DA130A442F0B064B0066C108 /* Command.swift in Sources */,
+				DA130A452F0B064B0066C108 /* CommandPaletteViewModel.swift in Sources */,
 				DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */,
 				DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */,
 			);

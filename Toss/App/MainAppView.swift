@@ -83,6 +83,7 @@ struct MainAppView: View {
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .meetings
     @State private var showSettings = false
+    @State private var showCommandPalette = false
     @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
     @State private var windowReference: NSWindow?
     @State private var navigationHistory: [SidebarItem] = [.meetings]
@@ -90,6 +91,7 @@ struct MainAppView: View {
     @State private var historyIndex: Int = 0
     @State private var showUserMenu = false
     @State private var showPaywall = false
+    @StateObject private var commandPaletteViewModel = CommandPaletteViewModel()
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
             breadcrumb: [Breadcrumb(title: "Calls")],
@@ -132,6 +134,14 @@ struct MainAppView: View {
                         .zIndex(1)
                         .appGlass(.surface, radius: 24)
                 }
+
+                // Command Palette
+                if showCommandPalette {
+                    CommandPaletteOverlayWrapper(
+                        viewModel: commandPaletteViewModel,
+                        onDismiss: { dismissCommandPalette() }
+                    )
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
@@ -144,8 +154,11 @@ struct MainAppView: View {
             .ignoresSafeArea()
             .preferredColorScheme(.dark)
             .animation(.easeInOut(duration: 0.2), value: showSettings)
+            .animation(.spring(response: 0.25, dampingFraction: 0.88), value: showCommandPalette)
+            .background(CommandKListener(onTrigger: { openCommandPalette() }))
             .onAppear {
                 updateChromeForCurrentSelection()
+                setupCommandPaletteCallbacks()
             }
             .onChange(of: selection) { _ in
                 updateChromeForCurrentSelection()
@@ -165,6 +178,13 @@ struct MainAppView: View {
             ) { _ in
                 showSettings = true
             }
+            .onReceive(
+                NotificationCenter.default.publisher(for: NSNotification.Name("GlobalEscapePressed"))
+            ) { _ in
+                if showCommandPalette {
+                    dismissCommandPalette()
+                }
+            }
         }
     }
 
@@ -183,6 +203,10 @@ struct MainAppView: View {
                     .foregroundColor(AppTheme.secondaryText)
             }
             .padding(.bottom, 4)
+
+            // Search button
+            searchButton
+                .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(SidebarItem.allCases.filter { $0 != .settings }, id: \.self) { item in
@@ -211,6 +235,47 @@ struct MainAppView: View {
         .padding(.bottom, 4)
         .padding(.horizontal, 8)
         .appGlass(.surface, radius: 10)
+    }
+
+    private var searchButton: some View {
+        Button {
+            openCommandPalette()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Text("Search")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Spacer()
+
+                Text("⌘K")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.08))
+                    )
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func sidebarButton(for item: SidebarItem) -> some View {
@@ -545,6 +610,57 @@ struct MainAppView: View {
         selection = navigationHistory[historyIndex]
     }
 
+    // MARK: - Command Palette
+
+    private func openCommandPalette() {
+        guard !showSettings else { return }
+        commandPaletteViewModel.reset()
+        showCommandPalette = true
+    }
+
+    private func dismissCommandPalette() {
+        showCommandPalette = false
+    }
+
+    private func setupCommandPaletteCallbacks() {
+        commandPaletteViewModel.onNavigate = { [self] item in
+            if item == .settings {
+                showSettings = true
+            } else {
+                selectSidebarItem(item)
+            }
+        }
+
+        commandPaletteViewModel.onStartRecording = {
+            NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
+        }
+
+        commandPaletteViewModel.onStopRecording = {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StopMeetingRecording"),
+                object: nil
+            )
+        }
+
+        commandPaletteViewModel.onStartDictation = {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("QuickActionDictation"),
+                object: nil
+            )
+        }
+
+        commandPaletteViewModel.onOpenAgent = {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("QuickActionAgentChat"),
+                object: nil
+            )
+        }
+
+        commandPaletteViewModel.onDismiss = { [self] in
+            dismissCommandPalette()
+        }
+    }
+
     @ViewBuilder
     private var detailContent: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -665,6 +781,51 @@ struct MainAppView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Command K Listener
+
+private struct CommandKListener: NSViewRepresentable {
+    let onTrigger: () -> Void
+
+    func makeNSView(context: Context) -> CommandKMonitorView {
+        let view = CommandKMonitorView()
+        view.onCommandK = onTrigger
+        return view
+    }
+
+    func updateNSView(_ nsView: CommandKMonitorView, context: Context) {
+        nsView.onCommandK = onTrigger
+    }
+
+    class CommandKMonitorView: NSView {
+        var onCommandK: (() -> Void)?
+        private var monitor: Any?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+
+            if window != nil && monitor == nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                    // Check for Command + K (keyCode 40 is 'K')
+                    if event.modifierFlags.contains(.command) && event.keyCode == 40 {
+                        self?.onCommandK?()
+                        return nil  // Consume the event
+                    }
+                    return event
+                }
+            }
+        }
+
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+
+            if newWindow == nil, let monitor = monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
     }
 }
 

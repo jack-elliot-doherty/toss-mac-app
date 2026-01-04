@@ -166,6 +166,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pillController.send(.doubleTapFn)
         }
         hotkey.onEscapePressed = { [weak self] in
+            // Post notification so command palette can dismiss
+            NotificationCenter.default.post(name: NSNotification.Name("GlobalEscapePressed"), object: nil)
             self?.pillController.send(.escapePressed)
         }
         hotkey.start()
