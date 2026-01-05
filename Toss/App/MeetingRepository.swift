@@ -556,6 +556,10 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 meetings[uuid] = meeting
 
                 // Import chunks from server if available and we don't have chunks yet
+                let serverChunksCount = serverMeeting.chunks?.count ?? 0
+                let localChunksCount = chunks[uuid]?.count ?? 0
+                NSLog("[Meetings] Chunks for \(uuid): server=\(serverChunksCount), local=\(localChunksCount)")
+
                 if let serverChunks = serverMeeting.chunks,
                    !serverChunks.isEmpty,
                    (chunks[uuid] ?? []).isEmpty

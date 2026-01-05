@@ -1918,8 +1918,16 @@ struct MeetingsListView: View {
         // Fetch only meetings created after our last sync to avoid fetching everything
         let lastSync = UserDefaults.standard.object(forKey: Self.lastServerSyncKey) as? Date
 
+        if let lastSync = lastSync {
+            NSLog("[MeetingsListView] Fetching meetings since: \(lastSync)")
+        } else {
+            NSLog("[MeetingsListView] Fetching all meetings (no lastSync)")
+        }
+
         do {
             let serverMeetings = try await MeetingsApi.shared.fetchRecordedMeetings(since: lastSync)
+
+            NSLog("[MeetingsListView] Server returned \(serverMeetings.count) meetings")
 
             if !serverMeetings.isEmpty {
                 await MainActor.run {

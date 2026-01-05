@@ -220,6 +220,13 @@ final class MeetingsApi {
 
         let decoder = JSONDecoder()
         let result = try decoder.decode(Response.self, from: data)
+
+        // Debug: log chunk counts for each meeting
+        for meeting in result.meetings {
+            let chunkCount = meeting.chunks?.count ?? 0
+            NSLog("[MeetingsApi] Meeting '\(meeting.title)' has \(chunkCount) chunks")
+        }
+
         NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))")
         return result.meetings
     }
