@@ -1607,6 +1607,9 @@ struct MeetingsListView: View {
             // Fetch Google Calendar connection status
             Task { await integrations.fetchGoogleStatus() }
 
+            // Fetch recorded meetings from server (to get Zapier/external meetings)
+            Task { await fetchRecordedMeetingsFromServer() }
+
             if let meetingId = pendingMeetingId {
                 navigationPath.append(meetingId)
                 selectedMeeting = meetingId
@@ -1616,8 +1619,10 @@ struct MeetingsListView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
         ) { _ in
-            // Sync calendar when app becomes active
-            Task { await meetingsManager.syncCalendar() }
+            // Sync calendar when app becomes active (only if connected)
+            if isCalendarConnected {
+                Task { await meetingsManager.syncCalendar() }
+            }
             refreshTrigger.toggle()
         }
         // Make computed properties depend on refreshTrigger
@@ -1905,6 +1910,29 @@ struct MeetingsListView: View {
         NSLog("[MeetingView] Deleted meeting: \(meeting.id)")
         // Also delete from server (fire and forget - queue handles retries)
         Task { await MeetingSyncManager.shared.deleteMeetingFromServer(meeting.id) }
+    }
+
+    private static let lastServerSyncKey = "lastMeetingsServerSync"
+
+    private func fetchRecordedMeetingsFromServer() async {
+        // Fetch only meetings created after our last sync to avoid fetching everything
+        let lastSync = UserDefaults.standard.object(forKey: Self.lastServerSyncKey) as? Date
+
+        do {
+            let serverMeetings = try await MeetingsApi.shared.fetchRecordedMeetings(since: lastSync)
+
+            if !serverMeetings.isEmpty {
+                await MainActor.run {
+                    repository.importFromServer(serverMeetings)
+                }
+                NSLog("[MeetingsListView] Imported \(serverMeetings.count) new meetings from server")
+            }
+
+            // Update last sync time
+            UserDefaults.standard.set(Date(), forKey: Self.lastServerSyncKey)
+        } catch {
+            NSLog("[MeetingsListView] Failed to fetch meetings from server: \(error.localizedDescription)")
+        }
     }
 
     private struct MeetingSection: Identifiable {

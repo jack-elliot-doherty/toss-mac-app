@@ -173,14 +173,23 @@ final class MeetingsApi {
         let actionItems: [StoredActionItem]?
     }
 
-    func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0) async throws -> [ServerMeeting] {
+    func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0, since: Date? = nil) async throws -> [ServerMeeting] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("/meetings/recorded"),
             resolvingAgainstBaseURL: false)!
-        components.queryItems = [
+        var queryItems = [
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),
         ]
+
+        // Add `since` parameter for incremental sync
+        if let since = since {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            queryItems.append(URLQueryItem(name: "since", value: formatter.string(from: since)))
+        }
+
+        components.queryItems = queryItems
 
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
@@ -201,7 +210,7 @@ final class MeetingsApi {
 
         let decoder = JSONDecoder()
         let result = try decoder.decode(Response.self, from: data)
-        NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server")
+        NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))")
         return result.meetings
     }
 
