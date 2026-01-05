@@ -554,6 +554,29 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 }
 
                 meetings[uuid] = meeting
+
+                // Import chunks from server if available and we don't have chunks yet
+                if let serverChunks = serverMeeting.chunks,
+                   !serverChunks.isEmpty,
+                   (chunks[uuid] ?? []).isEmpty
+                {
+                    let importedChunks = serverChunks.compactMap { serverChunk -> MeetingChunkModel? in
+                        guard let chunkUuid = UUID(uuidString: serverChunk.id) else { return nil }
+                        let chunkStartTime = parseDate(serverChunk.startedAt)
+                        let speaker: MeetingSpeaker = serverChunk.speaker == "remote" ? .remote : .user
+                        return MeetingChunkModel(
+                            id: chunkUuid,
+                            meetingId: uuid,
+                            chunkIndex: serverChunk.chunkIndex,
+                            transcript: serverChunk.transcript,
+                            startedAt: chunkStartTime,
+                            speaker: speaker
+                        )
+                    }
+                    chunks[uuid] = importedChunks.sorted { $0.chunkIndex < $1.chunkIndex }
+                    NSLog("[Meetings] Imported \(importedChunks.count) chunks from server")
+                }
+
                 NSLog("[Meetings] Imported meeting from server: \(serverMeeting.title)")
             }
         }

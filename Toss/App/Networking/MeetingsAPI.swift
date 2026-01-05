@@ -160,6 +160,15 @@ final class MeetingsApi {
 
     // MARK: - Fetch recorded meetings from server
 
+    struct ServerMeetingChunk: Codable {
+        let id: String
+        let meetingId: String
+        let chunkIndex: Int
+        let transcript: String
+        let startedAt: String
+        let speaker: String
+    }
+
     struct ServerMeeting: Codable {
         let id: String
         let title: String
@@ -171,6 +180,7 @@ final class MeetingsApi {
         let source: String?
         let status: String?
         let actionItems: [StoredActionItem]?
+        let chunks: [ServerMeetingChunk]?
     }
 
     func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0, since: Date? = nil) async throws -> [ServerMeeting] {
