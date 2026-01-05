@@ -132,20 +132,26 @@ final class OnboardingManager: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func autoAdvancePermissionsIfNeeded() {
+    func autoAdvancePermissionsIfNeeded() {
         guard currentPhase == .permissions else { return }
 
-        switch permissionsStep {
-        case .accessibility:
-            if axGranted {
-                permissionsStep = .microphone
+        // Loop to advance through all already-granted permissions
+        while true {
+            switch permissionsStep {
+            case .accessibility:
+                if axGranted {
+                    permissionsStep = .microphone
+                } else {
+                    return
+                }
+            case .microphone:
+                if micGranted {
+                    permissionsStep = .complete
+                }
+                return
+            case .complete:
+                return
             }
-        case .microphone:
-            if micGranted {
-                permissionsStep = .complete
-            }
-        case .complete:
-            break
         }
     }
 

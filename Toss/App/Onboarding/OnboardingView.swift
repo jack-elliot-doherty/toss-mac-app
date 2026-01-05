@@ -30,6 +30,7 @@ struct OnboardingView: View {
         .frame(minWidth: 820, minHeight: 560)
         .onAppear {
             manager.refresh()
+            manager.autoAdvancePermissionsIfNeeded()
         }
     }
 
