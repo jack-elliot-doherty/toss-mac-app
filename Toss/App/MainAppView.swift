@@ -123,16 +123,28 @@ struct MainAppView: View {
                 .animation(.easeInOut(duration: 0.25), value: shouldCollapse)
 
                 if showSettings {
-                    Color.black.opacity(0.35)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                        .onTapGesture { showSettings = false }
+                    ZStack {
+                        // Scrim - using a button ensures it receives clicks (same pattern as CommandPalette)
+                        Button(action: {
+                            showSettings = false
+                        }) {
+                            Color.black.opacity(0.001)
+                        }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                    SettingsModalView(onClose: { showSettings = false })
-                        .frame(width: 760)
-                        .transition(.scale.combined(with: .opacity))
-                        .zIndex(1)
-                        .appGlass(.surface, radius: 24)
+                        // Visible scrim layer (not interactive, just visual)
+                        Color.black.opacity(0.35)
+                            .allowsHitTesting(false)
+
+                        SettingsModalView(onClose: { showSettings = false })
+                            .frame(width: 760)
+                            .appGlass(.surface, radius: 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .background(EscapeKeyListener(onEscape: { showSettings = false }))
                 }
 
                 // Command Palette
@@ -141,6 +153,7 @@ struct MainAppView: View {
                         viewModel: commandPaletteViewModel,
                         onDismiss: { dismissCommandPalette() }
                     )
+                    .background(EscapeKeyListener(onEscape: { dismissCommandPalette() }))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -183,6 +196,8 @@ struct MainAppView: View {
             ) { _ in
                 if showCommandPalette {
                     dismissCommandPalette()
+                } else if showSettings {
+                    showSettings = false
                 }
             }
         }
@@ -811,6 +826,51 @@ private struct CommandKListener: NSViewRepresentable {
                     // Check for Command + K (keyCode 40 is 'K')
                     if event.modifierFlags.contains(.command) && event.keyCode == 40 {
                         self?.onCommandK?()
+                        return nil  // Consume the event
+                    }
+                    return event
+                }
+            }
+        }
+
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+
+            if newWindow == nil, let monitor = monitor {
+                NSEvent.removeMonitor(monitor)
+                self.monitor = nil
+            }
+        }
+    }
+}
+
+// MARK: - Escape Key Listener
+
+private struct EscapeKeyListener: NSViewRepresentable {
+    let onEscape: () -> Void
+
+    func makeNSView(context: Context) -> EscapeKeyMonitorView {
+        let view = EscapeKeyMonitorView()
+        view.onEscape = onEscape
+        return view
+    }
+
+    func updateNSView(_ nsView: EscapeKeyMonitorView, context: Context) {
+        nsView.onEscape = onEscape
+    }
+
+    class EscapeKeyMonitorView: NSView {
+        var onEscape: (() -> Void)?
+        private var monitor: Any?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+
+            if window != nil && monitor == nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                    // Escape key code is 53
+                    if event.keyCode == 53 {
+                        self?.onEscape?()
                         return nil  // Consume the event
                     }
                     return event
