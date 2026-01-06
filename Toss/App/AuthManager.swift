@@ -60,7 +60,7 @@ final class AuthManager: ObservableObject {
     }
 
     func beginBrowserLogin() {
-        let redirect = "toss://auth/callback"
+        let redirect = "\(Config.urlScheme)://auth/callback"
         let state = generateState()
         pendingAuthState = state
         var comps = URLComponents(string: "\(Config.serverURL)/auth/start")
@@ -72,7 +72,7 @@ final class AuthManager: ObservableObject {
     }
 
     func continueWithGoogle() {
-        let redirect = "toss://auth/callback"
+        let redirect = "\(Config.urlScheme)://auth/callback"
         let state = generateState()
         pendingAuthState = state
         var comps = URLComponents(string: "\(Config.serverURL)/auth/google/start")
@@ -84,7 +84,7 @@ final class AuthManager: ObservableObject {
     }
 
     func continueWithApple() {
-        let redirect = "toss://auth/callback"
+        let redirect = "\(Config.urlScheme)://auth/callback"
         let state = generateState()
         pendingAuthState = state
         var comps = URLComponents(string: "\(Config.serverURL)/auth/apple/start")
@@ -96,8 +96,8 @@ final class AuthManager: ObservableObject {
     }
 
     func handleDeepLink(url: URL) -> Bool {
-        // toss://auth/callback?state=...
-        guard url.scheme == "toss", url.host == "auth", url.path == "/callback" else {
+        // toss://auth/callback?state=... or toss-dev://auth/callback?state=...
+        guard (url.scheme == "toss" || url.scheme == "toss-dev"), url.host == "auth", url.path == "/callback" else {
             return false
         }
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)

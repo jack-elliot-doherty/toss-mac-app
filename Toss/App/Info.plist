@@ -18,6 +18,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>toss</string>
+				<string>toss-dev</string>
 			</array>
 		</dict>
 	</array>

@@ -163,8 +163,8 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func handleDeepLink(url: URL) -> Bool {
-        // toss://integrations/slack?connected=1
-        guard url.scheme == "toss", url.host == "integrations" else { return false }
+        // toss://integrations/slack?connected=1 or toss-dev://integrations/slack?connected=1
+        guard (url.scheme == "toss" || url.scheme == "toss-dev"), url.host == "integrations" else { return false }
 
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let connected = comps?.queryItems?.first(where: { $0.name == "connected" })?.value == "1"
