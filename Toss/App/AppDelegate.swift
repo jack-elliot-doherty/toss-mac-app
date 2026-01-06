@@ -56,6 +56,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
 
+        // Enable launch at login by default on first run
+        let hasSetLaunchAtLoginDefault = UserDefaults.standard.bool(forKey: "hasSetLaunchAtLoginDefault")
+        if !hasSetLaunchAtLoginDefault {
+            LaunchAtLogin.shared.isEnabled = true
+            UserDefaults.standard.set(true, forKey: "hasSetLaunchAtLoginDefault")
+        }
+
         // Clean up any orphaned meetings from previous crash/force quit
         meetingRepository.cleanupOrphanedMeetings()
 
