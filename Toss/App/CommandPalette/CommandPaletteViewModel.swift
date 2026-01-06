@@ -10,10 +10,6 @@ final class CommandPaletteViewModel: ObservableObject {
 
     // Callbacks for actions that need external wiring
     var onNavigate: ((SidebarItem) -> Void)?
-    var onStartRecording: (() -> Void)?
-    var onStopRecording: (() -> Void)?
-    var onStartDictation: (() -> Void)?
-    var onOpenAgent: (() -> Void)?
     var onDismiss: (() -> Void)?
 
     var filteredCommands: [Command] {
@@ -43,19 +39,7 @@ final class CommandPaletteViewModel: ObservableObject {
         case .navigate(let item):
             onNavigate?(item)
         case .execute:
-            // Route to the appropriate callback based on command ID
-            switch command.id {
-            case "action-start-recording":
-                onStartRecording?()
-            case "action-stop-recording":
-                onStopRecording?()
-            case "action-start-dictation":
-                onStartDictation?()
-            case "action-open-agent":
-                onOpenAgent?()
-            default:
-                break
-            }
+            break
         }
         onDismiss?()
     }

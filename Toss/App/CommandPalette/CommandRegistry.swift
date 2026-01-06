@@ -111,46 +111,5 @@ final class CommandRegistry: ObservableObject {
             keywords: ["settings", "preferences", "account"],
             action: .navigate(.settings)
         ))
-
-        // Action commands - these will be wired up in CommandPaletteViewModel
-        register(Command(
-            id: "action-start-recording",
-            title: "Start Recording",
-            subtitle: "Begin a new meeting recording",
-            icon: "record.circle",
-            category: .actions,
-            keywords: ["record", "start", "meeting", "call"],
-            action: .execute {}  // Placeholder, wired in ViewModel
-        ))
-
-        register(Command(
-            id: "action-stop-recording",
-            title: "Stop Recording",
-            subtitle: "End the current recording",
-            icon: "stop.circle",
-            category: .actions,
-            keywords: ["stop", "end", "recording"],
-            action: .execute {}
-        ))
-
-        register(Command(
-            id: "action-start-dictation",
-            title: "Start Dictation",
-            subtitle: "Toggle always-on dictation mode",
-            icon: "waveform",
-            category: .actions,
-            keywords: ["dictation", "voice", "transcribe", "type"],
-            action: .execute {}
-        ))
-
-        register(Command(
-            id: "action-open-agent",
-            title: "Open Agent",
-            subtitle: "Chat with AI assistant",
-            icon: "sparkles",
-            category: .actions,
-            keywords: ["agent", "ai", "chat", "assistant"],
-            action: .execute {}
-        ))
     }
 }

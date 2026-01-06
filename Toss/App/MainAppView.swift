@@ -428,7 +428,7 @@ struct MainAppView: View {
         HStack(spacing: 16) {
             navigationControls
             breadcrumbView
-            Spacer(minLength: 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             pageHeaderActions
         }
         .frame(maxWidth: .infinity)
@@ -636,31 +636,6 @@ struct MainAppView: View {
             } else {
                 selectSidebarItem(item)
             }
-        }
-
-        commandPaletteViewModel.onStartRecording = {
-            NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
-        }
-
-        commandPaletteViewModel.onStopRecording = {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("StopMeetingRecording"),
-                object: nil
-            )
-        }
-
-        commandPaletteViewModel.onStartDictation = {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("QuickActionDictation"),
-                object: nil
-            )
-        }
-
-        commandPaletteViewModel.onOpenAgent = {
-            NotificationCenter.default.post(
-                name: NSNotification.Name("QuickActionAgentChat"),
-                object: nil
-            )
         }
 
         commandPaletteViewModel.onDismiss = { [self] in
