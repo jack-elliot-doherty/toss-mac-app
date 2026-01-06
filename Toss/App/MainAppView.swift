@@ -428,10 +428,11 @@ struct MainAppView: View {
         HStack(spacing: 16) {
             navigationControls
             breadcrumbView
-                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .trailing) {
             pageHeaderActions
         }
-        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
