@@ -237,6 +237,14 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
         window.titlebarSeparatorStyle = .none
         window.toolbar = nil
 
+        // Apply corner radius to window's contentView to eliminate corner peaks
+        if let contentView = window.contentView {
+            contentView.wantsLayer = true
+            contentView.layer?.cornerRadius = 18  // Match SwiftUI clipShape radius
+            contentView.layer?.cornerCurve = .continuous
+            contentView.layer?.masksToBounds = true
+        }
+
         // Resizable
         window.styleMask.insert(.resizable)
         window.collectionBehavior.insert(.fullScreenPrimary)
