@@ -657,6 +657,7 @@ struct MainAppView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipped()  // Prevent content from overflowing when window shrinks
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, 0)
