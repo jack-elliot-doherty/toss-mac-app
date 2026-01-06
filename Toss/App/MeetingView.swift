@@ -1847,6 +1847,7 @@ struct MeetingsListView: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .fixedSize()  // Preserve intrinsic size in release builds
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 4)
