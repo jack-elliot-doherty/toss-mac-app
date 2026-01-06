@@ -10,14 +10,13 @@ final class UpdateManager: NSObject, ObservableObject {
     @Published var isCheckingForUpdates = false
 
     private var updaterController: SPUStandardUpdaterController?
+    private var periodicTimer: Timer?
+    private var activationObserver: NSObjectProtocol?
+    private var lastCheckTime: Date?
 
     override init() {
         super.init()
     }
-
-    private var periodicTimer: Timer?
-    private var activationObserver: NSObjectProtocol?
-    private var lastCheckTime: Date?
 
     /// Configure with the SPUStandardUpdaterController from AppDelegate
     func configure(with controller: SPUStandardUpdaterController) {
