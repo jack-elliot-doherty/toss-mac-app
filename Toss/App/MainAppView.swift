@@ -943,6 +943,7 @@ struct MeetingChromeActions: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .fixedSize()  // Preserve intrinsic size in release builds
 
             // Ellipsis menu
             Menu {
@@ -973,7 +974,9 @@ struct MeetingChromeActions: View {
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
+            .fixedSize()  // Preserve intrinsic size in release builds
         }
+        .fixedSize()  // Ensure HStack doesn't collapse in overlay
     }
 
     private func copyShareLink() {
