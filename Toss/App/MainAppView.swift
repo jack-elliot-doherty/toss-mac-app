@@ -425,14 +425,16 @@ struct MainAppView: View {
     }
 
     private var pageHeader: some View {
-        HStack(spacing: 16) {
-            navigationControls
-            breadcrumbView
+        GeometryReader { geometry in
+            HStack(spacing: 16) {
+                navigationControls
+                breadcrumbView
+                Spacer(minLength: 16)
+                pageHeaderActions
+            }
+            .frame(width: geometry.size.width)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .trailing) {
-            pageHeaderActions
-        }
+        .frame(height: 36)
         .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
