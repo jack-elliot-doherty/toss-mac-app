@@ -219,12 +219,22 @@ final class MeetingsApi {
         }
 
         let decoder = JSONDecoder()
+
+        // Debug: log raw JSON response
+        if let jsonString = String(data: data, encoding: .utf8) {
+            NSLog("[MeetingsApi] Raw JSON response (first 2000 chars): \(String(jsonString.prefix(2000)))")
+        }
+
         let result = try decoder.decode(Response.self, from: data)
 
         // Debug: log chunk counts for each meeting
         for meeting in result.meetings {
             let chunkCount = meeting.chunks?.count ?? 0
-            NSLog("[MeetingsApi] Meeting '\(meeting.title)' has \(chunkCount) chunks")
+            NSLog("[MeetingsApi] Meeting '\(meeting.title)' (id: \(meeting.id)) has \(chunkCount) chunks")
+            if let chunks = meeting.chunks, !chunks.isEmpty {
+                let firstChunk = chunks[0]
+                NSLog("[MeetingsApi]   First chunk: id=\(firstChunk.id), speaker=\(firstChunk.speaker), transcript=\(String(firstChunk.transcript.prefix(100)))...")
+            }
         }
 
         NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))")

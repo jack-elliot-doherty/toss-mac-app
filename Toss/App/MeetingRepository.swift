@@ -298,10 +298,13 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         return queue.sync { Array(meetings.values).sorted { $0.startTime > $1.startTime } }
     }
 
-    func getChunks(meetingId: UUID) -> [MeetingChunkModel] {  // ← ADD THIS METHOD
+    func getChunks(meetingId: UUID) -> [MeetingChunkModel] {
         return queue.sync {
-            (chunks[meetingId] ?? [])
+            let result = (chunks[meetingId] ?? [])
                 .sorted { $0.startedAt < $1.startedAt }
+            let allMeetingIds = Array(chunks.keys)
+            NSLog("[MeetingRepo] getChunks(\(meetingId)): found \(result.count) chunks. All meeting IDs with chunks: \(allMeetingIds)")
+            return result
         }
     }
 
@@ -558,27 +561,45 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 // Import chunks from server if available and we don't have chunks yet
                 let serverChunksCount = serverMeeting.chunks?.count ?? 0
                 let localChunksCount = chunks[uuid]?.count ?? 0
-                NSLog("[Meetings] Chunks for \(uuid): server=\(serverChunksCount), local=\(localChunksCount)")
+                let localChunksIsNil = chunks[uuid] == nil
+                NSLog("[Meetings] Chunks for \(uuid): server=\(serverChunksCount), local=\(localChunksCount), localIsNil=\(localChunksIsNil)")
 
-                if let serverChunks = serverMeeting.chunks,
-                   !serverChunks.isEmpty,
-                   (chunks[uuid] ?? []).isEmpty
-                {
-                    let importedChunks = serverChunks.compactMap { serverChunk -> MeetingChunkModel? in
-                        guard let chunkUuid = UUID(uuidString: serverChunk.id) else { return nil }
-                        let chunkStartTime = parseDate(serverChunk.startedAt)
-                        let speaker: MeetingSpeaker = serverChunk.speaker == "remote" ? .remote : .user
-                        return MeetingChunkModel(
-                            id: chunkUuid,
-                            meetingId: uuid,
-                            chunkIndex: serverChunk.chunkIndex,
-                            transcript: serverChunk.transcript,
-                            startedAt: chunkStartTime,
-                            speaker: speaker
-                        )
+                if let serverChunks = serverMeeting.chunks {
+                    NSLog("[Meetings] serverChunks exists with \(serverChunks.count) chunks")
+                    if !serverChunks.isEmpty {
+                        NSLog("[Meetings] serverChunks is not empty")
+                        let localEmpty = (chunks[uuid] ?? []).isEmpty
+                        NSLog("[Meetings] local chunks empty: \(localEmpty)")
+                        if localEmpty {
+                            NSLog("[Meetings] Starting chunk import...")
+                            let importedChunks = serverChunks.compactMap { serverChunk -> MeetingChunkModel? in
+                                NSLog("[Meetings] Processing chunk id=\(serverChunk.id)")
+                                guard let chunkUuid = UUID(uuidString: serverChunk.id) else {
+                                    NSLog("[Meetings] ERROR: Failed to parse chunk UUID: \(serverChunk.id)")
+                                    return nil
+                                }
+                                let chunkStartTime = parseDate(serverChunk.startedAt)
+                                let speaker: MeetingSpeaker = serverChunk.speaker == "remote" ? .remote : .user
+                                NSLog("[Meetings] Creating chunk model: chunkIndex=\(serverChunk.chunkIndex), speaker=\(speaker)")
+                                return MeetingChunkModel(
+                                    id: chunkUuid,
+                                    meetingId: uuid,
+                                    chunkIndex: serverChunk.chunkIndex,
+                                    transcript: serverChunk.transcript,
+                                    startedAt: chunkStartTime,
+                                    speaker: speaker
+                                )
+                            }
+                            chunks[uuid] = importedChunks.sorted { $0.chunkIndex < $1.chunkIndex }
+                            NSLog("[Meetings] ✓ Imported \(importedChunks.count) chunks, stored \(chunks[uuid]?.count ?? 0) chunks for meeting \(uuid)")
+                        } else {
+                            NSLog("[Meetings] SKIPPED: local chunks not empty")
+                        }
+                    } else {
+                        NSLog("[Meetings] SKIPPED: serverChunks is empty")
                     }
-                    chunks[uuid] = importedChunks.sorted { $0.chunkIndex < $1.chunkIndex }
-                    NSLog("[Meetings] Imported \(importedChunks.count) chunks from server")
+                } else {
+                    NSLog("[Meetings] SKIPPED: serverChunks is nil")
                 }
 
                 NSLog("[Meetings] Imported meeting from server: \(serverMeeting.title)")

@@ -425,21 +425,11 @@ struct MainAppView: View {
     }
 
     private var pageHeader: some View {
-        ZStack {
-            // Left-aligned: navigation + breadcrumb
-            HStack(spacing: 16) {
-                navigationControls
-                breadcrumbView
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-
-            // Right-aligned: actions
-            HStack {
-                Spacer()
-                pageHeaderActions
-            }
-            .frame(maxWidth: .infinity)
+        HStack(spacing: 16) {
+            navigationControls
+            breadcrumbView
+            Spacer(minLength: 16)
+            pageHeaderActions
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -569,8 +559,10 @@ struct MainAppView: View {
 
     private func selectSidebarItem(_ item: SidebarItem, pushToHistory: Bool = true) {
         // Reset navigation path when clicking Meetings (even if already selected)
-        if item == .meetings {
-            meetingsNavigationPath = NavigationPath()
+        if item == .meetings && !meetingsNavigationPath.isEmpty {
+            // Pop all items explicitly - more reliable than assigning new NavigationPath()
+            meetingsNavigationPath.removeLast(meetingsNavigationPath.count)
+            return  // Already on meetings, just needed to pop back to list
         }
 
         guard selection != item else { return }

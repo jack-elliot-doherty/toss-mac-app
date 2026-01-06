@@ -201,7 +201,9 @@ struct MeetingView: View {
     }
 
     private var chunks: [MeetingChunkModel] {
-        repository.getChunks(meetingId: meetingId)
+        let result = repository.getChunks(meetingId: meetingId)
+        NSLog("[MeetingDetailView] getChunks for \(meetingId): returned \(result.count) chunks")
+        return result
     }
 
     private var meetingTitle: String {
@@ -1795,8 +1797,9 @@ struct MeetingsListView: View {
                     statusBadge("REC", color: .red)
                 }
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             // User avatar
             Circle()
