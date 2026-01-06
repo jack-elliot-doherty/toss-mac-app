@@ -94,12 +94,14 @@ struct VisualEffectView: NSViewRepresentable {
         view.blendingMode = blendingMode
         view.state = state
 
-        // Apply corner radius mask at NSView level
+        // Apply corner radius at NSView level
+        // NOTE: Do NOT set masksToBounds = true here! It breaks hit testing for views
+        // layered on top of this visual effect (like sidebar buttons with .ultraThinMaterial)
         if cornerRadius > 0 {
             view.wantsLayer = true
             view.layer?.cornerRadius = cornerRadius
             view.layer?.cornerCurve = .continuous
-            view.layer?.masksToBounds = true
+            // view.layer?.masksToBounds = true  // REMOVED - breaks hit testing
         }
 
         return view
@@ -115,7 +117,7 @@ struct VisualEffectView: NSViewRepresentable {
             nsView.wantsLayer = true
             nsView.layer?.cornerRadius = cornerRadius
             nsView.layer?.cornerCurve = .continuous
-            nsView.layer?.masksToBounds = true
+            // nsView.layer?.masksToBounds = true  // REMOVED - breaks hit testing
         }
     }
 }

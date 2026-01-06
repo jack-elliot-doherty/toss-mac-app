@@ -238,11 +238,14 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
         window.toolbar = nil
 
         // Apply corner radius to window's contentView to eliminate corner peaks
+        // NOTE: Do NOT set masksToBounds = true here! It breaks hit testing for the sidebar
+        // because the sidebar uses .ultraThinMaterial (NSVisualEffectView) and layered
+        // masksToBounds causes hit testing to fail for views with visual effects.
         if let contentView = window.contentView {
             contentView.wantsLayer = true
             contentView.layer?.cornerRadius = 18  // Match SwiftUI clipShape radius
             contentView.layer?.cornerCurve = .continuous
-            contentView.layer?.masksToBounds = true
+            // contentView.layer?.masksToBounds = true  // REMOVED - breaks sidebar hit testing
         }
 
         // Resizable
