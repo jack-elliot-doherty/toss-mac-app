@@ -176,6 +176,9 @@ struct MainAppView: View {
             .onChange(of: selection) { _ in
                 updateChromeForCurrentSelection()
             }
+            .onChange(of: updateManager.updateAvailable) { newValue in
+                NSLog("[MainAppView] updateAvailable changed to: \(newValue), version: \(updateManager.latestVersion ?? "nil")")
+            }
             .onReceive(
                 NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
             ) { notification in
@@ -233,6 +236,7 @@ struct MainAppView: View {
 
             // Update available notification
             if updateManager.updateAvailable {
+                let _ = NSLog("[Sidebar] Showing update banner - version: \(updateManager.latestVersion ?? "unknown")")
                 updateAvailableBanner
                     .padding(.bottom, 8)
             }

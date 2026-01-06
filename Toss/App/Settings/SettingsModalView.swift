@@ -715,6 +715,49 @@ struct SettingsModalView: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            #if DEBUG
+                Divider()
+
+                // Debug section
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Debug")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.secondary)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Test Update Check")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Fetch appcast and show banner (ignores version comparison)")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Test Appcast") {
+                            Task {
+                                await UpdateManager.shared.debugTestAppcastFetch()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Force Show Update Banner")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Show the update banner without checking appcast")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Button("Show Banner") {
+                            UpdateManager.shared.debugForceShowUpdate()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            #endif
         }
     }
 

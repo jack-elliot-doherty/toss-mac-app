@@ -15,6 +15,10 @@ final class UpdateManager: NSObject, ObservableObject {
         super.init()
     }
 
+    private var periodicTimer: Timer?
+    private var activationObserver: NSObjectProtocol?
+    private var lastCheckTime: Date?
+
     /// Configure with the SPUStandardUpdaterController from AppDelegate
     func configure(with controller: SPUStandardUpdaterController) {
         self.updaterController = controller
@@ -22,16 +26,39 @@ final class UpdateManager: NSObject, ObservableObject {
         // Enable automatic background downloads so updates are ready when user clicks "Update now"
         controller.updater.automaticallyDownloadsUpdates = true
 
-        // Check for updates silently on launch (after a delay)
+        // Check for updates silently on launch (after a short delay to let UI settle)
         Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)  // 3 seconds
+            try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
             await checkForUpdatesInBackground()
         }
 
-        // Set up periodic background checks (every 30 minutes)
-        Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
+        // Set up periodic background checks (every 20 minutes)
+        periodicTimer = Timer.scheduledTimer(withTimeInterval: 1200, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 await self?.checkForUpdatesInBackground()
+            }
+        }
+
+        // Also check when app becomes active (user switches back to app)
+        // But throttle to avoid checking too frequently (minimum 5 minutes between checks)
+        activationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+
+                // Throttle: only check if last check was more than 5 minutes ago
+                let minimumInterval: TimeInterval = 300  // 5 minutes
+                if let lastCheck = self.lastCheckTime,
+                   Date().timeIntervalSince(lastCheck) < minimumInterval {
+                    NSLog("[UpdateManager] Skipping activation check - last check was \(Int(Date().timeIntervalSince(lastCheck)))s ago")
+                    return
+                }
+
+                NSLog("[UpdateManager] App became active - checking for updates")
+                await self.checkForUpdatesInBackground()
             }
         }
     }
@@ -51,41 +78,66 @@ final class UpdateManager: NSObject, ObservableObject {
         }
 
         isCheckingForUpdates = true
+        NSLog("[UpdateManager] Starting background update check")
 
         // Use the standard update check but monitor for available updates
         // We'll use UserDefaults to check if Sparkle found an update
         do {
             // Sparkle 2 checks the appcast and caches information
             // We can check if there's a newer version by comparing versions
-            if let feedURL = updater.feedURL {
-                let currentVersion =
-                    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+            guard let feedURL = updater.feedURL else {
+                NSLog("[UpdateManager] Feed URL is nil")
+                isCheckingForUpdates = false
+                return
+            }
 
-                let (data, _) = try await URLSession.shared.data(from: feedURL)
-                if let appcastString = String(data: data, encoding: .utf8) {
-                    // Parse the latest version from appcast XML
-                    // Look for sparkle:version or sparkle:shortVersionString
-                    if let latestVersionFromFeed = parseLatestVersion(from: appcastString) {
-                        if isNewerVersion(latestVersionFromFeed, than: currentVersion) {
-                            NSLog(
-                                "[UpdateManager] Update available: \(latestVersionFromFeed) (current: \(currentVersion))"
-                            )
-                            self.latestVersion = latestVersionFromFeed
-                            self.updateAvailable = true
-                        } else {
-                            NSLog(
-                                "[UpdateManager] Already on latest version: \(currentVersion)")
-                            self.updateAvailable = false
-                            self.latestVersion = nil
-                        }
-                    }
-                }
+            NSLog("[UpdateManager] Fetching appcast from: \(feedURL)")
+            let currentVersion =
+                Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+            NSLog("[UpdateManager] Current app version: \(currentVersion)")
+
+            let (data, response) = try await URLSession.shared.data(from: feedURL)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                NSLog("[UpdateManager] Appcast response status: \(httpResponse.statusCode)")
+            }
+
+            guard let appcastString = String(data: data, encoding: .utf8) else {
+                NSLog("[UpdateManager] Failed to decode appcast data as UTF-8")
+                isCheckingForUpdates = false
+                return
+            }
+
+            NSLog("[UpdateManager] Appcast data length: \(appcastString.count) characters")
+
+            // Parse the latest version from appcast XML
+            // Look for sparkle:version or sparkle:shortVersionString
+            guard let latestVersionFromFeed = parseLatestVersion(from: appcastString) else {
+                NSLog("[UpdateManager] Failed to parse version from appcast. First 500 chars: \(String(appcastString.prefix(500)))")
+                isCheckingForUpdates = false
+                return
+            }
+
+            NSLog("[UpdateManager] Parsed latest version from appcast: \(latestVersionFromFeed)")
+
+            if isNewerVersion(latestVersionFromFeed, than: currentVersion) {
+                NSLog(
+                    "[UpdateManager] Update available: \(latestVersionFromFeed) (current: \(currentVersion))"
+                )
+                self.latestVersion = latestVersionFromFeed
+                self.updateAvailable = true
+            } else {
+                NSLog(
+                    "[UpdateManager] Already on latest version: \(currentVersion) (feed has: \(latestVersionFromFeed))")
+                self.updateAvailable = false
+                self.latestVersion = nil
             }
         } catch {
             NSLog("[UpdateManager] Failed to check for updates: \(error.localizedDescription)")
         }
 
         isCheckingForUpdates = false
+        lastCheckTime = Date()
     }
 
     /// Show the Sparkle update UI to install the update
@@ -186,6 +238,49 @@ final class UpdateManager: NSObject, ObservableObject {
             NSLog("[UpdateManager] DEBUG: Forcing update banner to show")
             self.latestVersion = version
             self.updateAvailable = true
+        }
+
+        /// Test the actual appcast fetch and parsing (ignores version comparison)
+        func debugTestAppcastFetch() async {
+            guard let updater = updaterController?.updater else {
+                NSLog("[UpdateManager] DEBUG: No updater configured")
+                return
+            }
+
+            guard let feedURL = updater.feedURL else {
+                NSLog("[UpdateManager] DEBUG: Feed URL is nil")
+                return
+            }
+
+            NSLog("[UpdateManager] DEBUG: Testing appcast fetch from: \(feedURL)")
+
+            do {
+                let (data, response) = try await URLSession.shared.data(from: feedURL)
+
+                if let httpResponse = response as? HTTPURLResponse {
+                    NSLog("[UpdateManager] DEBUG: Response status: \(httpResponse.statusCode)")
+                    NSLog("[UpdateManager] DEBUG: Final URL: \(httpResponse.url?.absoluteString ?? "unknown")")
+                }
+
+                guard let appcastString = String(data: data, encoding: .utf8) else {
+                    NSLog("[UpdateManager] DEBUG: Failed to decode as UTF-8")
+                    return
+                }
+
+                NSLog("[UpdateManager] DEBUG: Appcast length: \(appcastString.count) chars")
+                NSLog("[UpdateManager] DEBUG: First 300 chars: \(String(appcastString.prefix(300)))")
+
+                if let version = parseLatestVersion(from: appcastString) {
+                    NSLog("[UpdateManager] DEBUG: Parsed version: \(version)")
+                    // Force show the banner with the actual version from appcast
+                    self.latestVersion = version
+                    self.updateAvailable = true
+                } else {
+                    NSLog("[UpdateManager] DEBUG: Failed to parse version")
+                }
+            } catch {
+                NSLog("[UpdateManager] DEBUG: Fetch failed: \(error)")
+            }
         }
     #endif
 }
