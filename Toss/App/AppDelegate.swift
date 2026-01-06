@@ -134,6 +134,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // No need to call show() separately - setState already positions and shows
 
+        // Observe preference changes for hiding idle pill
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleHideIdlePillChanged),
+            name: .hideIdlePillChanged, object: nil)
+
         pillController = PillController(
             audio: recorder,
             transcriber: TranscribeAPI.shared,
@@ -449,6 +454,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleRecordMeetingRequest() {
         pillController.send(.startMeetingRecording)
+    }
+
+    @objc private func handleHideIdlePillChanged() {
+        pillPanel.updateIdleVisibility()
     }
 
     func showSignInWindow() {

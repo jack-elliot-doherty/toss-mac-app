@@ -156,9 +156,28 @@ final class PillPanelController {
             self.viewModel.visualState = state
         }
 
-        // Ensure panel is visible
+        // Handle visibility based on idle state + preference
+        if case .idle = state {
+            if PreferencesManager.shared.hideIdlePill {
+                panel.orderOut(nil)
+                return
+            }
+        }
+
+        // Ensure panel is visible for non-idle states (or idle when preference is off)
         if !panel.isVisible {
             panel.orderFrontRegardless()
+        }
+    }
+
+    /// Updates pill visibility when preference changes while in idle state
+    func updateIdleVisibility() {
+        if case .idle = viewModel.visualState {
+            if PreferencesManager.shared.hideIdlePill {
+                panel.orderOut(nil)
+            } else {
+                panel.orderFrontRegardless()
+            }
         }
     }
 

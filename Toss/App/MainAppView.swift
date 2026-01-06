@@ -650,9 +650,11 @@ struct MainAppView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 12) {
             pageHeader
+                .frame(maxWidth: .infinity)
             contentView
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, 8)

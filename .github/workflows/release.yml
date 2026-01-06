@@ -34,17 +34,20 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
-      - name: Update MARKETING_VERSION in Xcode project
+      - name: Update version in Xcode project
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           PROJECT_FILE="Toss/Toss.xcodeproj/project.pbxproj"
 
-          # Replace all MARKETING_VERSION entries with the actual version
+          # Replace MARKETING_VERSION (CFBundleShortVersionString)
           sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = ${VERSION};/g" "$PROJECT_FILE"
 
-          # Verify the change
-          echo "Updated MARKETING_VERSION to ${VERSION}:"
-          grep "MARKETING_VERSION" "$PROJECT_FILE" | head -5
+          # Replace CURRENT_PROJECT_VERSION (CFBundleVersion) - Sparkle uses this for comparison
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = ${VERSION};/g" "$PROJECT_FILE"
+
+          # Verify the changes
+          echo "Updated versions to ${VERSION}:"
+          grep -E "MARKETING_VERSION|CURRENT_PROJECT_VERSION" "$PROJECT_FILE" | head -10
 
       - name: Import certificates
         env:
@@ -348,10 +351,12 @@ jobs:
         run: |
           R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
+          # Upload with no-cache headers to ensure clients always get latest version
           aws s3 cp appcast.xml \
             "s3://${R2_BUCKET}/appcast.xml" \
             --endpoint-url "$R2_ENDPOINT" \
-            --content-type "application/xml"
+            --content-type "application/xml" \
+            --cache-control "no-cache, no-store, must-revalidate"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1

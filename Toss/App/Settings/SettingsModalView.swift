@@ -135,6 +135,7 @@ struct SettingsModalView: View {
     @State private var selection: Section = .myAccount
     @StateObject private var integrations = IntegrationsManager.shared
     @StateObject private var launchAtLogin = LaunchAtLogin.shared
+    @StateObject private var preferences = PreferencesManager.shared
     @State private var meetingReminderTime: String = "Before 1m"
     @State private var autoDetectMeetings: Bool = true
     @State private var workspaceName: String = "My Workspace"
@@ -448,6 +449,13 @@ struct SettingsModalView: View {
                 title: "Launch when system starts",
                 subtitle: "This will launch Toss automatically when your system starts.",
                 isOn: $launchAtLogin.isEnabled
+            )
+
+            // Hide idle pill
+            toggleRow(
+                title: "Hide pill when idle",
+                subtitle: "Hide the floating pill when not recording or transcribing. It will appear when active.",
+                isOn: $preferences.hideIdlePill
             )
 
             Divider()
