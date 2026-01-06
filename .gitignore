@@ -7,7 +7,5 @@ build/
 .xcarchive
 .ipa
 .dSYM
-Toss.xcodeproj/xcuserdata/
-Toss.xcodeproj/xcuserstate/
 *.xcuserstate
-*.xcworkspace/xcuserdata/
+**/xcuserdata/
