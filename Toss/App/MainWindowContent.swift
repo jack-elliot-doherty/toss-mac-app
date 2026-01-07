@@ -47,6 +47,13 @@ private struct WindowKeyPrevention: NSViewRepresentable {
             window.delegate = windowDelegate
 
             NSLog("[WindowKeyPrevention] Installed key prevention delegate")
+
+            // Ensure window is visible when first created
+            // This handles the race condition where showMainWindow runs before SwiftUI creates the window
+            if AuthManager.shared.isAuthenticated {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            }
         }
     }
 
@@ -124,32 +131,33 @@ private struct WindowKeyPrevention: NSViewRepresentable {
         // MARK: - NSWindowDelegate methods that control focus
 
         func windowShouldClose(_ sender: NSWindow) -> Bool {
-            originalDelegate?.windowShouldClose?(sender) ?? true
-        }
-
-        func windowWillClose(_ notification: Notification) {
-            originalDelegate?.windowWillClose?(notification)
+            // Only allow user-initiated close (clicking close button), not automatic close
+            // This prevents the window from closing when switching to other apps (e.g., during OAuth)
+            let isUserClose = userClickedOnWindow || NSApp.currentEvent?.type == .leftMouseUp
+            if !isUserClose {
+                return false
+            }
+            return originalDelegate?.windowShouldClose?(sender) ?? true
         }
 
         func windowDidBecomeKey(_ notification: Notification) {
             guard let window = notification.object as? NSWindow else { return }
 
-            // Allow key focus if user clicked on window OR clicked dock icon
-            let userInitiated = userClickedOnWindow || activatedFromDockOrMenu
+            // Allow key focus if user clicked on window, clicked dock icon, or came from deep link
+            let userInitiated = userClickedOnWindow || activatedFromDockOrMenu || DeepLinkActivation.isActive
 
             if !userInitiated {
                 // The window became key without user clicking on it
-                // This is the unwanted automatic activation - resign key
-                NSLog(
-                    "[WindowKeyPrevention] Automatic key detected (no user action) - resigning key status"
-                )
-
-                DispatchQueue.main.async {
-                    window.resignKey()
-                    window.resignMain()
+                // Delay the check because deep link handler runs AFTER windowDidBecomeKey
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    guard let self = self else { return }
+                    // Re-check - if a deep link was processed in the meantime, don't resign
+                    let stillUnwanted = !self.userClickedOnWindow && !self.activatedFromDockOrMenu && !DeepLinkActivation.isActive
+                    if stillUnwanted {
+                        window.resignKey()
+                        window.resignMain()
+                    }
                 }
-            } else {
-                NSLog("[WindowKeyPrevention] User-initiated focus (click or dock) - allowing")
             }
 
             originalDelegate?.windowDidBecomeKey?(notification)
@@ -203,16 +211,14 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         guard let window = nsView.window else { return }
-        // Only handle visibility changes, not full reconfiguration
-        // This prevents repeated window property changes that can cause focus issues
-        if !auth.isAuthenticated {
+        // Hide window if user signed out
+        if !auth.isAuthenticated && window.isVisible {
             window.orderOut(nil)
         }
-        // Don't reconfigure the window on every update - only configure once in makeNSView
     }
 
     private func configureMainWindow(_ window: NSWindow, isAuthenticated: Bool, isInitial: Bool) {
-        // Hide window entirely if not authenticated
+        // Hide window if not authenticated
         if !isAuthenticated {
             window.orderOut(nil)
             return
@@ -266,6 +272,28 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
         window.standardWindowButton(.zoomButton)?.isHidden = true
         if let titlebarView = window.standardWindowButton(.closeButton)?.superview {
             titlebarView.isHidden = true
+        }
+    }
+}
+
+// MARK: - Deep Link Activation Helper
+
+/// Static helper to track deep link activations synchronously.
+/// This allows WindowKeyPrevention to recognize deep link activations as user-initiated.
+enum DeepLinkActivation {
+    private static var _isActive = false
+
+    /// Whether a deep link activation is currently in progress
+    static var isActive: Bool { _isActive }
+
+    /// Call this before activating the app from a deep link (OAuth callback, etc.)
+    /// The flag will automatically reset after a short delay.
+    static func markActivation() {
+        _isActive = true
+
+        // Reset after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            _isActive = false
         }
     }
 }

@@ -378,15 +378,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        NSLog("[AppDelegate] application(_:open:) called with \(urls.count) URLs")
+        for url in urls {
+            NSLog("[AppDelegate] Processing URL: \(url)")
+        }
+
+        // Mark deep link activation FIRST, before any handlers run
+        // This ensures WindowKeyPrevention sees the flag when the window becomes key
+        DeepLinkActivation.markActivation()
+
+        var handledByDeepLink = false
         for url in urls {
             // Handle integration callbacks (Slack OAuth)
             if IntegrationsManager.shared.handleDeepLink(url: url) {
+                NSLog("[AppDelegate] URL handled by IntegrationsManager")
+                handledByDeepLink = true
                 continue
             }
             // Handle auth callbacks
-            _ = AuthManager.shared.handleDeepLink(url: url)
+            if AuthManager.shared.handleDeepLink(url: url) {
+                NSLog("[AppDelegate] URL handled by AuthManager")
+                handledByDeepLink = true
+            }
         }
 
+        // For OAuth callbacks, activate window after a short delay
+        // to let browser's focus handling settle and avoid flash
+        if handledByDeepLink {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.activateMainWindowSmoothly()
+            }
+        }
+    }
+
+    /// Activates the main window smoothly for deep link callbacks
+    private func activateMainWindowSmoothly() {
+        guard let mainWindow = NSApp.windows.first(where: { $0.title == "Toss" && !($0 is NSPanel) }) else {
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        // Deminiaturize if needed
+        if mainWindow.isMiniaturized {
+            mainWindow.deminiaturize(nil)
+        }
+
+        // Activate app and bring window to front
+        NSApp.activate(ignoringOtherApps: true)
+        mainWindow.makeKeyAndOrderFront(nil)
     }
 
     private func cacheTranscript(_ text: String) -> ThreadModel {

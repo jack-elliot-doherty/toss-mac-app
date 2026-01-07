@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SlackConnectionStatus: Codable {
@@ -168,6 +169,10 @@ final class IntegrationsManager: ObservableObject {
 
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let connected = comps?.queryItems?.first(where: { $0.name == "connected" })?.value == "1"
+
+        // Window activation is handled by AppDelegate after all URLs are processed
+        // to avoid flash from multiple activation attempts
+
         if url.path == "/slack" {
             if connected {
                 Task { await fetchSlackStatus() }

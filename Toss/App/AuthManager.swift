@@ -112,8 +112,8 @@ final class AuthManager: ObservableObject {
                 try? writeRefresh(refresh)
                 self.refreshToken = refresh
             }
-            // ADDED: Activate app to trigger UI update
-            NSApp.activate(ignoringOtherApps: true)
+            // Window activation is handled by AppDelegate after URL processing
+            // to avoid flash from multiple activation attempts
             Task { await self.refreshProfile() }
             return true
         }
@@ -301,8 +301,11 @@ final class AuthManager: ObservableObject {
                 self.accessToken = token
                 self.refreshToken = refresh ?? self.refreshToken
 
-                // ADDED: Activate app to bring to foreground and trigger UI update
-                NSApp.activate(ignoringOtherApps: true)
+                // Activate app to bring to foreground and trigger UI update
+                // Only activate if not already active to avoid window flash
+                if !NSApp.isActive {
+                    NSApp.activate(ignoringOtherApps: true)
+                }
 
                 await SubscriptionManager.shared.checkSubscription()
                 _ = await self.refreshProfile()
