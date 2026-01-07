@@ -378,26 +378,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        NSLog("[AppDelegate] application(_:open:) called with \(urls.count) URLs")
-        for url in urls {
-            NSLog("[AppDelegate] Processing URL: \(url)")
-        }
-
         // Mark deep link activation FIRST, before any handlers run
         // This ensures WindowKeyPrevention sees the flag when the window becomes key
         DeepLinkActivation.markActivation()
 
         var handledByDeepLink = false
         for url in urls {
-            // Handle integration callbacks (Slack OAuth)
+            // Handle integration callbacks (Slack, Linear, Google, Notion OAuth)
             if IntegrationsManager.shared.handleDeepLink(url: url) {
-                NSLog("[AppDelegate] URL handled by IntegrationsManager")
                 handledByDeepLink = true
                 continue
             }
             // Handle auth callbacks
             if AuthManager.shared.handleDeepLink(url: url) {
-                NSLog("[AppDelegate] URL handled by AuthManager")
                 handledByDeepLink = true
             }
         }
