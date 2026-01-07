@@ -169,6 +169,7 @@ struct MainAppView: View {
             .animation(.easeInOut(duration: 0.2), value: showSettings)
             .animation(.spring(response: 0.25, dampingFraction: 0.88), value: showCommandPalette)
             .background(CommandKListener(onTrigger: { openCommandPalette() }))
+            .background(WindowFinder(window: $windowReference))
             .onAppear {
                 updateChromeForCurrentSelection()
                 setupCommandPaletteCallbacks()
@@ -896,6 +897,29 @@ private struct TrafficLightsView: View {
         }
         .buttonStyle(.plain)
         .focusable(false)
+    }
+}
+
+// MARK: - Window Finder
+
+/// Captures a reference to the hosting NSWindow and passes it back via a binding
+private struct WindowFinder: NSViewRepresentable {
+    @Binding var window: NSWindow?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            self.window = view.window
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if window == nil {
+            DispatchQueue.main.async {
+                self.window = nsView.window
+            }
+        }
     }
 }
 
