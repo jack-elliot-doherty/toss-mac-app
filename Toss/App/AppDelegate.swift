@@ -356,6 +356,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
         -> Bool
     {
+        // If we're in accessory mode (soft quit), restore to regular mode
+        if NSApp.activationPolicy() == .accessory {
+            NSLog("[AppDelegate] applicationShouldHandleReopen - restoring from accessory mode")
+            restoreFromAccessoryMode()
+            return true
+        }
+
         // When user clicks dock icon, show the main window
         if !flag {
             // No visible windows, create/show the main window
@@ -429,6 +436,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openMainWindow() {
+        // If we're in accessory mode (soft quit), restore to regular mode first
+        if NSApp.activationPolicy() == .accessory {
+            restoreFromAccessoryMode()
+            return
+        }
         NSApp.activate(ignoringOtherApps: true)
         if let window = NSApp.windows.first(where: { $0.title == "Toss" }) {
             window.makeKeyAndOrderFront(nil)
@@ -449,6 +461,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitApp() {
         NSApplication.shared.terminate(nil)
+    }
+
+    /// "Soft quit" - closes windows and removes from app switcher, but keeps running in background
+    /// The app stays in the menu bar and continues meeting detection, notifications, etc.
+    @objc private func softQuitApp() {
+        NSLog("[AppDelegate] Soft quit - closing windows and switching to accessory mode")
+        closeMainWindow()
+        closeSignInWindow()
+        // Switch to accessory app (menu bar only, no Dock/Cmd+Tab)
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// Restores the app from accessory mode back to regular mode
+    private func restoreFromAccessoryMode() {
+        NSLog("[AppDelegate] Restoring from accessory mode")
+        NSApp.setActivationPolicy(.regular)
+        // Small delay to let the activation policy change take effect
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.showMainWindow()
+        }
     }
 
     @objc private func handleUserAccountChanged() {
@@ -567,6 +599,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showMainWindow() {
         NSLog("[AppDelegate] showMainWindow START")
+
+        // If we're in accessory mode (soft quit), restore to regular mode first
+        if NSApp.activationPolicy() == .accessory {
+            NSLog("[AppDelegate] showMainWindow - restoring from accessory mode")
+            NSApp.setActivationPolicy(.regular)
+        }
+
         // Find existing main window
         for window in NSApp.windows {
             if window.title == "Toss" && window !== signInWindow {
@@ -898,6 +937,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(updateItem)
 
         menu.addItem(NSMenuItem.separator())
+
+        // Add "Close Toss" menu item (soft quit - stays in menu bar)
+        let closeItem = NSMenuItem(
+            title: "Close Toss", action: #selector(softQuitApp), keyEquivalent: "")
+        closeItem.target = self
+        menu.addItem(closeItem)
 
         // Add "Quit Toss Completely" menu item
         let quitItem = NSMenuItem(

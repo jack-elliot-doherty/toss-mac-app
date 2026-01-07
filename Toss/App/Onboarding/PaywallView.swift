@@ -59,7 +59,7 @@ struct PaywallView: View {
 
                 // Logout button
                 Button {
-                    auth.signOut()
+                    auth.signOut(reason: "user clicked logout on paywall")
                 } label: {
                     Text("Logout")
                         .foregroundColor(AppTheme.primaryText)

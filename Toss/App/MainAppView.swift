@@ -703,7 +703,7 @@ struct MainAppView: View {
 
                             Button(action: {
                                 showUserMenu = false
-                                auth.signOut()
+                                auth.signOut(reason: "user clicked logout in user menu")
                             }) {
                                 HStack {
                                     Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -1071,7 +1071,7 @@ struct SettingsView: View {
                             .system(size: 13, weight: .semibold))
                         Spacer()
                         Button("Sign out") {
-                            auth.signOut()
+                            auth.signOut(reason: "user clicked sign out in settings")
                             ob.refresh()
                         }
                     }

@@ -11,6 +11,9 @@ final class APIClient {
     }
 
     /// Perform an authenticated request with automatic token refresh on 401
+    /// Note: This method does NOT sign out on refresh failure - the auto-refresh timer
+    /// handles sign-out after multiple consecutive failures to avoid aggressive logout
+    /// during transient issues like app updates or network hiccups.
     func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
         // Configure with current token (access MainActor property)
         let token = await MainActor.run { AuthManager.shared.accessToken }
@@ -24,13 +27,16 @@ final class APIClient {
 
             let refreshed = await AuthManager.shared.refreshAccessToken()
             if refreshed {
-                NSLog("[APIClient] Token refreshed, retrying request...")
+                NSLog("[APIClient] Token refreshed successfully, retrying request...")
                 let newToken = await MainActor.run { AuthManager.shared.accessToken }
                 let retryRequest = request.configured(token: newToken)
                 return try await session.data(for: retryRequest)
             } else {
-                NSLog("[APIClient] Token refresh failed, signing out...")
-                await MainActor.run { AuthManager.shared.signOut() }
+                // Don't sign out here - let the auto-refresh timer handle sign-out
+                // after multiple consecutive failures. This prevents aggressive logout
+                // during transient issues like app updates, network hiccups, or
+                // temporary server issues.
+                NSLog("[APIClient] Token refresh failed - returning 401 to caller (auto-refresh timer will handle sign-out if needed)")
             }
         }
 

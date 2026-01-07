@@ -23,13 +23,18 @@ final class AuthManager: ObservableObject {
     private var pendingAuthState: String?
 
     private var refreshTimer: Timer?
+    private var consecutiveRefreshFailures = 0
+    private let maxConsecutiveFailuresBeforeSignout = 3
 
     private init() {
+        NSLog("[AuthManager] Initializing...")
         accessToken = try? readToken()
         refreshToken = try? readRefresh()
+        NSLog("[AuthManager] Init complete - isAuthenticated: \(isAuthenticated)")
         Task {
             // Always refresh on launch if we have a refresh token
             if refreshToken != nil {
+                NSLog("[AuthManager] Refreshing access token on launch...")
                 _ = await self.refreshAccessToken()
             }
             _ = await self.refreshProfile()
@@ -42,19 +47,28 @@ final class AuthManager: ObservableObject {
     func startAutoRefresh() {
         // Refresh the access token every 10 minutes
         refreshTimer?.invalidate()
+        consecutiveRefreshFailures = 0
+        NSLog("[AuthManager] Starting auto-refresh timer (every 10 minutes)")
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) {
             [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }
                 if self.accessToken != nil {
-                    NSLog("[AuthManager] Auto-refreshing access token")
+                    NSLog("[AuthManager] Auto-refreshing access token...")
                     let success = await self.refreshAccessToken()
-                    if !success {
-                        NSLog("[AuthManager] Auto-refresh failed, signing out")
-                        self.signOut()
+                    if success {
+                        self.consecutiveRefreshFailures = 0
+                        NSLog("[AuthManager] Auto-refresh succeeded, reset failure counter")
+                    } else {
+                        self.consecutiveRefreshFailures += 1
+                        NSLog("[AuthManager] Auto-refresh failed (\(self.consecutiveRefreshFailures)/\(self.maxConsecutiveFailuresBeforeSignout) consecutive failures)")
+
+                        if self.consecutiveRefreshFailures >= self.maxConsecutiveFailuresBeforeSignout {
+                            NSLog("[AuthManager] Max consecutive failures reached, signing out")
+                            self.signOut(reason: "auto-refresh failed \(self.maxConsecutiveFailuresBeforeSignout) times consecutively")
+                        }
                     }
                 }
-
             }
         }
     }
@@ -125,7 +139,10 @@ final class AuthManager: ObservableObject {
         return true
     }
 
-    func signOut() {
+    /// Sign out the user and clear all auth state
+    /// - Parameter reason: A description of why signOut was triggered (for debugging)
+    func signOut(reason: String = "unknown") {
+        NSLog("[AuthManager] signOut triggered - reason: \(reason)")
 
         refreshTimer?.invalidate()
         refreshTimer = nil
@@ -139,6 +156,7 @@ final class AuthManager: ObservableObject {
         userEmail = nil
         userImageURL = nil
 
+        NSLog("[AuthManager] signOut complete - user is now logged out")
     }
 
     @discardableResult
@@ -204,8 +222,10 @@ final class AuthManager: ObservableObject {
         attrs[kSecAttrSynchronizable as String] = kCFBooleanFalse as Any
         let status = SecItemAdd(attrs as CFDictionary, nil)
         guard status == errSecSuccess else {
+            NSLog("[AuthManager] writeToken failed with status: \(status)")
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
         }
+        NSLog("[AuthManager] writeToken success")
     }
 
     private func writeRefresh(_ token: String) throws {
@@ -222,8 +242,10 @@ final class AuthManager: ObservableObject {
         attrs[kSecAttrSynchronizable as String] = kCFBooleanFalse as Any
         let status = SecItemAdd(attrs as CFDictionary, nil)
         guard status == errSecSuccess else {
+            NSLog("[AuthManager] writeRefresh failed with status: \(status)")
             throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
         }
+        NSLog("[AuthManager] writeRefresh success")
     }
 
     private func readToken() throws -> String? {
@@ -235,8 +257,15 @@ final class AuthManager: ObservableObject {
         ]
         var out: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &out)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess, let data = out as? Data else { return nil }
+        if status == errSecItemNotFound {
+            NSLog("[AuthManager] readToken: no token found in keychain")
+            return nil
+        }
+        guard status == errSecSuccess, let data = out as? Data else {
+            NSLog("[AuthManager] readToken failed with status: \(status)")
+            return nil
+        }
+        NSLog("[AuthManager] readToken: successfully read token from keychain")
         return String(data: data, encoding: .utf8)
     }
 
@@ -249,8 +278,15 @@ final class AuthManager: ObservableObject {
         ]
         var out: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &out)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess, let data = out as? Data else { return nil }
+        if status == errSecItemNotFound {
+            NSLog("[AuthManager] readRefresh: no refresh token found in keychain")
+            return nil
+        }
+        guard status == errSecSuccess, let data = out as? Data else {
+            NSLog("[AuthManager] readRefresh failed with status: \(status)")
+            return nil
+        }
+        NSLog("[AuthManager] readRefresh: successfully read refresh token from keychain")
         return String(data: data, encoding: .utf8)
     }
 
@@ -260,7 +296,8 @@ final class AuthManager: ObservableObject {
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: tokenAccount,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        NSLog("[AuthManager] deleteToken status: \(status)")
     }
 
     private func deleteRefresh() throws {
@@ -269,7 +306,8 @@ final class AuthManager: ObservableObject {
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: refreshAccount,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        NSLog("[AuthManager] deleteRefresh status: \(status)")
     }
 
     // MARK: - Token Exchange & Refresh
@@ -315,30 +353,64 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    /// Refresh the access token with retry logic for transient failures
+    /// - Parameters:
+    ///   - maxRetries: Number of retry attempts (default: 3)
+    ///   - retryDelay: Delay between retries in seconds (default: 1.0)
+    /// - Returns: true if refresh succeeded, false otherwise
     @discardableResult
-    func refreshAccessToken() async -> Bool {
-        guard let refresh = refreshToken, !refresh.isEmpty else { return false }
-        guard let url = URL(string: "\(Config.serverURL)/auth/refresh") else { return false }
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("Bearer \(refresh)", forHTTPHeaderField: "Authorization")
-        do {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return false }
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                if let token = json["token"] as? String, !token.isEmpty {
-                    try? writeToken(token)
-                    // Only update the published property if the token actually changed
-                    // This prevents unnecessary SwiftUI re-renders and window focus issues
-                    if self.accessToken != token {
-                        self.accessToken = token
-                    }
-                    return true
-                }
-            }
-        } catch {
-            NSLog("[AuthManager] refresh token error: %@", error.localizedDescription)
+    func refreshAccessToken(maxRetries: Int = 3, retryDelay: TimeInterval = 1.0) async -> Bool {
+        guard let refresh = refreshToken, !refresh.isEmpty else {
+            NSLog("[AuthManager] refreshAccessToken: No refresh token available")
+            return false
         }
+        guard let url = URL(string: "\(Config.serverURL)/auth/refresh") else {
+            NSLog("[AuthManager] refreshAccessToken: Invalid URL")
+            return false
+        }
+
+        for attempt in 1...maxRetries {
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.setValue("Bearer \(refresh)", forHTTPHeaderField: "Authorization")
+
+            do {
+                let (data, resp) = try await URLSession.shared.data(for: req)
+
+                if let http = resp as? HTTPURLResponse {
+                    if http.statusCode == 200 {
+                        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let token = json["token"] as? String, !token.isEmpty {
+                            try? writeToken(token)
+                            // Only update the published property if the token actually changed
+                            // This prevents unnecessary SwiftUI re-renders and window focus issues
+                            if self.accessToken != token {
+                                self.accessToken = token
+                            }
+                            NSLog("[AuthManager] refreshAccessToken: Success on attempt \(attempt)")
+                            return true
+                        }
+                        NSLog("[AuthManager] refreshAccessToken: Invalid response format on attempt \(attempt)")
+                    } else if http.statusCode == 401 {
+                        // Refresh token is invalid/expired - no point retrying
+                        NSLog("[AuthManager] refreshAccessToken: Refresh token rejected (401) - not retrying")
+                        return false
+                    } else {
+                        NSLog("[AuthManager] refreshAccessToken: Server returned \(http.statusCode) on attempt \(attempt)")
+                    }
+                }
+            } catch {
+                NSLog("[AuthManager] refreshAccessToken: Network error on attempt \(attempt): \(error.localizedDescription)")
+            }
+
+            // Retry with delay if not the last attempt
+            if attempt < maxRetries {
+                NSLog("[AuthManager] refreshAccessToken: Retrying in \(retryDelay)s...")
+                try? await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+            }
+        }
+
+        NSLog("[AuthManager] refreshAccessToken: All \(maxRetries) attempts failed")
         return false
     }
 }
