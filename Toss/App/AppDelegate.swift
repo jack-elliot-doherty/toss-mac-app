@@ -712,14 +712,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.imagePosition = .imageLeading
         }
 
-        // Find the next upcoming meeting (hasn't started yet)
         let now = Date()
-        let nextMeeting = todaysMeetings.first { $0.startedAt > now }
+
+        // First check for an active meeting (currently in progress)
+        let activeMeeting = todaysMeetings.first { meeting in
+            meeting.startedAt <= now && (meeting.endedAt ?? .distantFuture) > now
+        }
+
+        // If no active meeting, find the next upcoming meeting (hasn't started yet)
+        let nextMeeting = activeMeeting ?? todaysMeetings.first { $0.startedAt > now }
 
         if let meeting = nextMeeting {
-            // Build the attributed string: "title • in Xm"
+            let isActive = activeMeeting != nil
             let title = truncateTitle(meeting.displayTitle, maxWidth: 80)
-            let timeString = formatRelativeTime(meeting.startedAt)
+            let timeString = isActive
+                ? formatTimeRemaining(until: meeting.endedAt ?? meeting.startedAt)
+                : formatRelativeTime(meeting.startedAt)
 
             let fullString = NSMutableAttributedString()
 
@@ -808,6 +816,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return "in \(hours)h"
             } else {
                 return "in \(hours)h \(remainingMins)m"
+            }
+        }
+    }
+
+    private func formatTimeRemaining(until endDate: Date) -> String {
+        let now = Date()
+        let seconds = endDate.timeIntervalSince(now)
+
+        guard seconds > 0 else { return "ending" }
+
+        let minutes = Int(ceil(seconds / 60))
+
+        if minutes < 60 {
+            return "\(minutes)m left"
+        } else {
+            let hours = minutes / 60
+            let remainingMins = minutes % 60
+            if remainingMins == 0 {
+                return "\(hours)h left"
+            } else {
+                return "\(hours)h \(remainingMins)m left"
             }
         }
     }
