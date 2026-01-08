@@ -9,6 +9,7 @@ final class UpdateManager: NSObject, ObservableObject {
     @Published var updateAvailable = false
     @Published var latestVersion: String?
     @Published var isCheckingForUpdates = false
+    @Published var forceUpdateRequired = false
 
     private var updaterController: SPUStandardUpdaterController?
     private var periodicTimer: Timer?
@@ -230,6 +231,31 @@ final class UpdateManager: NSObject, ObservableObject {
     /// Dismiss the update notification (user chose to skip for now)
     func dismissUpdate() {
         updateAvailable = false
+    }
+
+    /// Called when server returns 426 (Upgrade Required)
+    /// Shows a non-dismissible modal requiring the user to update
+    func handleForceUpdateRequired() {
+        NSLog("[UpdateManager] Force update required - server returned 426")
+        forceUpdateRequired = true
+
+        // Focus the main app window so the modal is visible
+        // (especially important if triggered from agent panel)
+        NSApp.activate(ignoringOtherApps: true)
+        if let mainWindow = NSApp.windows.first(where: { $0.title.contains("Toss") || $0.isMainWindow }) {
+            mainWindow.makeKeyAndOrderFront(nil)
+        }
+
+        // Also trigger update check to get latest version info
+        Task {
+            await checkForUpdatesInBackground()
+        }
+    }
+
+    /// Install update and reset force update state
+    func installForceUpdate() {
+        NSLog("[UpdateManager] Installing forced update")
+        installUpdate()
     }
 
     #if DEBUG

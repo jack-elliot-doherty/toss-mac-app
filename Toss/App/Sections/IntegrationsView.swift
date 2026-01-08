@@ -40,15 +40,13 @@ final class IntegrationsManager: ObservableObject {
     @Published var error: String?
 
     func fetchSlackStatus() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/slack/status") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
             isLoading = true
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
             isLoading = false
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
@@ -61,14 +59,12 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func connectSlack() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/slack/connect") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200,
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -84,15 +80,13 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func disconnectSlack() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/slack/disconnect") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 slackStatus = SlackConnectionStatus(connected: false, teamName: nil)
             }
@@ -103,15 +97,13 @@ final class IntegrationsManager: ObservableObject {
 
     // 3. Add Google Methods
     func fetchGoogleStatus() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/google/status") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         isLoadingGoogleStatus = true
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 googleStatus = try JSONDecoder().decode(GoogleConnectionStatus.self, from: data)
             }
@@ -122,14 +114,12 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func connectGoogle() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/google/connect") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200,
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -145,15 +135,13 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func disconnectGoogle() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/google/disconnect") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 googleStatus = GoogleConnectionStatus(
                     connected: false, email: nil, requiresReauth: nil, lastErrorAt: nil)
@@ -200,15 +188,13 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func fetchLinearStatus() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/linear/status") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
             // Don't block UI with global loading, just fetch
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 linearStatus = try JSONDecoder().decode(LinearConnectionStatus.self, from: data)
@@ -219,14 +205,12 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func connectLinear() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/linear/connect") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200,
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -242,15 +226,13 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func disconnectLinear() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/linear/disconnect") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 linearStatus = LinearConnectionStatus(
                     connected: false, organizationName: nil, requiresReauth: nil, lastErrorAt: nil)
@@ -263,14 +245,12 @@ final class IntegrationsManager: ObservableObject {
     // MARK: - Notion
 
     func fetchNotionStatus() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/notion/status") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 notionStatus = try JSONDecoder().decode(NotionConnectionStatus.self, from: data)
             }
@@ -280,14 +260,12 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func connectNotion() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/notion/connect") else { return }
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200,
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -303,15 +281,13 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func disconnectNotion() async {
-        guard let token = AuthManager.shared.accessToken else { return }
         guard let url = URL(string: "\(Config.serverURL)/notion/disconnect") else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await APIClient.shared.perform(request)
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 notionStatus = NotionConnectionStatus(
                     connected: false, workspaceName: nil, workspaceIcon: nil)

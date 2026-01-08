@@ -118,6 +118,20 @@ final class AgentAPI {
             if let httpResponse = response as? HTTPURLResponse {
                 NSLog("[AgentAPI] Response status: %d", httpResponse.statusCode)
 
+                // Handle 426 Upgrade Required
+                if httpResponse.statusCode == 426 {
+                    NSLog("[AgentAPI] Server requires app update (426)")
+                    DispatchQueue.main.async {
+                        UpdateManager.shared.handleForceUpdateRequired()
+                    }
+                    completion(
+                        .failure(
+                            NSError(
+                                domain: "AgentAPI", code: 426,
+                                userInfo: [NSLocalizedDescriptionKey: "Update required"])))
+                    return
+                }
+
                 if httpResponse.statusCode != 200 {
                     completion(
                         .failure(

@@ -237,10 +237,22 @@ extension AgentStreamParser {
                 do {
                     let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
 
-                    guard let httpResponse = response as? HTTPURLResponse,
-                        httpResponse.statusCode == 200
-                    else {
-                        // Check for error body if possible, or just throw
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        continuation.finish(throwing: URLError(.badServerResponse))
+                        return
+                    }
+
+                    // Handle 426 Upgrade Required
+                    if httpResponse.statusCode == 426 {
+                        NSLog("[AgentStreamParser] Server requires app update (426)")
+                        await MainActor.run {
+                            UpdateManager.shared.handleForceUpdateRequired()
+                        }
+                        continuation.finish(throwing: URLError(.userAuthenticationRequired))
+                        return
+                    }
+
+                    guard httpResponse.statusCode == 200 else {
                         continuation.finish(throwing: URLError(.badServerResponse))
                         return
                     }

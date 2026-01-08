@@ -887,21 +887,16 @@ final class AgentViewModel: ObservableObject {
         }
 
         // Not connected yet - initiate OAuth flow
-        guard let token = auth.accessToken else {
-            return ["success": false, "error": "Not authenticated"]
-        }
-
         guard let url = URL(string: "\(Config.serverURL)\(endpoint)") else {
             return ["success": false, "error": "Invalid URL"]
         }
 
         NSLog("[AgentViewModel] Initiating \(provider) connection")
 
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let request = URLRequest(url: url)
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await APIClient.shared.perform(request)
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200,
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -998,13 +993,26 @@ final class AgentViewModel: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-            httpResponse.statusCode == 200
-        else {
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw NSError(
-                domain: "AgentViewModel", code: statusCode,
-                userInfo: [NSLocalizedDescriptionKey: "Upload failed with status \(statusCode)"])
+                domain: "AgentViewModel", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        // Handle 426 Upgrade Required
+        if httpResponse.statusCode == 426 {
+            await MainActor.run {
+                UpdateManager.shared.handleForceUpdateRequired()
+            }
+            throw NSError(
+                domain: "AgentViewModel", code: 426,
+                userInfo: [NSLocalizedDescriptionKey: "Update required"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw NSError(
+                domain: "AgentViewModel", code: httpResponse.statusCode,
+                userInfo: [NSLocalizedDescriptionKey: "Upload failed with status \(httpResponse.statusCode)"])
         }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -1124,11 +1132,25 @@ final class AgentViewModel: ObservableObject {
 
         let (_, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-            httpResponse.statusCode == 200
-        else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw NSError(
-                domain: "AgentViewModel", code: 500,
+                domain: "AgentViewModel", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        // Handle 426 Upgrade Required
+        if httpResponse.statusCode == 426 {
+            await MainActor.run {
+                UpdateManager.shared.handleForceUpdateRequired()
+            }
+            throw NSError(
+                domain: "AgentViewModel", code: 426,
+                userInfo: [NSLocalizedDescriptionKey: "Update required"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw NSError(
+                domain: "AgentViewModel", code: httpResponse.statusCode,
                 userInfo: [NSLocalizedDescriptionKey: "Server error"])
         }
     }
@@ -1166,11 +1188,25 @@ final class AgentViewModel: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-            httpResponse.statusCode == 200
-        else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw NSError(
-                domain: "AgentViewModel", code: 500,
+                domain: "AgentViewModel", code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
+        }
+
+        // Handle 426 Upgrade Required
+        if httpResponse.statusCode == 426 {
+            await MainActor.run {
+                UpdateManager.shared.handleForceUpdateRequired()
+            }
+            throw NSError(
+                domain: "AgentViewModel", code: 426,
+                userInfo: [NSLocalizedDescriptionKey: "Update required"])
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw NSError(
+                domain: "AgentViewModel", code: httpResponse.statusCode,
                 userInfo: [NSLocalizedDescriptionKey: "Server error"])
         }
 

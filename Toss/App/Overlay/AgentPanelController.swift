@@ -93,13 +93,16 @@ final class AgentPanelController {
             }
         }
 
-        // ESC key handler
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.keyCode == 53 {  // ESC
+        // ESC key handler - use GlobalEscapePressed notification from HotkeyEventTap
+        // (Don't add a local monitor here as it competes with HotkeyEventTap)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("GlobalEscapePressed"),
+            object: nil,
+            queue: .main
+        ) { [weak self] (_: Notification) in
+            Task { @MainActor in
                 self?.hide()
-                return nil
             }
-            return event
         }
 
         NotificationCenter.default.addObserver(

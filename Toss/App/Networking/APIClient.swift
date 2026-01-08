@@ -21,22 +21,44 @@ final class APIClient {
 
         let (data, response) = try await session.data(for: configuredRequest)
 
-        // Check for 401 - try refresh and retry once
-        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
-            NSLog("[APIClient] Got 401, attempting token refresh...")
+        if let http = response as? HTTPURLResponse {
+            // Check for 426 Upgrade Required - app version too old
+            if http.statusCode == 426 {
+                NSLog("[APIClient] Got 426 - app update required")
+                await MainActor.run {
+                    UpdateManager.shared.handleForceUpdateRequired()
+                }
+                throw URLError(.userAuthenticationRequired)
+            }
 
-            let refreshed = await AuthManager.shared.refreshAccessToken()
-            if refreshed {
-                NSLog("[APIClient] Token refreshed successfully, retrying request...")
-                let newToken = await MainActor.run { AuthManager.shared.accessToken }
-                let retryRequest = request.configured(token: newToken)
-                return try await session.data(for: retryRequest)
-            } else {
-                // Don't sign out here - let the auto-refresh timer handle sign-out
-                // after multiple consecutive failures. This prevents aggressive logout
-                // during transient issues like app updates, network hiccups, or
-                // temporary server issues.
-                NSLog("[APIClient] Token refresh failed - returning 401 to caller (auto-refresh timer will handle sign-out if needed)")
+            // Check for 401 - try refresh and retry once
+            if http.statusCode == 401 {
+                NSLog("[APIClient] Got 401, attempting token refresh...")
+
+                let refreshed = await AuthManager.shared.refreshAccessToken()
+                if refreshed {
+                    NSLog("[APIClient] Token refreshed successfully, retrying request...")
+                    let newToken = await MainActor.run { AuthManager.shared.accessToken }
+                    let retryRequest = request.configured(token: newToken)
+                    let (retryData, retryResponse) = try await session.data(for: retryRequest)
+
+                    // Check for 426 on retry too
+                    if let retryHttp = retryResponse as? HTTPURLResponse, retryHttp.statusCode == 426 {
+                        NSLog("[APIClient] Got 426 on retry - app update required")
+                        await MainActor.run {
+                            UpdateManager.shared.handleForceUpdateRequired()
+                        }
+                        throw URLError(.userAuthenticationRequired)
+                    }
+
+                    return (retryData, retryResponse)
+                } else {
+                    // Don't sign out here - let the auto-refresh timer handle sign-out
+                    // after multiple consecutive failures. This prevents aggressive logout
+                    // during transient issues like app updates, network hiccups, or
+                    // temporary server issues.
+                    NSLog("[APIClient] Token refresh failed - returning 401 to caller (auto-refresh timer will handle sign-out if needed)")
+                }
             }
         }
 

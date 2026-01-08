@@ -144,7 +144,7 @@ struct MainAppView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
                     .transition(.opacity)
-                    .background(EscapeKeyListener(onEscape: { showSettings = false }))
+                    // Note: Escape key handling is done via GlobalEscapePressed notification from HotkeyEventTap
                 }
 
                 // Command Palette
@@ -153,7 +153,21 @@ struct MainAppView: View {
                         viewModel: commandPaletteViewModel,
                         onDismiss: { dismissCommandPalette() }
                     )
-                    .background(EscapeKeyListener(onEscape: { dismissCommandPalette() }))
+                    // Note: Escape key handling is done via GlobalEscapePressed notification from HotkeyEventTap
+                }
+
+                // Force Update Modal (non-dismissible)
+                if updateManager.forceUpdateRequired {
+                    ZStack {
+                        // Blocking scrim - no dismiss action
+                        Color.black.opacity(0.6)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        ForceUpdateModal(updateManager: updateManager)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -824,50 +838,6 @@ private struct CommandKListener: NSViewRepresentable {
     }
 }
 
-// MARK: - Escape Key Listener
-
-private struct EscapeKeyListener: NSViewRepresentable {
-    let onEscape: () -> Void
-
-    func makeNSView(context: Context) -> EscapeKeyMonitorView {
-        let view = EscapeKeyMonitorView()
-        view.onEscape = onEscape
-        return view
-    }
-
-    func updateNSView(_ nsView: EscapeKeyMonitorView, context: Context) {
-        nsView.onEscape = onEscape
-    }
-
-    class EscapeKeyMonitorView: NSView {
-        var onEscape: (() -> Void)?
-        private var monitor: Any?
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-
-            if window != nil && monitor == nil {
-                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                    // Escape key code is 53
-                    if event.keyCode == 53 {
-                        self?.onEscape?()
-                        return nil  // Consume the event
-                    }
-                    return event
-                }
-            }
-        }
-
-        override func viewWillMove(toWindow newWindow: NSWindow?) {
-            super.viewWillMove(toWindow: newWindow)
-
-            if newWindow == nil, let monitor = monitor {
-                NSEvent.removeMonitor(monitor)
-                self.monitor = nil
-            }
-        }
-    }
-}
 
 private struct TrafficLightsView: View {
     var onClose: () -> Void

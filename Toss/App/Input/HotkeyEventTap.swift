@@ -249,6 +249,7 @@ final class HotkeyEventTap {
                 guard let self = self else { return }
                 // Escape key code is 53
                 if event.keyCode == 53 {
+                    NSLog("[HotkeyEventTap] Global escape detected, fnHeld=\(self.previousFlags.contains(.function))")
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
@@ -256,6 +257,7 @@ final class HotkeyEventTap {
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
                     }
+                    NSLog("[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))")
                     self.onEscapePressed?()
                 }
             })
@@ -270,6 +272,7 @@ final class HotkeyEventTap {
                 guard let self = self else { return event }
                 // Escape key code is 53
                 if event.keyCode == 53 {
+                    NSLog("[HotkeyEventTap] Local escape detected, fnHeld=\(self.previousFlags.contains(.function))")
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
@@ -277,6 +280,7 @@ final class HotkeyEventTap {
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
                     }
+                    NSLog("[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))")
                     self.onEscapePressed?()
                     return nil  // Consume the event
                 }
