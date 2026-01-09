@@ -28,6 +28,7 @@ final class MeetingDetector {
         "com.microsoft.teams2": "Microsoft Teams",
         "com.google.Chrome": "Chrome",
         "com.apple.Safari": "Safari",
+        "com.browseros.BrowserOS": "BrowserOS",
     ]
 
     func start() {
@@ -309,6 +310,7 @@ final class MeetingDetector {
         case teams
         case chrome  // Google Meet
         case safari  // Google Meet
+        case browserOS  // Google Meet
 
         var description: String {
             switch self {
@@ -317,6 +319,7 @@ final class MeetingDetector {
             case .teams: return "Microsoft Teams"
             case .chrome: return "Chrome (Google Meet)"
             case .safari: return "Safari (Google Meet)"
+            case .browserOS: return "BrowserOS (Google Meet)"
             }
         }
     }
@@ -348,6 +351,11 @@ final class MeetingDetector {
         case "com.apple.Safari":
             if isBrowserInMeet() {
                 return .safari
+            }
+            return nil
+        case "com.browseros.BrowserOS":
+            if isBrowserInMeet() {
+                return .browserOS
             }
             return nil
         default:
@@ -392,7 +400,7 @@ final class MeetingDetector {
             if !isTeamsInCall() {
                 triggerMeetingEnded(reason: "Teams call ended")
             }
-        case .chrome, .safari:
+        case .chrome, .safari, .browserOS:
             if !isBrowserInMeet() {
                 triggerMeetingEnded(reason: "Google Meet ended")
             }
@@ -503,6 +511,7 @@ final class MeetingDetector {
             "org.mozilla.firefox",
             "com.microsoft.edgemac",
             "company.thebrowser.Browser",  // Arc browser
+            "com.browseros.BrowserOS",  // BrowserOS - agentic browser
         ]
 
         for bundleId in browserBundleIds {
@@ -541,9 +550,12 @@ final class MeetingDetector {
                 NSLog("[MeetingDetector] \(browserName) Window \(windowIndex): '\(title)'")
 
                 // Check if this is a Google Meet window
+                // Chrome/Safari: "Meet – xxx" or "xxx - Google Meet"
+                // BrowserOS: "Google Meet: xxx"
                 let isMeetWindow =
                     title.hasPrefix("Meet – ") || title.hasPrefix("Meet -")
                     || title.contains("- Google Meet") || title.contains("– Google Meet")
+                    || title.hasPrefix("Google Meet:")
 
                 if !isMeetWindow {
                     continue
