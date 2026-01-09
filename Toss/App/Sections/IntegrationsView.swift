@@ -153,7 +153,9 @@ final class IntegrationsManager: ObservableObject {
 
     func handleDeepLink(url: URL) -> Bool {
         // toss://integrations/slack?connected=1 or toss-dev://integrations/slack?connected=1
-        guard (url.scheme == "toss" || url.scheme == "toss-dev"), url.host == "integrations" else { return false }
+        guard url.scheme == "toss" || url.scheme == "toss-dev", url.host == "integrations" else {
+            return false
+        }
 
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let connected = comps?.queryItems?.first(where: { $0.name == "connected" })?.value == "1"
@@ -198,6 +200,9 @@ final class IntegrationsManager: ObservableObject {
 
             if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                 linearStatus = try JSONDecoder().decode(LinearConnectionStatus.self, from: data)
+                NSLog(
+                    "[Integrations] Linear status: connected=\(linearStatus?.connected ?? false), org=\(linearStatus?.organizationName ?? "nil")"
+                )
             }
         } catch {
             NSLog("[Integrations] Failed to fetch Linear status: %@", error.localizedDescription)
