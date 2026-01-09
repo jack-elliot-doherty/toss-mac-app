@@ -143,6 +143,8 @@ struct MeetingView: View {
     @State private var isEditingTitle: Bool = false
     @FocusState private var isTitleFocused: Bool
     @State private var isAwaitingAutoSummary = false  // Waiting for post-call summary generation
+    @State private var hasPendingSummary = false  // Summary ready but user hasn't viewed yet
+    @State private var summaryDotPulse = false  // For pulsing animation
 
     // Action items state
     @State private var extractedActions: [ExtractedAction] = []
@@ -539,6 +541,17 @@ struct MeetingView: View {
             // Extract actions when switching to AI summary view
             if newValue && hasAISummary {
                 extractActionsIfNeeded()
+                // Clear the pending summary indicator when user views the summary
+                hasPendingSummary = false
+            }
+        }
+        .onChange(of: meeting?.notes) { oldValue, newValue in
+            // Summary just arrived - show indicator if user isn't already viewing it
+            let wasEmpty = (oldValue ?? "").isEmpty
+            let nowHasContent = !(newValue ?? "").isEmpty
+            
+            if wasEmpty && nowHasContent && !showingAISummary {
+                hasPendingSummary = true
             }
         }
         .sheet(item: $showingApprovalFor) { action in
@@ -1045,11 +1058,44 @@ struct MeetingView: View {
                     showingAISummary = false
                 }
             }
-            toggleChip(title: "Summary", icon: "sparkles", isSelected: showingAISummary) {
+            
+            // Summary chip with notification badge
+            Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     showingAISummary = true
                 }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Summary")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(showingAISummary ? .white : AppTheme.secondaryText.opacity(0.6))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(showingAISummary ? Color.white.opacity(0.12) : Color.clear)
+                )
+                .overlay(alignment: .topTrailing) {
+                    // Pulsing notification badge
+                    if hasPendingSummary {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 6, height: 6)
+                            .scaleEffect(summaryDotPulse ? 1.15 : 1.0)
+                            .opacity(summaryDotPulse ? 0.7 : 1.0)
+                            .animation(
+                                .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
+                                value: summaryDotPulse
+                            )
+                            .offset(x: 1, y: -1)
+                            .onAppear { summaryDotPulse = true }
+                    }
+                }
             }
+            .buttonStyle(.plain)
         }
     }
 
