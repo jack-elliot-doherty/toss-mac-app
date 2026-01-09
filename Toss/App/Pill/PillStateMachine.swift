@@ -256,7 +256,7 @@ struct PillStateMachine {
             state = .meetingDetected
             effects += [
                 .setVisualStateMeetingDetected,
-                .scheduleMeetingDetectionTimeout(10),
+                .scheduleMeetingDetectionTimeout(30),  // 30 sec to respond to meeting detection
             ]
 
         // - IDLE
