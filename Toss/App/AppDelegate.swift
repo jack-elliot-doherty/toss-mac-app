@@ -41,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var todaysMeetings: [UpcomingMeeting] = []
     private var menuBarUpdateTimer: Timer?
     private var meetingsSubscription: AnyCancellable?
+    private var pillStateSubscription: AnyCancellable?
 
     override init() {
         updaterController = SPUStandardUpdaterController(
@@ -129,6 +130,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Build initial menu (will be rebuilt dynamically with meetings)
         rebuildMenu()
+
+        // Subscribe to pill state changes to keep menu in sync
+        pillStateSubscription = pillViewModel.$visualState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.rebuildMenu()
+            }
 
         // Pill panel idle and visible (non-activating)
         // Small delay to ensure window system is ready
@@ -528,6 +536,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pillController.send(.startMeetingRecording)
     }
 
+    // MARK: - Menu Bar Quick Actions
+
+    @objc private func menuRecordMeeting() {
+        // Use the same event as the app chrome record button
+        pillController.send(.startMeetingRecording)
+    }
+
+    @objc private func menuStopRecording() {
+        pillController.send(.stopMeetingRecording)
+    }
+
+    @objc private func menuStartDictation() {
+        pillController.send(.quickActionDictation)
+    }
+
+    @objc private func menuTalkToAgent() {
+        pillController.send(.quickActionAgentChat)
+    }
+
     @objc private func handleHideIdlePillChanged() {
         pillPanel.updateIdleVisibility()
     }
@@ -912,6 +939,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             title: "Open Toss", action: #selector(openMainWindow), keyEquivalent: "")
         openItem.target = self
         menu.addItem(openItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Quick Actions section - context-aware based on current pill state
+        let currentState = pillViewModel.visualState
+        
+        // Determine what's currently active
+        let isRecordingMeeting: Bool = {
+            if case .meetingRecording = currentState { return true }
+            return false
+        }()
+        let isDictating: Bool = {
+            if case .listening(.dictation) = currentState { return true }
+            if case .transcribing(.dictation) = currentState { return true }
+            return false
+        }()
+        let isInAgentSession: Bool = {
+            if case .listening(.command) = currentState { return true }
+            if case .transcribing(.command) = currentState { return true }
+            if case .agentSessionActive = currentState { return true }
+            return false
+        }()
+        
+        let quickActionsHeader = NSMenuItem(
+            title: "Quick Actions", action: nil, keyEquivalent: "")
+        quickActionsHeader.isEnabled = false
+        menu.addItem(quickActionsHeader)
+
+        // Record Meeting - changes to "Stop Recording" when active
+        if isRecordingMeeting {
+            let stopRecordItem = NSMenuItem(
+                title: "Stop Recording", action: #selector(menuStopRecording), keyEquivalent: "")
+            stopRecordItem.target = self
+            menu.addItem(stopRecordItem)
+        } else {
+            let recordItem = NSMenuItem(
+                title: "Record Meeting", action: #selector(menuRecordMeeting), keyEquivalent: "")
+            recordItem.target = self
+            // Disable if dictating or in agent session
+            recordItem.isEnabled = !isDictating && !isInAgentSession
+            menu.addItem(recordItem)
+        }
+
+        // Start Dictation - disabled when already dictating or in other active state
+        let dictateItem = NSMenuItem(
+            title: "Start Dictation", action: #selector(menuStartDictation), keyEquivalent: "")
+        dictateItem.target = self
+        dictateItem.isEnabled = !isDictating && !isRecordingMeeting && !isInAgentSession
+        // Add shortcut hint using attributed string
+        let dictateFont = NSFont.menuFont(ofSize: 0)
+        let dictateTitle = NSMutableAttributedString(string: "Start Dictation", attributes: [.font: dictateFont])
+        let dictateShortcutAttrs: [NSAttributedString.Key: Any] = [
+            .font: dictateFont,
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        dictateTitle.append(NSAttributedString(string: "  hold fn", attributes: dictateShortcutAttrs))
+        dictateItem.attributedTitle = dictateTitle
+        menu.addItem(dictateItem)
+
+        // Talk to Agent - disabled when already in agent session or other active state
+        let agentItem = NSMenuItem(
+            title: "Talk to Agent", action: #selector(menuTalkToAgent), keyEquivalent: "")
+        agentItem.target = self
+        agentItem.isEnabled = !isInAgentSession && !isDictating && !isRecordingMeeting
+        // Add shortcut hint using attributed string
+        let agentFont = NSFont.menuFont(ofSize: 0)
+        let agentTitle = NSMutableAttributedString(string: "Talk to Agent", attributes: [.font: agentFont])
+        let agentShortcutAttrs: [NSAttributedString.Key: Any] = [
+            .font: agentFont,
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        agentTitle.append(NSAttributedString(string: "  hold fn+⌘", attributes: agentShortcutAttrs))
+        agentItem.attributedTitle = agentTitle
+        menu.addItem(agentItem)
 
         menu.addItem(NSMenuItem.separator())
 

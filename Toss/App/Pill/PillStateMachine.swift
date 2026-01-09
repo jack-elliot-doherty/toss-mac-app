@@ -236,7 +236,7 @@ struct PillStateMachine {
                 .setVisualStateMeetingRecording(meetingId, isPaused: false),
             ]
 
-        case (.hovered, .quickActionDictation):
+        case (.hovered, .quickActionDictation), (.idle, .quickActionDictation):
             ctx.isAlwaysOn = true
             state = .listening(.dictation)
             effects += [
