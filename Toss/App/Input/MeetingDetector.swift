@@ -189,12 +189,17 @@ final class MeetingDetector {
             if recordingStartedFromSlackHuddle {
                 // Only monitor Slack huddle state if we started from a Slack huddle
                 startSlackHuddleMonitoring()
+                
+                // Extract participants from Slack's accessibility tree
+                // This helps with transcription accuracy and meeting context
+                extractSlackHuddleParticipants()
             }
             startMeetingEndMonitoring()
         } else {
             stopSlackHuddleMonitoring()
             stopMeetingEndMonitoring()
             recordingStartedFromSlackHuddle = false
+            currentHuddleParticipants = []  // Clear participants when recording stops
         }
         NSLog("[MeetingDetector] Recording active: \(active)")
     }
@@ -300,6 +305,28 @@ final class MeetingDetector {
 
         NSLog("[MeetingDetector] === No huddle indicators found ===")
         return false
+    }
+    
+    // Store extracted participants for the current recording session
+    private(set) var currentHuddleParticipants: [String] = []
+    
+    /// Extract participant names from Slack's accessibility tree when in a huddle.
+    private func extractSlackHuddleParticipants() {
+        NSLog("[MeetingDetector] Extracting Slack huddle participants via accessibility API...")
+        
+        let participants = AccessibilityDiagnostic.extractSlackHuddleParticipants()
+        currentHuddleParticipants = participants
+        
+        if participants.isEmpty {
+            NSLog("[MeetingDetector] No participants found (user might be alone in huddle)")
+        } else {
+            NSLog("[MeetingDetector] Extracted participants: \(participants.joined(separator: ", "))")
+        }
+        
+        // TODO: Future enhancements:
+        // 1. Poll periodically to catch participants who join late
+        // 2. Pass to server when meeting ends for better meeting context
+        // 3. Pass to Whisper as transcription hints for better speaker identification
     }
 
     // MARK: - Multi-App Detection

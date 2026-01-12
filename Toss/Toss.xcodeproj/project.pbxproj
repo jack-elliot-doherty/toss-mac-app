@@ -63,6 +63,7 @@
 		DA9C43DC2EEFA00000C6D778 /* FlowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43DB2EEFA00000C6D778 /* FlowsView.swift */; };
 		DAA4FA072F0D78A7009AD75E /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA4FA062F0D78A7009AD75E /* PreferencesManager.swift */; };
 		DACC63E92F104F53006B153D /* ForceUpdateModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACC63E82F104F53006B153D /* ForceUpdateModal.swift */; };
+		DACC63ED2F12730A006B153D /* AccessibilityDiagnostic.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACC63EC2F12730A006B153D /* AccessibilityDiagnostic.swift */; };
 		DAD36B792EE260790040FA21 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B782EE260790040FA21 /* SubscriptionManager.swift */; };
 		DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */; };
 		DAD36B7D2EE5ABE40040FA21 /* ToolPreviewCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */; };
@@ -167,6 +168,7 @@
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA4FA062F0D78A7009AD75E /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
 		DACC63E82F104F53006B153D /* ForceUpdateModal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceUpdateModal.swift; sourceTree = "<group>"; };
+		DACC63EC2F12730A006B153D /* AccessibilityDiagnostic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityDiagnostic.swift; sourceTree = "<group>"; };
 		DAD36B782EE260790040FA21 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		DAD36B7C2EE5ABE40040FA21 /* ToolPreviewCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPreviewCards.swift; sourceTree = "<group>"; };
@@ -230,6 +232,7 @@
 		DA3623442EB23FCE000207F0 /* Input */ = {
 			isa = PBXGroup;
 			children = (
+				DACC63EC2F12730A006B153D /* AccessibilityDiagnostic.swift */,
 				DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */,
 				DAEEBF292ED5109D009DE3CF /* AudioCompressor.swift */,
 				DA7827A32EBEB0F50040ED92 /* MeetingDetector.swift */,
@@ -635,6 +638,7 @@
 				DAEEBF262ED1D2BE009DE3CF /* MeetingsAPI.swift in Sources */,
 				DA3623932EBB4616000207F0 /* SoundFeedback.swift in Sources */,
 				DAEEBF392EDF1148009DE3CF /* APIClient.swift in Sources */,
+				DACC63ED2F12730A006B153D /* AccessibilityDiagnostic.swift in Sources */,
 				DA3623852EB3FF10000207F0 /* PillController.swift in Sources */,
 				DA3623862EB3FF10000207F0 /* PillStateMachine.swift in Sources */,
 				DA9C43DC2EEFA00000C6D778 /* FlowsView.swift in Sources */,

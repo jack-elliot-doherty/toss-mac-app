@@ -542,14 +542,18 @@ final class PillController {
         index: Int,
         startedAt: Date
     ) {
-        // // Upload the meeting chunk to the server
+        // Build vocabulary hints from meeting context
+        // This helps Whisper correctly transcribe proper nouns, names, and jargon
+        let prompt = buildMeetingVocabularyHints(meetingId: meetingId)
+        
         NSLog("[PillController] Uploading chunk #\(index)...")
 
         transcriber.transcribeMeetingChunk(
             meetingId: meetingId,
             chunkIndex: index,
             speaker: speaker,
-            fileURL: url
+            fileURL: url,
+            prompt: prompt
         ) { [weak self] result in
             Task { @MainActor in
                 guard let self = self else { return }
@@ -588,6 +592,35 @@ final class PillController {
 
     }
 
+    /// Build vocabulary hints for Whisper from meeting context
+    /// Includes: meeting title (if from calendar), participant names (from Slack huddle)
+    private func buildMeetingVocabularyHints(meetingId: UUID) -> String? {
+        var hints: [String] = []
+        
+        // Add meeting title if it's not generic
+        if let meeting = meetingRepository.getMeeting(id: meetingId) {
+            let title = meeting.title
+            // Only include meaningful titles (not "Untitled Meeting" or similar)
+            if !title.isEmpty && 
+               !title.lowercased().contains("untitled") &&
+               title != "New Meeting" {
+                hints.append(title)
+            }
+        }
+        
+        // Add participant names from Slack huddle detection
+        let participants = meetingDetector.currentHuddleParticipants
+        if !participants.isEmpty {
+            hints.append(contentsOf: participants)
+        }
+        
+        guard !hints.isEmpty else { return nil }
+        
+        let prompt = hints.joined(separator: ", ")
+        NSLog("[PillController] Meeting vocabulary hints: \(prompt)")
+        return prompt
+    }
+    
     private func handlePauseMeetingRecording() {
         meetingRecorder?.pause()
     }

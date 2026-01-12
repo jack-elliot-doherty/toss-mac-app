@@ -58,7 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
 
         // Enable launch at login by default on first run
-        let hasSetLaunchAtLoginDefault = UserDefaults.standard.bool(forKey: "hasSetLaunchAtLoginDefault")
+        let hasSetLaunchAtLoginDefault = UserDefaults.standard.bool(
+            forKey: "hasSetLaunchAtLoginDefault")
         if !hasSetLaunchAtLoginDefault {
             LaunchAtLogin.shared.isEnabled = true
             UserDefaults.standard.set(true, forKey: "hasSetLaunchAtLoginDefault")
@@ -187,8 +188,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hotkey.onEscapePressed = { [weak self] in
             // Post notification so command palette can dismiss
-            NSLog("[AppDelegate] onEscapePressed callback fired, posting GlobalEscapePressed notification")
-            NotificationCenter.default.post(name: NSNotification.Name("GlobalEscapePressed"), object: nil)
+            NSLog(
+                "[AppDelegate] onEscapePressed callback fired, posting GlobalEscapePressed notification"
+            )
+            NotificationCenter.default.post(
+                name: NSNotification.Name("GlobalEscapePressed"), object: nil)
             self?.pillController.send(.escapePressed)
         }
         hotkey.start()
@@ -422,7 +426,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Activates the main window smoothly for deep link callbacks
     private func activateMainWindowSmoothly() {
-        guard let mainWindow = NSApp.windows.first(where: { $0.title == "Toss" && !($0 is NSPanel) }) else {
+        guard
+            let mainWindow = NSApp.windows.first(where: { $0.title == "Toss" && !($0 is NSPanel) })
+        else {
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -792,7 +798,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let meeting = nextMeeting {
             let isActive = activeMeeting != nil
             let title = truncateTitle(meeting.displayTitle, maxWidth: 80)
-            let timeString = isActive
+            let timeString =
+                isActive
                 ? formatTimeRemaining(until: meeting.endedAt ?? meeting.startedAt)
                 : formatRelativeTime(meeting.startedAt)
 
@@ -944,7 +951,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Quick Actions section - context-aware based on current pill state
         let currentState = pillViewModel.visualState
-        
+
         // Determine what's currently active
         let isRecordingMeeting: Bool = {
             if case .meetingRecording = currentState { return true }
@@ -961,7 +968,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if case .agentSessionActive = currentState { return true }
             return false
         }()
-        
+
         let quickActionsHeader = NSMenuItem(
             title: "Quick Actions", action: nil, keyEquivalent: "")
         quickActionsHeader.isEnabled = false
@@ -989,12 +996,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dictateItem.isEnabled = !isDictating && !isRecordingMeeting && !isInAgentSession
         // Add shortcut hint using attributed string
         let dictateFont = NSFont.menuFont(ofSize: 0)
-        let dictateTitle = NSMutableAttributedString(string: "Start Dictation", attributes: [.font: dictateFont])
+        let dictateTitle = NSMutableAttributedString(
+            string: "Start Dictation", attributes: [.font: dictateFont])
         let dictateShortcutAttrs: [NSAttributedString.Key: Any] = [
             .font: dictateFont,
-            .foregroundColor: NSColor.secondaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor,
         ]
-        dictateTitle.append(NSAttributedString(string: "  hold fn", attributes: dictateShortcutAttrs))
+        dictateTitle.append(
+            NSAttributedString(string: "  hold fn", attributes: dictateShortcutAttrs))
         dictateItem.attributedTitle = dictateTitle
         menu.addItem(dictateItem)
 
@@ -1005,10 +1014,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         agentItem.isEnabled = !isInAgentSession && !isDictating && !isRecordingMeeting
         // Add shortcut hint using attributed string
         let agentFont = NSFont.menuFont(ofSize: 0)
-        let agentTitle = NSMutableAttributedString(string: "Talk to Agent", attributes: [.font: agentFont])
+        let agentTitle = NSMutableAttributedString(
+            string: "Talk to Agent", attributes: [.font: agentFont])
         let agentShortcutAttrs: [NSAttributedString.Key: Any] = [
             .font: agentFont,
-            .foregroundColor: NSColor.secondaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor,
         ]
         agentTitle.append(NSAttributedString(string: "  hold fn+⌘", attributes: agentShortcutAttrs))
         agentItem.attributedTitle = agentTitle

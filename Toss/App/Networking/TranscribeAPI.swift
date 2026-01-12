@@ -135,11 +135,20 @@ final class TranscribeAPI {
         }
     }
 
+    /// Transcribe a meeting audio chunk with optional vocabulary hints
+    /// - Parameters:
+    ///   - meetingId: The meeting UUID
+    ///   - chunkIndex: The chunk number (0-indexed)
+    ///   - speaker: Whether this is "user" (local mic) or "remote" (system audio)
+    ///   - fileURL: Path to the audio file
+    ///   - prompt: Optional vocabulary hints (meeting title, participant names, jargon)
+    ///   - completion: Callback with transcription result
     func transcribeMeetingChunk(
         meetingId: UUID,
         chunkIndex: Int,
         speaker: MeetingSpeaker,
         fileURL: URL,
+        prompt: String? = nil,
         completion: @escaping (Result<TranscriptionResponse, Error>) -> Void
     ) {
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/chunks")
@@ -148,7 +157,7 @@ final class TranscribeAPI {
                 URLQueryItem(name: "speaker", value: speaker.rawValue),
             ])
 
-        NSLog("[TranscribeAPI] POST %@ (chunk #%d)", url.absoluteString, chunkIndex)
+        NSLog("[TranscribeAPI] POST %@ (chunk #%d, prompt: %@)", url.absoluteString, chunkIndex, prompt ?? "none")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -159,6 +168,15 @@ final class TranscribeAPI {
 
         var body = Data()
         func append(_ s: String) { body.append(s.data(using: .utf8)!) }
+        
+        // Add prompt field if provided (vocabulary hints: meeting title, participant names)
+        if let prompt = prompt, !prompt.isEmpty {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
+            append("\(prompt)\r\n")
+        }
+        
+        // Add file field
         append("--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"file\"; filename=\"chunk.wav\"\r\n")
         append("Content-Type: audio/wav\r\n\r\n")
