@@ -69,10 +69,30 @@ final class MeetingDetector {
         NSLog("[MeetingDetector] Stopped")
     }
 
+    // Browser bundle IDs that require active tab check for meeting detection
+    private let browserBundleIdsRequiringTabCheck: Set<String> = [
+        "com.google.Chrome",
+        "com.apple.Safari",
+        "com.browseros.BrowserOS",
+    ]
+
     private func handleAppActivation(_ app: NSRunningApplication) {
+        // We only track app activation for native meeting apps that don't need additional checks (Zoom, Teams)
+        // For browsers and Slack, we check when the mic turns on to avoid unnecessary work
         guard let bundleId = app.bundleIdentifier else { return }
 
         if let appName = enabledMeetingApps[bundleId] {
+            // Skip browsers - we'll check their active tab when mic turns on
+            if browserBundleIdsRequiringTabCheck.contains(bundleId) {
+                currentMeetingApp = nil
+                return
+            }
+            // Skip Slack - we'll check for huddle indicator when mic turns on
+            if bundleId == "com.tinyspeck.slackmacgap" {
+                currentMeetingApp = nil
+                return
+            }
+            // Native meeting apps (Zoom, Teams) - treat as meeting app immediately
             NSLog("[MeetingDetector] Meeting app activated: \(appName)")
             currentMeetingApp = appName
         } else {
@@ -157,8 +177,11 @@ final class MeetingDetector {
         )
 
         if status == noErr && isRunning != 0 {
-            // Mic is active!
-            if let appName = currentMeetingApp {
+            // Mic is active! Check if we're in a meeting app
+            // First check if the frontmost app is a meeting app (handles case where user navigated to meeting site after activating browser)
+            let meetingAppName = getMeetingAppNameIfActive()
+            
+            if let appName = meetingAppName {
                 NSLog("[MeetingDetector] Mic active in \(appName) - triggering detection!")
 
                 // Wait 2 seconds before showing toast (let user focus on joining)
@@ -169,6 +192,42 @@ final class MeetingDetector {
                 currentMeetingApp = nil  // Only trigger once per session
             }
         }
+    }
+    
+    /// Returns the meeting app name if the frontmost app is a valid meeting app, nil otherwise.
+    /// For browsers, this checks if they're on a meeting site (Google Meet, etc.)
+    /// For Slack, this checks if they're in a huddle (window title contains 🎤)
+    private func getMeetingAppNameIfActive() -> String? {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication,
+              let bundleId = frontApp.bundleIdentifier,
+              let appName = enabledMeetingApps[bundleId] else {
+            return nil
+        }
+        
+        // For browsers, verify they're actually on a meeting site
+        if browserBundleIdsRequiringTabCheck.contains(bundleId) {
+            if isBrowserInMeet() {
+                NSLog("[MeetingDetector] Browser \(appName) is on a meeting site")
+                return appName
+            } else {
+                NSLog("[MeetingDetector] Browser \(appName) is NOT on a meeting site - ignoring mic activation")
+                return nil
+            }
+        }
+        
+        // For Slack, verify they're actually in a huddle (not just recording a voice memo or clip)
+        if bundleId == "com.tinyspeck.slackmacgap" {
+            if isSlackInHuddle() {
+                NSLog("[MeetingDetector] Slack is in a huddle")
+                return appName
+            } else {
+                NSLog("[MeetingDetector] Slack is NOT in a huddle - ignoring mic activation")
+                return nil
+            }
+        }
+        
+        // Other native meeting apps (Zoom, Teams) - no additional check needed
+        return appName
     }
 
     // Call this when meeting recording starts
