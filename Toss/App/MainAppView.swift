@@ -351,7 +351,7 @@ struct MainAppView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.secondaryText)
 
-                Text("Talk to Founder")
+                Text("Share Feedback")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(AppTheme.secondaryText)
 
