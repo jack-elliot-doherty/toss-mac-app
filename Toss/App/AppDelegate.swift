@@ -1013,7 +1013,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .font: agentFont,
             .foregroundColor: NSColor.secondaryLabelColor
         ]
-        agentTitle.append(NSAttributedString(string: "  hold fn+⌘", attributes: agentShortcutAttrs))
+        agentTitle.append(NSAttributedString(string: "  ⌥⌥ or fn+⌘", attributes: agentShortcutAttrs))
         agentItem.attributedTitle = agentTitle
         menu.addItem(agentItem)
 
