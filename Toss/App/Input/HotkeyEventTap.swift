@@ -8,6 +8,7 @@ final class HotkeyEventTap {
     var onCmdUp: (() -> Void)?
 
     var onDoubleTapFn: (() -> Void)?
+    var onDoubleTapOption: (() -> Void)?
     var onEscapePressed: (() -> Void)?
 
     private var monitors: [Any] = []
@@ -15,8 +16,10 @@ final class HotkeyEventTap {
     private var isHoldingCmd: Bool = false
 
     private var lastFnDownAt: Date?
+    private var lastOptionDownAt: Date?
     private let doubleTapWindow: TimeInterval = 0.5
     private var cooldownUntil: Date?
+    private var optionCooldownUntil: Date?
     private let minFnHold: TimeInterval = 0.5
     private var pendingFnUpTimer: Timer?
 
@@ -49,6 +52,29 @@ final class HotkeyEventTap {
                 let fnIsDown = flags.contains(.function)
                 let cmdWasDown = previousFlags.contains(.command)
                 let cmdIsDown = flags.contains(.command)
+                let optionWasDown = previousFlags.contains(.option)
+                let optionIsDown = flags.contains(.option)
+
+                // --- Option edges (double-tap detection) ---
+                if !optionWasDown && optionIsDown {
+                    var isDouble = false
+                    if let last = self.lastOptionDownAt,
+                        now.timeIntervalSince(last) <= self.doubleTapWindow,
+                        self.optionCooldownUntil.map({ now >= $0 }) ?? true
+                    {
+                        isDouble = true
+                    }
+
+                    if isDouble {
+                        self.onDoubleTapOption?()
+                        self.optionCooldownUntil = now.addingTimeInterval(0.35)
+                        self.lastOptionDownAt = nil
+                        self.previousFlags = flags
+                        return
+                    }
+
+                    self.lastOptionDownAt = now
+                }
 
                 // --- Fn edges ---
                 if !fnWasDown && fnIsDown {
@@ -158,8 +184,31 @@ final class HotkeyEventTap {
                 let fnIsDown = flags.contains(.function)
                 let cmdWasDown = previousFlags.contains(.command)
                 let cmdIsDown = flags.contains(.command)
+                let optionWasDown = previousFlags.contains(.option)
+                let optionIsDown = flags.contains(.option)
 
                 print(flags)
+
+                // --- Option edges (double-tap detection) ---
+                if !optionWasDown && optionIsDown {
+                    var isDouble = false
+                    if let last = self.lastOptionDownAt,
+                        now.timeIntervalSince(last) <= self.doubleTapWindow,
+                        self.optionCooldownUntil.map({ now >= $0 }) ?? true
+                    {
+                        isDouble = true
+                    }
+
+                    if isDouble {
+                        self.onDoubleTapOption?()
+                        self.optionCooldownUntil = now.addingTimeInterval(0.35)
+                        self.lastOptionDownAt = nil
+                        self.previousFlags = flags
+                        return event
+                    }
+
+                    self.lastOptionDownAt = now
+                }
 
                 // --- Fn edges ---
                 if !fnWasDown && fnIsDown {

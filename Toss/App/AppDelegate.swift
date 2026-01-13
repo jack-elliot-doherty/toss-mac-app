@@ -185,6 +185,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkey.onDoubleTapFn = { [weak self] in
             self?.pillController.send(.doubleTapFn)
         }
+        hotkey.onDoubleTapOption = { [weak self] in
+            self?.pillController.send(.quickActionAgentChat)
+        }
         hotkey.onEscapePressed = { [weak self] in
             // Post notification so command palette can dismiss
             NSLog("[AppDelegate] onEscapePressed callback fired, posting GlobalEscapePressed notification")
