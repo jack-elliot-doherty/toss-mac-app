@@ -2,6 +2,17 @@ import AppKit
 import Foundation
 import Security
 
+// MARK: - Organization Model
+
+struct Organization: Codable, Identifiable, Equatable {
+    let id: String
+    let name: String
+    let imageUrl: String?
+    let role: String
+
+    var isAdmin: Bool { role == "org:admin" }
+}
+
 @MainActor
 final class AuthManager: ObservableObject {
     static let shared = AuthManager()
@@ -11,6 +22,8 @@ final class AuthManager: ObservableObject {
     @Published private(set) var userName: String?
     @Published private(set) var userEmail: String?
     @Published private(set) var userImageURL: URL?
+    @Published private(set) var currentOrg: Organization?
+    @Published private(set) var organizations: [Organization] = []
 
     // For dev builds, use a different keychain service
     #if DEBUG
@@ -155,6 +168,8 @@ final class AuthManager: ObservableObject {
         userName = nil
         userEmail = nil
         userImageURL = nil
+        currentOrg = nil
+        organizations = []
 
         NSLog("[AuthManager] signOut complete - user is now logged out")
     }
@@ -196,6 +211,29 @@ final class AuthManager: ObservableObject {
                 userName = name
                 userEmail = email
                 userImageURL = image
+
+                // Parse organization data
+                if let currentOrgData = json["currentOrg"] as? [String: Any] {
+                    currentOrg = Organization(
+                        id: currentOrgData["id"] as? String ?? "",
+                        name: currentOrgData["name"] as? String ?? "",
+                        imageUrl: currentOrgData["imageUrl"] as? String,
+                        role: currentOrgData["role"] as? String ?? "org:member"
+                    )
+                }
+
+                if let orgsData = json["organizations"] as? [[String: Any]] {
+                    organizations = orgsData.compactMap { orgData -> Organization? in
+                        guard let id = orgData["id"] as? String,
+                              let name = orgData["name"] as? String else { return nil }
+                        return Organization(
+                            id: id,
+                            name: name,
+                            imageUrl: orgData["imageUrl"] as? String,
+                            role: orgData["role"] as? String ?? "org:member"
+                        )
+                    }
+                }
 
                 await SubscriptionManager.shared.checkSubscription()
 
@@ -415,6 +453,253 @@ final class AuthManager: ObservableObject {
     }
 }
 
+// MARK: - Organization Management
+
+extension AuthManager {
+    /// Switch to a different organization
+    /// - Parameter orgId: The organization ID to switch to
+    /// - Throws: Error if switch fails
+    func switchOrganization(to orgId: String) async throws {
+        NSLog("[AuthManager] Switching to organization: \(orgId)")
+
+        guard let refresh = refreshToken, !refresh.isEmpty else {
+            throw AuthError.noRefreshToken
+        }
+
+        guard let url = URL(string: "\(Config.serverURL)/auth/switch-org") else {
+            throw AuthError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(refresh)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(["orgId": orgId])
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+
+        guard let http = resp as? HTTPURLResponse else {
+            throw AuthError.invalidResponse
+        }
+
+        if http.statusCode == 403 {
+            throw AuthError.notAMember
+        }
+
+        guard http.statusCode == 200 else {
+            throw AuthError.switchFailed(statusCode: http.statusCode)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["token"] as? String,
+              let newRefresh = json["refresh"] as? String else {
+            throw AuthError.invalidResponse
+        }
+
+        // Store new tokens
+        try? writeToken(token)
+        try? writeRefresh(newRefresh)
+        accessToken = token
+        refreshToken = newRefresh
+
+        // Refresh profile to get updated org info
+        _ = await refreshProfile()
+
+        // Post notification for org change
+        NotificationCenter.default.post(name: .organizationChanged, object: nil)
+
+        NSLog("[AuthManager] Successfully switched to organization: \(orgId)")
+    }
+
+    /// Create a new organization
+    /// - Parameter name: The name for the new organization
+    /// - Throws: Error if creation fails
+    func createOrganization(name: String) async throws {
+        NSLog("[AuthManager] Creating organization: \(name)")
+
+        guard let token = accessToken, !token.isEmpty else {
+            throw AuthError.noAccessToken
+        }
+
+        guard let url = URL(string: "\(Config.serverURL)/team") else {
+            throw AuthError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try JSONEncoder().encode(["name": name])
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+
+        guard let http = resp as? HTTPURLResponse else {
+            throw AuthError.invalidResponse
+        }
+
+        guard http.statusCode == 201 else {
+            throw AuthError.createFailed(statusCode: http.statusCode)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let newToken = json["token"] as? String,
+              let newRefresh = json["refresh"] as? String else {
+            throw AuthError.invalidResponse
+        }
+
+        // Store new tokens for the new org
+        try? writeToken(newToken)
+        try? writeRefresh(newRefresh)
+        accessToken = newToken
+        refreshToken = newRefresh
+
+        // Refresh profile to get updated org info
+        _ = await refreshProfile()
+
+        // Post notification for org change
+        NotificationCenter.default.post(name: .organizationChanged, object: nil)
+
+        NSLog("[AuthManager] Successfully created organization: \(name)")
+    }
+
+    /// Leave the current organization
+    /// - Throws: Error if leaving fails
+    func leaveOrganization() async throws {
+        NSLog("[AuthManager] Leaving current organization")
+
+        guard let token = accessToken, !token.isEmpty else {
+            throw AuthError.noAccessToken
+        }
+
+        guard let url = URL(string: "\(Config.serverURL)/team/leave") else {
+            throw AuthError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, resp) = try await URLSession.shared.data(for: req)
+
+        guard let http = resp as? HTTPURLResponse else {
+            throw AuthError.invalidResponse
+        }
+
+        if http.statusCode == 400 {
+            // Check for specific error
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let error = json["error"] as? String,
+               error == "cannot_leave_as_only_admin" {
+                throw AuthError.cannotLeaveAsOnlyAdmin
+            }
+        }
+
+        guard http.statusCode == 204 else {
+            throw AuthError.leaveFailed(statusCode: http.statusCode)
+        }
+
+        // Switch to another org if available, otherwise we need to handle no-org state
+        if let nextOrg = organizations.first(where: { $0.id != currentOrg?.id }) {
+            try await switchOrganization(to: nextOrg.id)
+        } else {
+            // No other orgs - user needs to create one
+            currentOrg = nil
+            organizations = []
+            NotificationCenter.default.post(name: .organizationChanged, object: nil)
+        }
+
+        NSLog("[AuthManager] Successfully left organization")
+    }
+
+    /// Delete the current organization (admin only)
+    /// - Throws: Error if deletion fails
+    func deleteOrganization() async throws {
+        NSLog("[AuthManager] Deleting current organization")
+
+        guard let token = accessToken, !token.isEmpty else {
+            throw AuthError.noAccessToken
+        }
+
+        guard let url = URL(string: "\(Config.serverURL)/team") else {
+            throw AuthError.invalidURL
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (_, resp) = try await URLSession.shared.data(for: req)
+
+        guard let http = resp as? HTTPURLResponse else {
+            throw AuthError.invalidResponse
+        }
+
+        if http.statusCode == 403 {
+            throw AuthError.adminRequired
+        }
+
+        guard http.statusCode == 204 else {
+            throw AuthError.deleteFailed(statusCode: http.statusCode)
+        }
+
+        // Switch to another org if available
+        if let nextOrg = organizations.first(where: { $0.id != currentOrg?.id }) {
+            try await switchOrganization(to: nextOrg.id)
+        } else {
+            // No other orgs - user needs to create one
+            currentOrg = nil
+            organizations = []
+            NotificationCenter.default.post(name: .organizationChanged, object: nil)
+        }
+
+        NSLog("[AuthManager] Successfully deleted organization")
+    }
+}
+
+// MARK: - Auth Errors
+
+enum AuthError: LocalizedError {
+    case noRefreshToken
+    case noAccessToken
+    case invalidURL
+    case invalidResponse
+    case notAMember
+    case cannotLeaveAsOnlyAdmin
+    case adminRequired
+    case switchFailed(statusCode: Int)
+    case createFailed(statusCode: Int)
+    case leaveFailed(statusCode: Int)
+    case deleteFailed(statusCode: Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .noRefreshToken:
+            return "No refresh token available"
+        case .noAccessToken:
+            return "No access token available"
+        case .invalidURL:
+            return "Invalid URL"
+        case .invalidResponse:
+            return "Invalid server response"
+        case .notAMember:
+            return "You are not a member of this organization"
+        case .cannotLeaveAsOnlyAdmin:
+            return "You cannot leave as the only admin. Transfer ownership or delete the workspace."
+        case .adminRequired:
+            return "Admin privileges required"
+        case .switchFailed(let code):
+            return "Failed to switch organization (status: \(code))"
+        case .createFailed(let code):
+            return "Failed to create organization (status: \(code))"
+        case .leaveFailed(let code):
+            return "Failed to leave organization (status: \(code))"
+        case .deleteFailed(let code):
+            return "Failed to delete organization (status: \(code))"
+        }
+    }
+}
+
 extension Notification.Name {
     static let userAccountChanged = Notification.Name("userAccountChanged")
+    static let organizationChanged = Notification.Name("organizationChanged")
 }

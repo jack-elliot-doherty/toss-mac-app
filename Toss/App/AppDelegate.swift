@@ -292,6 +292,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self, selector: #selector(handleUserAccountChanged),
             name: .userAccountChanged, object: nil)
 
+        // Observe when the user switches organizations (to reload meetings for the new org)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleOrganizationChanged),
+            name: .organizationChanged, object: nil)
+
         // Observe auth state changes to manage windows
         // Initialize wasAuthenticated based on current state
         wasAuthenticated = AuthManager.shared.isAuthenticated
@@ -502,6 +507,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         History.shared.clear()
 
         // Fetch meetings from server for the new user
+        Task {
+            await fetchMeetingsFromServer()
+        }
+    }
+
+    @objc private func handleOrganizationChanged() {
+        // When the user switches organizations, clear local data and fetch meetings for the new org
+        let newOrgId = AuthManager.shared.currentOrg?.id ?? "unknown"
+        NSLog("[AppDelegate] Organization changed to \(newOrgId) - clearing local data and fetching from server")
+        meetingRepository.clearAllData()
+        History.shared.clear()
+
+        // Fetch meetings from server for the new organization
         Task {
             await fetchMeetingsFromServer()
         }

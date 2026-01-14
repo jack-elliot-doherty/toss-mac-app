@@ -82,7 +82,11 @@ struct MainAppView: View {
     @ObservedObject private var updateManager = UpdateManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
     @State private var selection: SidebarItem? = .meetings
-    @State private var showSettings = false
+    @State private var isSettingsMode = false
+    @State private var settingsSection: SettingsModalView.Section = .myAccount
+    @State private var previousSelection: SidebarItem? = .meetings
+    @State private var settingsSectionHistory: [SettingsModalView.Section] = [.myAccount]
+    @State private var settingsHistoryIndex: Int = 0
     @State private var showCommandPalette = false
     @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
     @State private var windowReference: NSWindow?
@@ -91,6 +95,8 @@ struct MainAppView: View {
     @State private var historyIndex: Int = 0
     @State private var showUserMenu = false
     @State private var showPaywall = false
+    @State private var showCreateWorkspace = false
+    @State private var isSwitchingOrg = false
     @StateObject private var commandPaletteViewModel = CommandPaletteViewModel()
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
@@ -122,30 +128,6 @@ struct MainAppView: View {
                 .frame(minWidth: 300, minHeight: 400)
                 .animation(.easeInOut(duration: 0.25), value: shouldCollapse)
 
-                if showSettings {
-                    ZStack {
-                        // Scrim - using a button ensures it receives clicks (same pattern as CommandPalette)
-                        Button(action: {
-                            showSettings = false
-                        }) {
-                            Color.black.opacity(0.001)
-                        }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        // Visible scrim layer (not interactive, just visual)
-                        Color.black.opacity(0.35)
-                            .allowsHitTesting(false)
-
-                        SettingsModalView(onClose: { showSettings = false })
-                            .frame(width: 760)
-                            .appGlass(.surface, radius: 24)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    // Note: Escape key handling is done via GlobalEscapePressed notification from HotkeyEventTap
-                }
 
                 // Command Palette
                 if showCommandPalette {
@@ -169,6 +151,20 @@ struct MainAppView: View {
                     .ignoresSafeArea()
                     .transition(.opacity)
                 }
+
+                // Create Workspace Wizard (full-screen)
+                if showCreateWorkspace {
+                    CreateWorkspaceView(
+                        onComplete: {
+                            showCreateWorkspace = false
+                        },
+                        onCancel: {
+                            showCreateWorkspace = false
+                        }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+                }
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
@@ -180,7 +176,7 @@ struct MainAppView: View {
             .environmentObject(pageChrome)
             .ignoresSafeArea()
             .preferredColorScheme(.dark)
-            .animation(.easeInOut(duration: 0.2), value: showSettings)
+            .animation(.easeInOut(duration: 0.2), value: isSettingsMode)
             .animation(.spring(response: 0.25, dampingFraction: 0.88), value: showCommandPalette)
             .background(CommandKListener(onTrigger: { openCommandPalette() }))
             .background(WindowFinder(window: $windowReference))
@@ -189,6 +185,12 @@ struct MainAppView: View {
                 setupCommandPaletteCallbacks()
             }
             .onChange(of: selection) { _ in
+                updateChromeForCurrentSelection()
+            }
+            .onChange(of: isSettingsMode) { _ in
+                updateChromeForCurrentSelection()
+            }
+            .onChange(of: settingsSection) { _ in
                 updateChromeForCurrentSelection()
             }
             .onChange(of: updateManager.updateAvailable) { newValue in
@@ -207,15 +209,15 @@ struct MainAppView: View {
             .onReceive(
                 NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
             ) { _ in
-                showSettings = true
+                enterSettingsMode()
             }
             .onReceive(
                 NotificationCenter.default.publisher(for: NSNotification.Name("GlobalEscapePressed"))
             ) { _ in
                 if showCommandPalette {
                     dismissCommandPalette()
-                } else if showSettings {
-                    showSettings = false
+                } else if isSettingsMode {
+                    exitSettingsMode()
                 }
             }
         }
@@ -230,45 +232,133 @@ struct MainAppView: View {
             )
             .padding(.bottom, 4)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Toss")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.secondaryText)
-            }
-            .padding(.bottom, 4)
+            if isSettingsMode {
+                // Settings mode: Back button and settings navigation
+                settingsBackButton
+                    .padding(.bottom, 6)
 
-            // Search button
-            searchButton
-                .padding(.bottom, 6)
+                settingsSidebarNav
 
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(SidebarItem.allCases.filter { $0 != .settings }, id: \.self) { item in
-                    sidebarButton(for: item)
+            } else {
+                // Normal mode: App title and main navigation
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Toss")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .padding(.bottom, 4)
+
+                // Search button
+                searchButton
+                    .padding(.bottom, 6)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(SidebarItem.allCases.filter { $0 != .settings }, id: \.self) { item in
+                        sidebarButton(for: item)
+                    }
                 }
             }
 
             Spacer()
 
-            // Update available notification
-            if updateManager.updateAvailable {
-                let _ = NSLog("[Sidebar] Showing update banner - version: \(updateManager.latestVersion ?? "unknown")")
-                updateAvailableBanner
-                    .padding(.bottom, 8)
+            // Only show these when NOT in settings mode
+            if !isSettingsMode {
+                // Update available notification
+                if updateManager.updateAvailable {
+                    let _ = NSLog("[Sidebar] Showing update banner - version: \(updateManager.latestVersion ?? "unknown")")
+                    updateAvailableBanner
+                        .padding(.bottom, 8)
+                }
+
+                // Settings at bottom
+                sidebarButton(for: .settings)
+
+                // Contact founder button
+                contactFounderButton
+                    .padding(.bottom, 4)
+
+                sidebarAuth
             }
-
-            // Settings at bottom
-            sidebarButton(for: .settings)
-
-            // Contact founder button
-            contactFounderButton
-                .padding(.bottom, 4)
-
-            sidebarAuth
         }
         .padding(.top, 6)
         .padding(.bottom, 4)
         .padding(.horizontal, 8)
         .appGlass(.surface, radius: 10)
+    }
+
+    private var settingsBackButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isSettingsMode = false
+                selection = previousSelection
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Back to app")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+            }
+            .foregroundColor(AppTheme.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var settingsSidebarNav: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            ForEach(SettingsModalView.SectionGroup.allCases, id: \.self) { group in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(group.title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .textCase(.uppercase)
+                        .kerning(0.5)
+                        .padding(.horizontal, 12)
+
+                    VStack(spacing: 2) {
+                        ForEach(group.sections) { section in
+                            settingsSectionButton(for: section)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func settingsSectionButton(for section: SettingsModalView.Section) -> some View {
+        let isSelected = settingsSection == section
+        return Button {
+            selectSettingsSection(section)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: section.icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                    .frame(width: 18)
+                Text(section.title)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? Color.white.opacity(0.15) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var searchButton: some View {
@@ -429,17 +519,21 @@ struct MainAppView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        switch selection {
-        case .meetings:
-            MeetingsListView(
-                repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
-                navigationPath: $meetingsNavigationPath)
-        case .flows:
-            FlowsView()
-        case .integrations:
-            IntegrationsView()
-        case .settings, .none:
-            OnboardingGate()
+        if isSettingsMode {
+            SettingsContentView(section: $settingsSection)
+        } else {
+            switch selection {
+            case .meetings:
+                MeetingsListView(
+                    repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
+                    navigationPath: $meetingsNavigationPath)
+            case .flows:
+                FlowsView()
+            case .integrations:
+                IntegrationsView()
+            case .settings, .none:
+                OnboardingGate()
+            }
         }
     }
 
@@ -517,6 +611,8 @@ struct MainAppView: View {
     }
 
     private func defaultActionForSelection() -> AppScreenAction? {
+        // No action button in settings mode
+        guard !isSettingsMode else { return nil }
         guard selection == .meetings else { return nil }
         return AppScreenAction(title: "Record", systemImage: "plus") {
             NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
@@ -575,10 +671,42 @@ struct MainAppView: View {
 
     private func handleSelectionTap(_ item: SidebarItem) {
         if item == .settings {
-            showSettings = true
+            enterSettingsMode()
         } else {
             selectSidebarItem(item)
         }
+    }
+
+    private func enterSettingsMode() {
+        previousSelection = selection
+        // Reset settings history when entering
+        settingsSectionHistory = [.myAccount]
+        settingsHistoryIndex = 0
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isSettingsMode = true
+            settingsSection = .myAccount
+        }
+    }
+
+    private func exitSettingsMode() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isSettingsMode = false
+            selection = previousSelection
+        }
+    }
+
+    private func selectSettingsSection(_ section: SettingsModalView.Section) {
+        guard settingsSection != section else { return }
+
+        // Truncate forward history if we're not at the end
+        if settingsHistoryIndex < settingsSectionHistory.count - 1 {
+            settingsSectionHistory = Array(settingsSectionHistory.prefix(settingsHistoryIndex + 1))
+        }
+
+        // Add to history
+        settingsSectionHistory.append(section)
+        settingsHistoryIndex = settingsSectionHistory.count - 1
+        settingsSection = section
     }
 
     private func selectSidebarItem(_ item: SidebarItem, pushToHistory: Bool = true) {
@@ -602,15 +730,25 @@ struct MainAppView: View {
     }
 
     private var canGoBack: Bool {
+        if isSettingsMode {
+            // In settings mode, can go back if there's section history or can exit to app
+            return settingsHistoryIndex > 0 || true  // Always can go back to exit settings
+        }
         if selection == .meetings && !meetingsNavigationPath.isEmpty { return true }
         return historyIndex > 0
     }
 
     private var canGoForward: Bool {
+        if isSettingsMode {
+            return settingsHistoryIndex < settingsSectionHistory.count - 1
+        }
         return historyIndex < navigationHistory.count - 1
     }
 
     private var currentPageTitle: String {
+        if isSettingsMode {
+            return settingsSection.title
+        }
         switch selection {
         case .meetings:
             return "Calls"
@@ -626,6 +764,17 @@ struct MainAppView: View {
     }
 
     private func navigateBack() {
+        if isSettingsMode {
+            if settingsHistoryIndex > 0 {
+                // Go back in settings history
+                settingsHistoryIndex -= 1
+                settingsSection = settingsSectionHistory[settingsHistoryIndex]
+            } else {
+                // Exit settings mode
+                exitSettingsMode()
+            }
+            return
+        }
         if selection == .meetings && !meetingsNavigationPath.isEmpty {
             meetingsNavigationPath.removeLast()
             return
@@ -636,6 +785,12 @@ struct MainAppView: View {
     }
 
     private func navigateForward() {
+        if isSettingsMode {
+            guard settingsHistoryIndex < settingsSectionHistory.count - 1 else { return }
+            settingsHistoryIndex += 1
+            settingsSection = settingsSectionHistory[settingsHistoryIndex]
+            return
+        }
         guard canGoForward else { return }
         historyIndex += 1
         selection = navigationHistory[historyIndex]
@@ -644,7 +799,7 @@ struct MainAppView: View {
     // MARK: - Command Palette
 
     private func openCommandPalette() {
-        guard !showSettings else { return }
+        guard !isSettingsMode else { return }
         commandPaletteViewModel.reset()
         showCommandPalette = true
     }
@@ -656,8 +811,11 @@ struct MainAppView: View {
     private func setupCommandPaletteCallbacks() {
         commandPaletteViewModel.onNavigate = { [self] item in
             if item == .settings {
-                showSettings = true
+                enterSettingsMode()
             } else {
+                if isSettingsMode {
+                    exitSettingsMode()
+                }
                 selectSidebarItem(item)
             }
         }
@@ -687,59 +845,217 @@ struct MainAppView: View {
             if auth.isAuthenticated {
                 userCardButton
                     .popover(isPresented: $showUserMenu, arrowEdge: .top) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            // Current user row
-                            HStack(spacing: 10) {
-                                if let url = auth.userImageURL {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image): image.resizable().scaledToFill()
-                                        default: Color.gray.opacity(0.2)
-                                        }
-                                    }
-                                    .frame(width: 32, height: 32)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(auth.userName ?? "Signed in")
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text("Owner")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.primary)
-                            }
-                            .padding(12)
-
-                            Divider()
-
-                            Button(action: {
-                                showUserMenu = false
-                                auth.signOut(reason: "user clicked logout in user menu")
-                            }) {
-                                HStack {
-                                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    Text("Logout")
-                                    Spacer()
-                                }
-                                .padding(12)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .frame(width: 220)
+                        userMenuPopover
                     }
             }
         }
         .onAppear { Task { await auth.refreshProfile() } }
     }
 
+    private var userMenuPopover: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // User header
+            HStack(spacing: 10) {
+                // User avatar
+                if let url = auth.userImageURL {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image): image.resizable().scaledToFill()
+                        default: Color.gray.opacity(0.2)
+                        }
+                    }
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(.secondary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(auth.userName ?? "Signed in")
+                        .font(.system(size: 14, weight: .semibold))
+                    if let memberCount = teamMemberCount {
+                        Text("\(memberCount) member\(memberCount == 1 ? "" : "s")")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+            }
+            .padding(12)
+
+            // Invite teammates button (if admin)
+            if auth.currentOrg?.isAdmin == true {
+                Button(action: {
+                    showUserMenu = false
+                    // Open settings to members pane
+                    previousSelection = selection
+                    isSettingsMode = true
+                    settingsSection = .members
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 12))
+                        Text("Invite teammates")
+                            .font(.system(size: 13))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor.opacity(0.1))
+                    .foregroundColor(.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
+            }
+
+            Divider()
+
+            // User email
+            if let email = auth.userEmail {
+                Text(email)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+
+                Divider()
+            }
+
+            // Organization list
+            if !auth.organizations.isEmpty {
+                ForEach(auth.organizations) { org in
+                    Button(action: {
+                        if org.id != auth.currentOrg?.id {
+                            Task {
+                                isSwitchingOrg = true
+                                do {
+                                    try await auth.switchOrganization(to: org.id)
+                                } catch {
+                                    NSLog("[MainAppView] Failed to switch org: \(error)")
+                                }
+                                isSwitchingOrg = false
+                            }
+                        }
+                        showUserMenu = false
+                    }) {
+                        HStack(spacing: 10) {
+                            // Workspace icon/avatar
+                            workspaceIcon(for: org)
+
+                            Text(org.name)
+                                .font(.system(size: 13))
+                                .foregroundColor(.primary)
+
+                            Spacer()
+
+                            // Checkmark for active org
+                            if org.id == auth.currentOrg?.id {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.accentColor)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSwitchingOrg)
+                }
+
+                // Add workspace button
+                Button(action: {
+                    showUserMenu = false
+                    showCreateWorkspace = true
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(width: 20, height: 20)
+                        Text("Add workspace")
+                            .font(.system(size: 13))
+                            .foregroundColor(.primary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+            }
+
+            // Settings button
+            Button(action: {
+                showUserMenu = false
+                enterSettingsMode()
+            }) {
+                HStack {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 13))
+                    Text("Settings")
+                        .font(.system(size: 13))
+                    Spacer()
+                    Text("\u{2318},")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+
+            // Logout button
+            Button(action: {
+                showUserMenu = false
+                auth.signOut(reason: "user clicked logout in user menu")
+            }) {
+                HStack {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 13))
+                    Text("Logout")
+                        .font(.system(size: 13))
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(width: 240)
+    }
+
+    private func workspaceIcon(for org: Organization) -> some View {
+        let initial = org.name.prefix(1).uppercased()
+        return ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.accentColor.opacity(0.15))
+            Text(initial)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.accentColor)
+        }
+        .frame(width: 20, height: 20)
+    }
+
+    // Computed property for member count (from current org context)
+    private var teamMemberCount: Int? {
+        // This will be populated when we have the actual member count
+        // For now, return 1 as minimum
+        return max(1, auth.organizations.count)
+    }
+
     private var userCardButton: some View {
         Button(action: { showUserMenu.toggle() }) {
             HStack(spacing: 10) {
-                // Avatar
+                // User Avatar
                 if let url = auth.userImageURL {
                     AsyncImage(url: url) { phase in
                         switch phase {
@@ -755,7 +1071,7 @@ struct MainAppView: View {
                         .foregroundColor(AppTheme.secondaryText)
                 }
 
-                // Name + email
+                // User name + email
                 VStack(alignment: .leading, spacing: 2) {
                     Text(auth.userName ?? "Signed in")
                         .font(.system(size: 13, weight: .semibold))

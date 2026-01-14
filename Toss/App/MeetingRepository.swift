@@ -25,6 +25,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var syncedAt: Date?  // Last sync to server
     var joinUrl: String?  // URL to join the call (e.g., Google Meet, Zoom)
     var externalId: String?  // External calendar event ID (for linking to Google Calendar)
+    var orgId: String?  // Organization ID for multi-workspace partitioning
 
     // Custom decoder for backwards compatibility with existing data
     init(from decoder: Decoder) throws {
@@ -43,13 +44,14 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
         joinUrl = try container.decodeIfPresent(String.self, forKey: .joinUrl)
         externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
+        orgId = try container.decodeIfPresent(String.self, forKey: .orgId)
     }
 
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
         notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc,
         actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
-        joinUrl: String? = nil, externalId: String? = nil
+        joinUrl: String? = nil, externalId: String? = nil, orgId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -64,6 +66,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.syncedAt = syncedAt
         self.joinUrl = joinUrl
         self.externalId = externalId
+        self.orgId = orgId
     }
 }
 
@@ -103,15 +106,15 @@ struct MeetingChunkModel: Identifiable, Equatable, Codable {
 }
 
 protocol MeetingRepositoryProtocol {
-    func createMeeting(id: UUID, title: String, source: MeetingSource) -> MeetingModel
+    func createMeeting(id: UUID, title: String, source: MeetingSource, orgId: String?) -> MeetingModel
     func endMeeting(id: UUID)
     func getMeeting(id: UUID) -> MeetingModel?
     func findMeetingByExternalId(_ externalId: String) -> MeetingModel?
-    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting) -> MeetingModel
+    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting, orgId: String?) -> MeetingModel
     func appendChunk(
         meetingId: UUID, index: Int, transcript: String, startedAt: Date, speaker: MeetingSpeaker
     ) -> MeetingChunkModel?  // Optional since we might want to remove a duplicate chunk
-    func listMeetings() -> [MeetingModel]
+    func listMeetings(forOrgId orgId: String?) -> [MeetingModel]
     func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
     func updateMeetingTitle(meetingId: UUID, title: String)
@@ -180,12 +183,12 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         }
     }
 
-    func createMeeting(id: UUID, title: String, source: MeetingSource = .adhoc) -> MeetingModel {
+    func createMeeting(id: UUID, title: String, source: MeetingSource = .adhoc, orgId: String? = nil) -> MeetingModel {
         let meeting = queue.sync { () -> MeetingModel in
             let now = Date()
             let meeting = MeetingModel(
                 id: id, title: title, startTime: now, endTime: nil, createdAt: now,
-                updatedAt: now, source: source)
+                updatedAt: now, source: source, orgId: orgId)
             meetings[meeting.id] = meeting
             chunks[meeting.id] = []
             return meeting
@@ -202,7 +205,7 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     }
 
     /// Creates a meeting from an upcoming calendar event, or returns existing if already created
-    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting) -> MeetingModel {
+    func getOrCreateFromUpcoming(_ upcoming: UpcomingMeeting, orgId: String? = nil) -> MeetingModel {
         // First check if we already have this meeting (by external ID)
         let externalId = upcoming.id.uuidString
 
@@ -227,7 +230,8 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 actionItems: [],
                 syncedAt: nil,
                 joinUrl: upcoming.joinUrl,
-                externalId: externalId
+                externalId: externalId,
+                orgId: orgId
             )
             meetings[meeting.id] = meeting
             chunks[meeting.id] = []
@@ -294,8 +298,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         return result
     }
 
-    func listMeetings() -> [MeetingModel] {
-        return queue.sync { Array(meetings.values).sorted { $0.startTime > $1.startTime } }
+    func listMeetings(forOrgId orgId: String? = nil) -> [MeetingModel] {
+        return queue.sync {
+            let filtered = meetings.values.filter { meeting in
+                // If no orgId filter specified, return all meetings
+                guard let filterOrgId = orgId else { return true }
+                // If meeting has no orgId (legacy), show it in all workspaces
+                guard let meetingOrgId = meeting.orgId else { return true }
+                // Otherwise, match the orgId
+                return meetingOrgId == filterOrgId
+            }
+            return Array(filtered).sorted { $0.startTime > $1.startTime }
+        }
     }
 
     func getChunks(meetingId: UUID) -> [MeetingChunkModel] {
