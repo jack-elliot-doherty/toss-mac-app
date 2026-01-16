@@ -16,7 +16,7 @@ final class LinearAPI {
     static let shared = LinearAPI()
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 
@@ -60,7 +60,7 @@ final class SlackAPI {
     static let shared = SlackAPI()
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 
@@ -96,7 +96,7 @@ final class NotionAPI {
     static let shared = NotionAPI()
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 

@@ -24,7 +24,7 @@ final class AgentAPI {
 
     init(
         session: URLSession = .shared,
-        baseURL: URL = URL(string: Config.serverURL)!
+        baseURL: URL = Config.serverBaseURL
     ) {
         self.session = session
         self.baseURL = baseURL

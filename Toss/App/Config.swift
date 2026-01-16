@@ -8,4 +8,12 @@ enum Config {
         static let serverURL = "https://api.usetoss.com"
         static let urlScheme = "toss"
     #endif
+
+    /// Safe URL accessor that crashes with a clear message if URL is invalid
+    static var serverBaseURL: URL {
+        guard let url = URL(string: serverURL) else {
+            fatalError("Invalid server URL configuration: \(serverURL)")
+        }
+        return url
+    }
 }

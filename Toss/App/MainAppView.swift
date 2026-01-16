@@ -3,6 +3,15 @@ import Foundation
 import ServiceManagement
 import SwiftUI
 
+// MARK: - Notification Names
+
+extension NSNotification.Name {
+    static let openMeetingView = NSNotification.Name("OpenMeetingView")
+    static let showSettings = NSNotification.Name("ShowSettings")
+    static let globalEscapePressed = NSNotification.Name("GlobalEscapePressed")
+    static let resumeMeetingRecording = NSNotification.Name("ResumeMeetingRecording")
+}
+
 struct Breadcrumb: Identifiable, Equatable {
     let id = UUID()
     let title: String
@@ -197,7 +206,7 @@ struct MainAppView: View {
                 NSLog("[MainAppView] updateAvailable changed to: \(newValue), version: \(updateManager.latestVersion ?? "nil")")
             }
             .onReceive(
-                NotificationCenter.default.publisher(for: NSNotification.Name("OpenMeetingView"))
+                NotificationCenter.default.publisher(for: .openMeetingView)
             ) { notification in
                 if let userInfo = notification.userInfo,
                     let meetingId = userInfo["meetingId"] as? UUID
@@ -207,12 +216,12 @@ struct MainAppView: View {
                 }
             }
             .onReceive(
-                NotificationCenter.default.publisher(for: NSNotification.Name("ShowSettings"))
+                NotificationCenter.default.publisher(for: .showSettings)
             ) { _ in
                 enterSettingsMode()
             }
             .onReceive(
-                NotificationCenter.default.publisher(for: NSNotification.Name("GlobalEscapePressed"))
+                NotificationCenter.default.publisher(for: .globalEscapePressed)
             ) { _ in
                 if showCommandPalette {
                     dismissCommandPalette()
@@ -809,7 +818,8 @@ struct MainAppView: View {
     }
 
     private func setupCommandPaletteCallbacks() {
-        commandPaletteViewModel.onNavigate = { [self] item in
+        commandPaletteViewModel.onNavigate = { [weak self] item in
+            guard let self else { return }
             if item == .settings {
                 enterSettingsMode()
             } else {
@@ -820,8 +830,8 @@ struct MainAppView: View {
             }
         }
 
-        commandPaletteViewModel.onDismiss = { [self] in
-            dismissCommandPalette()
+        commandPaletteViewModel.onDismiss = { [weak self] in
+            self?.dismissCommandPalette()
         }
     }
 
@@ -1313,7 +1323,7 @@ struct MeetingChromeActions: View {
     private func resumeRecording() {
         NSLog("[MeetingChromeActions] Resume recording for meeting: \(meetingId)")
         NotificationCenter.default.post(
-            name: NSNotification.Name("ResumeMeetingRecording"),
+            name: .resumeMeetingRecording,
             object: nil,
             userInfo: ["meetingId": meetingId]
         )

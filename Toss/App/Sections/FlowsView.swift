@@ -186,7 +186,7 @@ final class FlowsAPI {
     static let shared = FlowsAPI()
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 

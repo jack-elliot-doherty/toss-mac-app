@@ -17,6 +17,11 @@ struct Organization: Codable, Identifiable, Equatable {
 final class AuthManager: ObservableObject {
     static let shared = AuthManager()
 
+    // MARK: - Constants
+    
+    /// Token refresh interval in seconds (10 minutes)
+    private static let tokenRefreshIntervalSeconds: TimeInterval = 600
+
     @Published private(set) var accessToken: String?
     @Published private(set) var refreshToken: String?
     @Published private(set) var userName: String?
@@ -58,11 +63,11 @@ final class AuthManager: ObservableObject {
     var isAuthenticated: Bool { accessToken?.isEmpty == false }
 
     func startAutoRefresh() {
-        // Refresh the access token every 10 minutes
+        // Refresh the access token periodically
         refreshTimer?.invalidate()
         consecutiveRefreshFailures = 0
-        NSLog("[AuthManager] Starting auto-refresh timer (every 10 minutes)")
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) {
+        NSLog("[AuthManager] Starting auto-refresh timer (every \(Int(Self.tokenRefreshIntervalSeconds / 60)) minutes)")
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: Self.tokenRefreshIntervalSeconds, repeats: true) {
             [weak self] _ in
             Task { @MainActor in
                 guard let self = self else { return }

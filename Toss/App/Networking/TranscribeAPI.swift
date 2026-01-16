@@ -17,7 +17,7 @@ final class TranscribeAPI {
 
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 
