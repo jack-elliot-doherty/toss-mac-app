@@ -818,8 +818,7 @@ struct MainAppView: View {
     }
 
     private func setupCommandPaletteCallbacks() {
-        commandPaletteViewModel.onNavigate = { [weak self] item in
-            guard let self else { return }
+        commandPaletteViewModel.onNavigate = { item in
             if item == .settings {
                 enterSettingsMode()
             } else {
@@ -830,8 +829,8 @@ struct MainAppView: View {
             }
         }
 
-        commandPaletteViewModel.onDismiss = { [weak self] in
-            self?.dismissCommandPalette()
+        commandPaletteViewModel.onDismiss = {
+            dismissCommandPalette()
         }
     }
 
