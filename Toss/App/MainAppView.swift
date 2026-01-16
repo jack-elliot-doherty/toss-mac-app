@@ -105,7 +105,7 @@ struct MainAppView: View {
     @State private var showUserMenu = false
     @State private var showPaywall = false
     @State private var showCreateWorkspace = false
-    @State private var isSwitchingOrg = false
+    @State private var switchingToOrgId: String?  // Track which org we're switching to (prevents race condition)
     @StateObject private var commandPaletteViewModel = CommandPaletteViewModel()
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
@@ -937,15 +937,15 @@ struct MainAppView: View {
             if !auth.organizations.isEmpty {
                 ForEach(auth.organizations) { org in
                     Button(action: {
-                        if org.id != auth.currentOrg?.id {
+                        if org.id != auth.currentOrg?.id && switchingToOrgId == nil {
                             Task {
-                                isSwitchingOrg = true
+                                switchingToOrgId = org.id
                                 do {
                                     try await auth.switchOrganization(to: org.id)
                                 } catch {
                                     NSLog("[MainAppView] Failed to switch org: \(error)")
                                 }
-                                isSwitchingOrg = false
+                                switchingToOrgId = nil
                             }
                         }
                         showUserMenu = false
@@ -960,8 +960,13 @@ struct MainAppView: View {
 
                             Spacer()
 
-                            // Checkmark for active org
-                            if org.id == auth.currentOrg?.id {
+                            // Loading indicator when switching to this org
+                            if switchingToOrgId == org.id {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .frame(width: 16, height: 16)
+                            } else if org.id == auth.currentOrg?.id {
+                                // Checkmark for active org
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 12, weight: .semibold))
                                     .foregroundColor(.accentColor)
@@ -972,7 +977,7 @@ struct MainAppView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .disabled(isSwitchingOrg)
+                    .disabled(switchingToOrgId != nil || org.id == auth.currentOrg?.id)
                 }
 
                 // Add workspace button

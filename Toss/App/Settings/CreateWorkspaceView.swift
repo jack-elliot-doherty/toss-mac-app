@@ -34,6 +34,7 @@ struct CreateWorkspaceView: View {
     @State private var allowDomainJoin: Bool = true
     @State private var isCreating: Bool = false
     @State private var createdOrgId: String?
+    @State private var errorMessage: String?
 
     // Invite step state
     @State private var inviteEmails: [String] = ["", ""]
@@ -61,6 +62,7 @@ struct CreateWorkspaceView: View {
                             .background(Circle().fill(Color.black.opacity(0.05)))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
 
                     Spacer()
 
@@ -129,6 +131,7 @@ struct CreateWorkspaceView: View {
                     .font(.system(size: 32))
                     .foregroundColor(.accentColor)
             }
+            .accessibilityHidden(true)
 
             VStack(spacing: 8) {
                 Text("Create a workspace")
@@ -149,6 +152,30 @@ struct CreateWorkspaceView: View {
                     TextField("My Company", text: $workspaceName)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 16))
+                    
+                    // Validation error for workspace name
+                    if let nameError = workspaceNameError {
+                        Text(nameError)
+                            .font(.system(size: 12))
+                            .foregroundColor(.red)
+                    }
+                }
+                
+                // Error message (for API failures)
+                if let error = errorMessage {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(.red)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.red.opacity(0.1))
+                    )
                 }
 
                 // Domain auto-join toggle (only for work emails)
@@ -192,7 +219,7 @@ struct CreateWorkspaceView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
-            .disabled(workspaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCreating)
+            .disabled(!isValidWorkspaceName(workspaceName) || isCreating)
             .frame(maxWidth: 360)
         }
         .padding(.horizontal, 40)
@@ -211,6 +238,7 @@ struct CreateWorkspaceView: View {
                     .font(.system(size: 32))
                     .foregroundColor(.accentColor)
             }
+            .accessibilityHidden(true)
 
             VStack(spacing: 8) {
                 Text("Invite your team")
@@ -326,23 +354,74 @@ struct CreateWorkspaceView: View {
         guard let domain = userEmailDomain else { return true }
         return personalEmailDomains.contains(domain)
     }
+    
+    private func isValidWorkspaceName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let minLength = 1
+        let maxLength = 100
+        
+        guard trimmed.count >= minLength && trimmed.count <= maxLength else { return false }
+        
+        // Allow alphanumeric, spaces, and basic punctuation
+        let allowedCharacters = CharacterSet.alphanumerics
+            .union(.whitespaces)
+            .union(CharacterSet(charactersIn: "-_.,&'"))
+        
+        return trimmed.unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
+    }
+    
+    private var workspaceNameError: String? {
+        let trimmed = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return nil } // Don't show error for empty (handled by disabled button)
+        if trimmed.count > 100 { return "Name must be 100 characters or less" }
+        if !isValidWorkspaceName(workspaceName) { return "Name contains invalid characters" }
+        return nil
+    }
 
+    private func isValidEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        
+        // Use NSDataDetector for robust email validation
+        let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        let matches = detector?.matches(in: trimmed, options: [], range: range) ?? []
+        
+        // Check if there's exactly one match that covers the entire string and is a mailto link
+        guard matches.count == 1,
+              let match = matches.first,
+              match.range == range,
+              let url = match.url,
+              url.scheme == "mailto" else {
+            // Fall back to regex validation
+            let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+            let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+            return emailPredicate.evaluate(with: trimmed)
+        }
+        return true
+    }
+    
     private var validEmailCount: Int {
-        inviteEmails.filter { email in
-            let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-            return !trimmed.isEmpty && trimmed.contains("@") && trimmed.contains(".")
-        }.count
+        inviteEmails.filter { isValidEmail($0) }.count
     }
 
     // MARK: - Actions
 
     private func createWorkspace() {
-        guard !workspaceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-
+        let trimmedName = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedName.isEmpty else { return }
+        
+        guard isValidWorkspaceName(trimmedName) else {
+            errorMessage = workspaceNameError ?? "Invalid workspace name"
+            return
+        }
+        
+        errorMessage = nil
         isCreating = true
         Task {
             do {
-                try await auth.createOrganization(name: workspaceName)
+                try await auth.createOrganization(name: trimmedName)
                 createdOrgId = auth.currentOrg?.id
 
                 // TODO: If allowDomainJoin is enabled, we'd need a server endpoint to configure this
@@ -353,6 +432,7 @@ struct CreateWorkspaceView: View {
                 }
             } catch {
                 NSLog("[CreateWorkspaceView] Failed to create workspace: \(error)")
+                errorMessage = "Failed to create workspace. Please try again."
             }
             isCreating = false
         }
@@ -374,10 +454,9 @@ struct CreateWorkspaceView: View {
     }
 
     private func sendInvites() {
-        let validEmails = inviteEmails.filter { email in
-            let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-            return !trimmed.isEmpty && trimmed.contains("@") && trimmed.contains(".")
-        }.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let validEmails = inviteEmails
+            .filter { isValidEmail($0) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 
         guard !validEmails.isEmpty else { return }
 

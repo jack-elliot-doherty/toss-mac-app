@@ -203,6 +203,10 @@ struct SettingsModalView: View {
     @State private var deleteConfirmationText = ""
     @State private var isLeavingOrg = false
     @State private var isDeletingOrg = false
+    
+    // Error state for user feedback
+    @State private var operationError: String?
+    @State private var showOperationError = false
 
     let onClose: () -> Void
 
@@ -270,6 +274,7 @@ struct SettingsModalView: View {
                     .background(Circle().fill(Color.black.opacity(0.08)))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close settings")
             .padding(14)
         }
         .frame(height: 560)
@@ -1173,6 +1178,13 @@ struct SettingsModalView: View {
         } message: {
             Text("This will permanently delete all data in this workspace. This action cannot be undone.")
         }
+        .alert("Error", isPresented: $showOperationError) {
+            Button("OK", role: .cancel) {
+                operationError = nil
+            }
+        } message: {
+            Text(operationError ?? "An error occurred")
+        }
     }
 
     private var filteredMembers: [TeamMember] {
@@ -1226,7 +1238,8 @@ struct SettingsModalView: View {
             // Actions menu (admin only, can't remove self)
             if auth.currentOrg?.isAdmin == true {
                 Menu {
-                    if member.userId != auth.currentOrg?.id {
+                    // Compare member email to current user email (not org ID)
+                    if member.email != auth.userEmail {
                         Button(role: .destructive) {
                             memberToRemove = member
                             showRemoveConfirmation = true
@@ -1550,13 +1563,26 @@ struct SettingsModalView: View {
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 201 {
-                showInviteSheet = false
-                inviteEmail = ""
-                await loadTeamData()
+            if let http = response as? HTTPURLResponse {
+                if http.statusCode == 201 {
+                    showInviteSheet = false
+                    inviteEmail = ""
+                    await loadTeamData()
+                } else if http.statusCode == 409 {
+                    operationError = "This email has already been invited."
+                    showOperationError = true
+                } else if http.statusCode == 403 {
+                    operationError = "You don't have permission to invite members."
+                    showOperationError = true
+                } else {
+                    operationError = "Failed to send invitation. Please try again."
+                    showOperationError = true
+                }
             }
         } catch {
             NSLog("[SettingsModalView] Failed to send invite: \(error)")
+            operationError = "Failed to send invitation: \(error.localizedDescription)"
+            showOperationError = true
         }
     }
 
@@ -1570,11 +1596,21 @@ struct SettingsModalView: View {
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 204 {
-                await loadTeamData()
+            if let http = response as? HTTPURLResponse {
+                if http.statusCode == 204 {
+                    await loadTeamData()
+                } else if http.statusCode == 403 {
+                    operationError = "You don't have permission to remove this member."
+                    showOperationError = true
+                } else {
+                    operationError = "Failed to remove member. Please try again."
+                    showOperationError = true
+                }
             }
         } catch {
             NSLog("[SettingsModalView] Failed to remove member: \(error)")
+            operationError = "Failed to remove member: \(error.localizedDescription)"
+            showOperationError = true
         }
     }
 
@@ -1588,11 +1624,21 @@ struct SettingsModalView: View {
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 204 {
-                await loadTeamData()
+            if let http = response as? HTTPURLResponse {
+                if http.statusCode == 204 {
+                    await loadTeamData()
+                } else if http.statusCode == 403 {
+                    operationError = "You don't have permission to revoke this invitation."
+                    showOperationError = true
+                } else {
+                    operationError = "Failed to revoke invitation. Please try again."
+                    showOperationError = true
+                }
             }
         } catch {
             NSLog("[SettingsModalView] Failed to revoke invitation: \(error)")
+            operationError = "Failed to revoke invitation: \(error.localizedDescription)"
+            showOperationError = true
         }
     }
 
@@ -1605,6 +1651,8 @@ struct SettingsModalView: View {
             onClose()
         } catch {
             NSLog("[SettingsModalView] Failed to leave workspace: \(error)")
+            operationError = "Failed to leave workspace: \(error.localizedDescription)"
+            showOperationError = true
         }
     }
 
@@ -1617,6 +1665,8 @@ struct SettingsModalView: View {
             onClose()
         } catch {
             NSLog("[SettingsModalView] Failed to delete workspace: \(error)")
+            operationError = "Failed to delete workspace: \(error.localizedDescription)"
+            showOperationError = true
         }
     }
 
