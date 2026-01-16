@@ -327,11 +327,16 @@ struct CreateWorkspaceView: View {
         return personalEmailDomains.contains(domain)
     }
 
+    private func isValidEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", emailRegex)
+        return emailPredicate.evaluate(with: trimmed)
+    }
+
     private var validEmailCount: Int {
-        inviteEmails.filter { email in
-            let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-            return !trimmed.isEmpty && trimmed.contains("@") && trimmed.contains(".")
-        }.count
+        inviteEmails.filter { isValidEmail($0) }.count
     }
 
     // MARK: - Actions
@@ -374,10 +379,9 @@ struct CreateWorkspaceView: View {
     }
 
     private func sendInvites() {
-        let validEmails = inviteEmails.filter { email in
-            let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
-            return !trimmed.isEmpty && trimmed.contains("@") && trimmed.contains(".")
-        }.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let validEmails = inviteEmails
+            .filter { isValidEmail($0) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
 
         guard !validEmails.isEmpty else { return }
 
