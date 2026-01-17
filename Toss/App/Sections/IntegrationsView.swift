@@ -45,6 +45,9 @@ final class IntegrationsManager: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
     @Published var error: String?
+    
+    /// Trigger to force view refresh after deep link (works around SwiftUI text rendering bug)
+    @Published var viewRefreshTrigger = UUID()
 
     func fetchSlackStatus() async {
         guard let url = URL(string: "\(Config.serverURL)/slack/status") else { return }
@@ -174,9 +177,11 @@ final class IntegrationsManager: ObservableObject {
             if connected {
                 Task { await fetchSlackStatus() }
             }
+            triggerViewRefresh()
             return true
         } else if url.path == "/linear" {
             if connected { Task { await fetchLinearStatus() } }
+            triggerViewRefresh()
             return true
         } else if url.path == "/google" {
             if connected {
@@ -186,19 +191,30 @@ final class IntegrationsManager: ObservableObject {
                     await MeetingsManager.shared.syncCalendar()
                 }
             }
+            triggerViewRefresh()
             return true
         } else if url.path == "/notion" {
             if connected {
                 Task { await fetchNotionStatus() }
             }
+            triggerViewRefresh()
             return true
         } else if url.path == "/slack-bot" {
             if connected {
                 Task { await fetchSlackBotStatus() }
             }
+            triggerViewRefresh()
             return true
         }
         return false
+    }
+    
+    /// Force view to fully re-render (workaround for SwiftUI text rendering bug after deep link)
+    private func triggerViewRefresh() {
+        // Delay slightly to let the window activation settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.viewRefreshTrigger = UUID()
+        }
     }
 
     func fetchLinearStatus() async {
@@ -532,6 +548,9 @@ struct IntegrationsView: View {
             Task { await manager.fetchGoogleStatus() }
             Task { await manager.fetchNotionStatus() }
         }
+        // Force full view recreation when returning from OAuth deep link
+        // This works around a SwiftUI text rendering bug that can cause upside-down text
+        .id(manager.viewRefreshTrigger)
     }
 
     private var header: some View {
