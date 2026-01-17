@@ -154,7 +154,7 @@ final class MeetingsApi {
 
     private let baseURL: URL
 
-    init(baseURL: URL = URL(string: Config.serverURL)!) {
+    init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
     }
 
@@ -544,7 +544,7 @@ final class MeetingsApi {
             )
         }
 
-        let url = URL(string: Config.serverURL)!.appendingPathComponent("/agent/approve-tool")
+        let url = Config.serverBaseURL.appendingPathComponent("/agent/approve-tool")
         NSLog("[MeetingsApi] POST %@ (tool: %@)", url.absoluteString, toolName)
 
         var request = URLRequest(url: url)
