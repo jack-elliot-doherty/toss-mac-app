@@ -201,6 +201,17 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return
                     }
+                    
+                    // If Fn is held but no session started (e.g., dictation disabled),
+                    // try to start agent mode session now
+                    if fnIsDown && !self.fnSessionStarted {
+                        let (shouldStart, isCmdMode) = self.shouldStartSession(isCmdHeld: true)
+                        if shouldStart && isCmdMode {
+                            self.fnSessionStarted = true
+                            onFnDown?(true)  // Start agent mode
+                        }
+                    }
+                    
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
@@ -336,6 +347,17 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return event
                     }
+                    
+                    // If Fn is held but no session started (e.g., dictation disabled),
+                    // try to start agent mode session now
+                    if fnIsDown && !self.fnSessionStarted {
+                        let (shouldStart, isCmdMode) = self.shouldStartSession(isCmdHeld: true)
+                        if shouldStart && isCmdMode {
+                            self.fnSessionStarted = true
+                            onFnDown?(true)  // Start agent mode
+                        }
+                    }
+                    
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {

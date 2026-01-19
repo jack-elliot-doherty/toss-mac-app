@@ -376,8 +376,9 @@ struct PillStateMachine {
         case (.listening(let mode), .cmdDown):
             guard !ctx.isAlwaysOn else { break }  // ignore cmd in always as its only for dictation
             // Cmd press toggles to command mode and stays there for the duration of the session
+            // But only if agent mode shortcut is enabled
             ctx.isCmdHeld = true
-            if mode != .command {
+            if mode != .command && PreferencesManager.shared.agentModeShortcut == .enabled {
                 state = .listening(.command)
                 effects += [.setVisualStateListening]
             }
