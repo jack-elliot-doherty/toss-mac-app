@@ -598,6 +598,95 @@ struct SettingsModalView: View {
 
             Divider()
 
+            // Keyboard Shortcuts section
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Keyboard Shortcuts")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
+
+                // Dictation shortcut
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Dictation")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Start dictation from anywhere on your desktop")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        Button("Hold Fn (Globe)") {
+                            preferences.dictationShortcut = .enabled
+                        }
+                        Divider()
+                        Button("No shortcut") {
+                            preferences.dictationShortcut = .disabled
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.dictationShortcut.displayName)
+                                .font(.system(size: 13))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black.opacity(0.05))
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
+
+                // Agent mode shortcut
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Agent mode")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Talk to Toss agent from anywhere on your desktop")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        Button("Hold Fn + \u{2318}") {
+                            preferences.agentModeShortcut = .enabled
+                        }
+                        Divider()
+                        Button("No shortcut") {
+                            preferences.agentModeShortcut = .disabled
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.agentModeShortcut.agentModeDisplayName)
+                                .font(.system(size: 13))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black.opacity(0.05))
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
+            }
+
+            Divider()
+
             // Permissions section
             VStack(alignment: .leading, spacing: 20) {
                 Text("Permissions")
@@ -2748,6 +2837,63 @@ struct SettingsContentView: View {
                                   preferences.autoDetectMeetings = newValue
                               }
                           ))
+            }
+
+            Divider()
+
+            // Keyboard Shortcuts section
+            VStack(alignment: .leading, spacing: 20) {
+                Text("Keyboard Shortcuts").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+
+                // Dictation shortcut
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Dictation").font(.system(size: 14, weight: .medium))
+                        Text("Start dictation from anywhere on your desktop")
+                            .font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Hold Fn (Globe)") { preferences.dictationShortcut = .enabled }
+                        Divider()
+                        Button("No shortcut") { preferences.dictationShortcut = .disabled }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.dictationShortcut.displayName).font(.system(size: 13))
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                }
+
+                // Agent mode shortcut
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Agent mode").font(.system(size: 14, weight: .medium))
+                        Text("Talk to Toss agent from anywhere on your desktop")
+                            .font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Hold Fn + \u{2318}") { preferences.agentModeShortcut = .enabled }
+                        Divider()
+                        Button("No shortcut") { preferences.agentModeShortcut = .disabled }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.agentModeShortcut.agentModeDisplayName).font(.system(size: 13))
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                }
             }
 
             Divider()

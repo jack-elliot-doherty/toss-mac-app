@@ -128,15 +128,22 @@ final class AuthManager: ObservableObject {
     }
 
     func handleDeepLink(url: URL) -> Bool {
+        NSLog("[AuthManager] handleDeepLink called with URL: \(url.absoluteString)")
+        
         // toss://auth/callback?state=... or toss-dev://auth/callback?state=...
         guard (url.scheme == "toss" || url.scheme == "toss-dev"), url.host == "auth", url.path == "/callback" else {
+            NSLog("[AuthManager] handleDeepLink - URL doesn't match auth callback pattern")
             return false
         }
+        
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        NSLog("[AuthManager] handleDeepLink - query items: \(comps?.queryItems ?? [])")
+        
         // Back-compat: accept token params if present (older servers)
         let token = comps?.queryItems?.first(where: { $0.name == "token" })?.value
         let refresh = comps?.queryItems?.first(where: { $0.name == "refresh" })?.value
         if let token, !token.isEmpty {
+            NSLog("[AuthManager] handleDeepLink - received token directly in URL")
             try? writeToken(token)
             // CHANGED: Set directly instead of DispatchQueue.main.async
             self.accessToken = token
@@ -151,7 +158,14 @@ final class AuthManager: ObservableObject {
         }
 
         let state = comps?.queryItems?.first(where: { $0.name == "state" })?.value
-        guard let state, let pending = pendingAuthState, state == pending else { return true }
+        NSLog("[AuthManager] handleDeepLink - state from URL: \(state ?? "nil"), pendingAuthState: \(pendingAuthState ?? "nil")")
+        
+        guard let state, let pending = pendingAuthState, state == pending else {
+            NSLog("[AuthManager] handleDeepLink - state mismatch or missing, returning true anyway")
+            return true
+        }
+        
+        NSLog("[AuthManager] handleDeepLink - state matches, will exchange for tokens")
         pendingAuthState = nil
         Task { await self.exchangeState(state: state) }
         return true
@@ -364,23 +378,47 @@ final class AuthManager: ObservableObject {
     }
 
     private func exchangeState(state: String) async {
+        NSLog("[AuthManager] exchangeState called with state: \(state.prefix(8))...")
+        
         guard let url = URL(string: "\(Config.serverURL)/auth/exchange?state=\(state)") else {
+            NSLog("[AuthManager] exchangeState - invalid URL")
             return
         }
+        
+        NSLog("[AuthManager] exchangeState - requesting: \(url.absoluteString)")
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return }
+            
+            guard let http = resp as? HTTPURLResponse else {
+                NSLog("[AuthManager] exchangeState - invalid response type")
+                return
+            }
+            
+            NSLog("[AuthManager] exchangeState - response status: \(http.statusCode)")
+            
+            if http.statusCode != 200 {
+                if let errorBody = String(data: data, encoding: .utf8) {
+                    NSLog("[AuthManager] exchangeState - error response: \(errorBody)")
+                }
+                return
+            }
+            
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 let token = json["token"] as? String
                 let refresh = json["refresh"] as? String
+                
+                NSLog("[AuthManager] exchangeState - got token: \(token != nil), refresh: \(refresh != nil)")
+                
                 if let token, !token.isEmpty { try? writeToken(token) }
                 if let refresh, !refresh.isEmpty { try? writeRefresh(refresh) }
 
                 // CHANGED: Set directly instead of DispatchQueue.main.async
                 self.accessToken = token
                 self.refreshToken = refresh ?? self.refreshToken
+                
+                NSLog("[AuthManager] exchangeState - isAuthenticated is now: \(self.isAuthenticated)")
 
                 // Activate app to bring to foreground and trigger UI update
                 // Only activate if not already active to avoid window flash
@@ -390,9 +428,13 @@ final class AuthManager: ObservableObject {
 
                 await SubscriptionManager.shared.checkSubscription()
                 _ = await self.refreshProfile()
+                
+                NSLog("[AuthManager] exchangeState - complete, profile refreshed")
+            } else {
+                NSLog("[AuthManager] exchangeState - failed to parse JSON response")
             }
         } catch {
-            NSLog("[AuthManager] exchange error: %@", error.localizedDescription)
+            NSLog("[AuthManager] exchangeState error: %@", error.localizedDescription)
         }
     }
 

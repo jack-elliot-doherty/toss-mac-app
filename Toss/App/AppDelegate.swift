@@ -402,23 +402,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
+        NSLog("[AppDelegate] Deep link received: \(urls.map { $0.absoluteString })")
+        
         // Mark deep link activation FIRST, before any handlers run
         // This ensures WindowKeyPrevention sees the flag when the window becomes key
         DeepLinkActivation.markActivation()
 
         var handledByDeepLink = false
         for url in urls {
+            NSLog("[AppDelegate] Processing URL: \(url.absoluteString)")
+            
             // Handle integration callbacks (Slack, Linear, Google, Notion OAuth)
             if IntegrationsManager.shared.handleDeepLink(url: url) {
+                NSLog("[AppDelegate] URL handled by IntegrationsManager")
                 handledByDeepLink = true
                 continue
             }
             // Handle auth callbacks
             if AuthManager.shared.handleDeepLink(url: url) {
+                NSLog("[AppDelegate] URL handled by AuthManager")
                 handledByDeepLink = true
             }
         }
 
+        NSLog("[AppDelegate] Deep link processing complete, handledByDeepLink=\(handledByDeepLink)")
+        
         // For OAuth callbacks, activate window after a short delay
         // to let browser's focus handling settle and avoid flash
         if handledByDeepLink {

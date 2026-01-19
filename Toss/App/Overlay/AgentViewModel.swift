@@ -88,6 +88,7 @@ final class AgentViewModel: ObservableObject {
     private let auth: AuthManager
     private let streamParser = AgentStreamParser()
     private var threadId: UUID?
+    private var serverConversationId: String?  // Server-assigned conversation ID for persistence
     private var currentAssistantMessage: DisplayMessage?
 
     init(auth: AuthManager) {
@@ -217,6 +218,7 @@ final class AgentViewModel: ObservableObject {
         pendingToolCalls.removeAll()
         executingTools.removeAll()
         threadId = nil
+        serverConversationId = nil  // Clear server conversation ID
         isProcessing = false
         isStreaming = false
         errorMessage = nil
@@ -449,7 +451,12 @@ final class AgentViewModel: ObservableObject {
             )
         }
 
-        let payload: [String: Any] = ["messages": apiMessages]
+        // Build payload with messages and conversationId
+        var payload: [String: Any] = ["messages": apiMessages]
+        if let conversationId = serverConversationId {
+            payload["conversationId"] = conversationId
+            NSLog("[AgentViewModel] Continuation with conversationId: %@", conversationId)
+        }
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
 
         // Debug log (truncate base64 data for readability)
@@ -463,8 +470,16 @@ final class AgentViewModel: ObservableObject {
 
         request.httpBody = jsonData
 
-        // Stream events
-        for try await event in streamParser.streamEvents(from: request) {
+        // Stream events and capture conversation ID from response
+        let streamResult = try await streamParser.streamEvents(from: request)
+        
+        // Store conversation ID from server if not already set
+        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
+            serverConversationId = newConversationId
+            NSLog("[AgentViewModel] Stored conversationId from continuation: %@", newConversationId)
+        }
+        
+        for try await event in streamResult.events {
             await handleStreamEvent(event)
         }
     }
@@ -482,7 +497,12 @@ final class AgentViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let payload: [String: Any] = ["messages": messages]
+        // Build payload with messages and optional conversationId
+        var payload: [String: Any] = ["messages": messages]
+        if let conversationId = serverConversationId {
+            payload["conversationId"] = conversationId
+            NSLog("[AgentViewModel] Sending with existing conversationId: %@", conversationId)
+        }
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
 
         // Debug log to verify payload (truncated)
@@ -496,8 +516,16 @@ final class AgentViewModel: ObservableObject {
 
         request.httpBody = jsonData
 
-        // Stream events
-        for try await event in streamParser.streamEvents(from: request) {
+        // Stream events and capture conversation ID from response
+        let streamResult = try await streamParser.streamEvents(from: request)
+        
+        // Store conversation ID from server (only on first message of conversation)
+        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
+            serverConversationId = newConversationId
+            NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+        }
+        
+        for try await event in streamResult.events {
             await handleStreamEvent(event)
         }
     }

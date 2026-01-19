@@ -33,6 +33,9 @@ final class HotkeyEventTap {
     private(set) var isStarted: Bool = false
 
     private var previousFlags: NSEvent.ModifierFlags = []
+    
+    // Track whether we started an Fn session (for preference-aware up handling)
+    private var fnSessionStarted: Bool = false
 
     func start() {
         guard !isStarted else { return }
@@ -110,8 +113,53 @@ final class HotkeyEventTap {
                     pendingFnUpTimer = nil
                     lastFnDownAt = now
 
-                    // Pass actual cmd modifier state to avoid event ordering issues
-                    onFnDown?(cmdIsDown)
+                    // Check preferences to determine if we should start a session
+                    let (shouldStart, isCmdMode) = self.shouldStartSession(isCmdHeld: cmdIsDown)
+                    if shouldStart {
+                        self.fnSessionStarted = true
+                        onFnDown?(isCmdMode)
+                    }
+                }
+                if fnWasDown && !fnIsDown {
+
+                    if self.swallowFnUpAfterEscape {
+                        self.swallowFnUpAfterEscape = false
+                        self.previousFlags = flags
+                        return
+                    }
+
+                    // If we just decided to swallow the post-double-tap UP, eat it and reset the flag
+                    if self.swallowNextFnUp {
+                        self.swallowNextFnUp = false
+                        self.swallowFnDownAfterDoubleTap = false
+                        self.previousFlags = flags
+                        return
+                    }
+
+                    // Only fire onFnUp if we actually started a session
+                    guard self.fnSessionStarted else {
+                        self.previousFlags = flags
+                        return
+                    }
+                    
+                    let held = now.timeIntervalSince(lastFnDownAt ?? now)
+                    if held >= minFnHold {
+                        self.fnSessionStarted = false
+                        onFnUp?()
+                    } else {
+                        let delay = max(0, minFnHold - held)
+                        pendingFnUpTimer?.invalidate()
+                        pendingFnUpTimer = Timer.scheduledTimer(
+                            withTimeInterval: delay, repeats: false
+                        ) { [weak self] _ in
+                            self?.fnSessionStarted = false
+                            self?.onFnUp?()
+                            self?.pendingFnUpTimer = nil
+                        }
+                        RunLoop.main.add(pendingFnUpTimer!, forMode: .common)  // don't let UI interactions pause it
+
+                    }
+
                 }
                 if fnWasDown && !fnIsDown {
 
@@ -235,8 +283,13 @@ final class HotkeyEventTap {
                     pendingFnUpTimer?.invalidate()
                     pendingFnUpTimer = nil
                     lastFnDownAt = now
-                    // Pass actual cmd modifier state to avoid event ordering issues
-                    onFnDown?(cmdIsDown)
+                    
+                    // Check preferences to determine if we should start a session
+                    let (shouldStart, isCmdMode) = self.shouldStartSession(isCmdHeld: cmdIsDown)
+                    if shouldStart {
+                        self.fnSessionStarted = true
+                        onFnDown?(isCmdMode)
+                    }
                 }
 
                 if fnWasDown && !fnIsDown {
@@ -253,8 +306,15 @@ final class HotkeyEventTap {
                         return event
                     }
 
+                    // Only fire onFnUp if we actually started a session
+                    guard self.fnSessionStarted else {
+                        self.previousFlags = flags
+                        return event
+                    }
+                    
                     let held = now.timeIntervalSince(lastFnDownAt ?? now)
                     if held >= minFnHold {
+                        self.fnSessionStarted = false
                         onFnUp?()
                     } else {
                         let delay = max(0, minFnHold - held)
@@ -262,6 +322,7 @@ final class HotkeyEventTap {
                         pendingFnUpTimer = Timer.scheduledTimer(
                             withTimeInterval: delay, repeats: false
                         ) { [weak self] _ in
+                            self?.fnSessionStarted = false
                             self?.onFnUp?()
                             self?.pendingFnUpTimer = nil
                         }
@@ -302,6 +363,7 @@ final class HotkeyEventTap {
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
+                        self.fnSessionStarted = false
                         // Cancel any pending delayed Fn up
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
@@ -325,6 +387,7 @@ final class HotkeyEventTap {
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
+                        self.fnSessionStarted = false
                         // Cancel any pending delayed Fn up
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
@@ -355,6 +418,7 @@ final class HotkeyEventTap {
         swallowFnDownAfterDoubleTap = false
         swallowNextFnUp = false
         swallowFnUpAfterEscape = false
+        fnSessionStarted = false
 
         // If Fn was logically down, synthesize an up so the app isn't stuck
         if previousFlags.contains(.function) { onFnUp?() }
@@ -381,6 +445,38 @@ final class HotkeyEventTap {
         if let until = ignoreCmdEventsUntil, Date() < until { return true }
         ignoreCmdEventsUntil = nil
         return false
+    }
+    
+    /// Checks preferences and determines if we should start a session.
+    /// Returns: (shouldStart: Bool, isCmdMode: Bool)
+    private func shouldStartSession(isCmdHeld: Bool) -> (shouldStart: Bool, isCmdMode: Bool) {
+        let prefs = PreferencesManager.shared
+        let dictationEnabled = prefs.dictationShortcut == .enabled
+        let agentModeEnabled = prefs.agentModeShortcut == .enabled
+        
+        // If both disabled, don't start
+        if !dictationEnabled && !agentModeEnabled {
+            return (false, false)
+        }
+        
+        // If cmd is held, check agent mode preference
+        if isCmdHeld {
+            if agentModeEnabled {
+                return (true, true)  // Start agent mode
+            } else if dictationEnabled {
+                return (true, false) // Fall back to dictation if agent mode disabled
+            } else {
+                return (false, false)
+            }
+        }
+        
+        // Cmd not held - check dictation preference
+        if dictationEnabled {
+            return (true, false)  // Start dictation
+        }
+        
+        // Dictation disabled, cmd not held - don't start
+        return (false, false)
     }
 
     deinit {

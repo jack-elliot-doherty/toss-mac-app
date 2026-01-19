@@ -227,36 +227,47 @@ class AgentStreamParser {
     }
 }
 
+// MARK: - Stream Result with Metadata
+
+struct AgentStreamResult {
+    let conversationId: String?
+    let events: AsyncThrowingStream<AgentStreamEvent, Error>
+}
+
 // MARK: - Async Stream Helper
 
 extension AgentStreamParser {
-    /// Create an async stream from URLSession data
-    func streamEvents(from urlRequest: URLRequest) -> AsyncThrowingStream<AgentStreamEvent, Error> {
-        AsyncThrowingStream { continuation in
+    /// Create an async stream from URLSession data, returning the conversation ID from headers
+    func streamEvents(from urlRequest: URLRequest) async throws -> AgentStreamResult {
+        let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        // Handle 426 Upgrade Required
+        if httpResponse.statusCode == 426 {
+            NSLog("[AgentStreamParser] Server requires app update (426)")
+            await MainActor.run {
+                UpdateManager.shared.handleForceUpdateRequired()
+            }
+            throw URLError(.userAuthenticationRequired)
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+
+        // Extract conversation ID from response header
+        let conversationId = httpResponse.value(forHTTPHeaderField: "X-Conversation-Id")
+        if let conversationId = conversationId {
+            NSLog("[AgentStreamParser] Received conversation ID: %@", conversationId)
+        }
+
+        // Create the event stream
+        let eventStream = AsyncThrowingStream<AgentStreamEvent, Error> { continuation in
             Task {
                 do {
-                    let (bytes, response) = try await URLSession.shared.bytes(for: urlRequest)
-
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        continuation.finish(throwing: URLError(.badServerResponse))
-                        return
-                    }
-
-                    // Handle 426 Upgrade Required
-                    if httpResponse.statusCode == 426 {
-                        NSLog("[AgentStreamParser] Server requires app update (426)")
-                        await MainActor.run {
-                            UpdateManager.shared.handleForceUpdateRequired()
-                        }
-                        continuation.finish(throwing: URLError(.userAuthenticationRequired))
-                        return
-                    }
-
-                    guard httpResponse.statusCode == 200 else {
-                        continuation.finish(throwing: URLError(.badServerResponse))
-                        return
-                    }
-
                     for try await line in bytes.lines {
                         if !line.isEmpty { NSLog("[Stream] Line: %@", line) }
                         if let event = self.parse(line) {
@@ -273,6 +284,8 @@ extension AgentStreamParser {
                 }
             }
         }
+
+        return AgentStreamResult(conversationId: conversationId, events: eventStream)
     }
 
     /// Stream events with line-by-line parsing (better for real-time SSE)

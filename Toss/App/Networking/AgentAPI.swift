@@ -36,7 +36,7 @@ final class AgentAPI {
         threadId: String? = nil,
         history: [AgentRequest.ChatMessage]? = nil,
         token: String?
-    ) -> AsyncThrowingStream<AgentStreamEvent, Error> {
+    ) async throws -> AgentStreamResult {
         let url = baseURL.appendingPathComponent("/agent/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -56,20 +56,13 @@ final class AgentAPI {
 
         let payload = ["messages": messages]
 
-        do {
-            request.httpBody = try JSONEncoder().encode(payload)
-        } catch {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: error)
-            }
-        }
+        request.httpBody = try JSONEncoder().encode(payload)
 
         NSLog("[AgentAPI] Streaming message: \"%@\"", message)
 
         // Use the existing parser's helper
-        // Note: You might need to instantiate parser here or use a static helper
         let parser = AgentStreamParser()
-        return parser.streamEvents(from: request)
+        return try await parser.streamEvents(from: request)
     }
 
     func sendMessage(

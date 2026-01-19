@@ -1,6 +1,27 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Shortcut Options
+
+enum ShortcutOption: String, CaseIterable, Codable {
+    case enabled = "enabled"
+    case disabled = "disabled"
+    
+    var displayName: String {
+        switch self {
+        case .enabled: return "Hold Fn (Globe)"
+        case .disabled: return "No shortcut"
+        }
+    }
+    
+    var agentModeDisplayName: String {
+        switch self {
+        case .enabled: return "Hold Fn + \u{2318}"
+        case .disabled: return "No shortcut"
+        }
+    }
+}
+
 final class PreferencesManager: ObservableObject {
     static let shared = PreferencesManager()
 
@@ -8,6 +29,8 @@ final class PreferencesManager: ObservableObject {
         static let hideIdlePill = "hideIdlePill"
         static let meetingReminderTime = "meetingReminderTime"
         static let autoDetectMeetings = "autoDetectMeetings"
+        static let dictationShortcut = "dictationShortcut"
+        static let agentModeShortcut = "agentModeShortcut"
     }
 
     @Published var hideIdlePill: Bool {
@@ -31,10 +54,39 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
+    @Published var dictationShortcut: ShortcutOption {
+        didSet {
+            UserDefaults.standard.set(dictationShortcut.rawValue, forKey: Keys.dictationShortcut)
+            NotificationCenter.default.post(name: .dictationShortcutChanged, object: dictationShortcut)
+        }
+    }
+
+    @Published var agentModeShortcut: ShortcutOption {
+        didSet {
+            UserDefaults.standard.set(agentModeShortcut.rawValue, forKey: Keys.agentModeShortcut)
+            NotificationCenter.default.post(name: .agentModeShortcutChanged, object: agentModeShortcut)
+        }
+    }
+
     private init() {
         self.hideIdlePill = UserDefaults.standard.bool(forKey: Keys.hideIdlePill)
         self.meetingReminderTime = UserDefaults.standard.string(forKey: Keys.meetingReminderTime) ?? "Before 1m"
         self.autoDetectMeetings = UserDefaults.standard.object(forKey: Keys.autoDetectMeetings) as? Bool ?? true
+        
+        // Load shortcut preferences (default to enabled)
+        if let dictationRaw = UserDefaults.standard.string(forKey: Keys.dictationShortcut),
+           let dictation = ShortcutOption(rawValue: dictationRaw) {
+            self.dictationShortcut = dictation
+        } else {
+            self.dictationShortcut = .enabled
+        }
+        
+        if let agentModeRaw = UserDefaults.standard.string(forKey: Keys.agentModeShortcut),
+           let agentMode = ShortcutOption(rawValue: agentModeRaw) {
+            self.agentModeShortcut = agentMode
+        } else {
+            self.agentModeShortcut = .enabled
+        }
     }
 }
 
@@ -42,4 +94,6 @@ extension Notification.Name {
     static let hideIdlePillChanged = Notification.Name("hideIdlePillChanged")
     static let meetingReminderTimeChanged = Notification.Name("meetingReminderTimeChanged")
     static let autoDetectMeetingsChanged = Notification.Name("autoDetectMeetingsChanged")
+    static let dictationShortcutChanged = Notification.Name("dictationShortcutChanged")
+    static let agentModeShortcutChanged = Notification.Name("agentModeShortcutChanged")
 }
