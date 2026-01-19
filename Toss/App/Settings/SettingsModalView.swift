@@ -2796,6 +2796,10 @@ struct SettingsContentView: View {
                       subtitle: "Hide the floating pill when not recording or transcribing.",
                       isOn: $preferences.hideIdlePill)
 
+            toggleRow(title: "Hide from screenshots & recordings",
+                      subtitle: "The pill won't appear in screenshots or screen recordings.",
+                      isOn: $preferences.hideFromScreenCapture)
+
             Divider()
 
             VStack(alignment: .leading, spacing: 20) {

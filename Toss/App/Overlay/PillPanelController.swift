@@ -33,10 +33,26 @@ final class PillPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
+        
+        // Apply initial screen capture visibility setting
+        if PreferencesManager.shared.hideFromScreenCapture {
+            panel.sharingType = .none
+        }
 
         let root = PillView(viewModel: viewModel)
         self.hostingView = NSHostingView(rootView: root)
         panel.contentView = hostingView
+        
+        // Listen for preference changes
+        NotificationCenter.default.addObserver(
+            forName: .hideFromScreenCaptureChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateScreenCaptureVisibility()
+            }
+        }
 
         viewModel.$isMeetingRecordingHovered
             .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)  // Reduced from 150ms
@@ -330,6 +346,14 @@ final class PillPanelController {
             }
         } else {
             panel.setFrame(target, display: true)
+        }
+    }
+    
+    private func updateScreenCaptureVisibility() {
+        if PreferencesManager.shared.hideFromScreenCapture {
+            panel.sharingType = .none
+        } else {
+            panel.sharingType = .readOnly
         }
     }
 }

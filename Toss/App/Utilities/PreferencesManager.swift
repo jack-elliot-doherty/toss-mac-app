@@ -31,6 +31,7 @@ final class PreferencesManager: ObservableObject {
         static let autoDetectMeetings = "autoDetectMeetings"
         static let dictationShortcut = "dictationShortcut"
         static let agentModeShortcut = "agentModeShortcut"
+        static let hideFromScreenCapture = "hideFromScreenCapture"
     }
 
     @Published var hideIdlePill: Bool {
@@ -68,10 +69,18 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
+    @Published var hideFromScreenCapture: Bool {
+        didSet {
+            UserDefaults.standard.set(hideFromScreenCapture, forKey: Keys.hideFromScreenCapture)
+            NotificationCenter.default.post(name: .hideFromScreenCaptureChanged, object: hideFromScreenCapture)
+        }
+    }
+
     private init() {
         self.hideIdlePill = UserDefaults.standard.bool(forKey: Keys.hideIdlePill)
         self.meetingReminderTime = UserDefaults.standard.string(forKey: Keys.meetingReminderTime) ?? "Before 1m"
         self.autoDetectMeetings = UserDefaults.standard.object(forKey: Keys.autoDetectMeetings) as? Bool ?? true
+        self.hideFromScreenCapture = UserDefaults.standard.bool(forKey: Keys.hideFromScreenCapture)
         
         // Load shortcut preferences (default to enabled)
         if let dictationRaw = UserDefaults.standard.string(forKey: Keys.dictationShortcut),
@@ -96,4 +105,5 @@ extension Notification.Name {
     static let autoDetectMeetingsChanged = Notification.Name("autoDetectMeetingsChanged")
     static let dictationShortcutChanged = Notification.Name("dictationShortcutChanged")
     static let agentModeShortcutChanged = Notification.Name("agentModeShortcutChanged")
+    static let hideFromScreenCaptureChanged = Notification.Name("hideFromScreenCaptureChanged")
 }
