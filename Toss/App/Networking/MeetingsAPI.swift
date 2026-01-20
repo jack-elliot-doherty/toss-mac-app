@@ -183,6 +183,30 @@ final class MeetingsApi {
         let chunks: [ServerMeetingChunk]?
     }
 
+    struct SharedMeetingParticipant: Codable {
+        let name: String?
+        let email: String?
+        let avatarUrl: String?
+        let companyName: String?
+        let companyLogo: String?
+        let responseStatus: String?
+    }
+
+    struct SharedMeetingDetail: Codable {
+        let id: String
+        let title: String?
+        let transcript: String?
+        let summary: String?
+        let userNotes: String?
+        let startedAt: String?
+        let endedAt: String?
+        let createdAt: String?
+        let updatedAt: String?
+        let participants: [SharedMeetingParticipant]?
+        let sharedByName: String?
+        let sharedByEmail: String?
+    }
+
     func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0, since: Date? = nil) async throws -> [ServerMeeting] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("/meetings/recorded"),
@@ -239,6 +263,46 @@ final class MeetingsApi {
 
         NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))")
         return result.meetings
+    }
+
+    func fetchMeeting(meetingId: String) async throws -> SharedMeetingDetail {
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch meeting"]
+            )
+        }
+
+        struct Response: Codable {
+            let ok: Bool
+            let meeting: SharedMeetingDetail
+        }
+
+        return try JSONDecoder().decode(Response.self, from: data).meeting
+    }
+
+    func fetchMeetingFolders(meetingId: UUID) async throws -> [FolderSummary] {
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/folders")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch meeting folders"]
+            )
+        }
+
+        struct Response: Codable { let folders: [FolderSummary] }
+        return try JSONDecoder().decode(Response.self, from: data).folders
     }
 
     // MARK: - Fetch upcoming meetings
@@ -599,7 +663,7 @@ final class MeetingsApi {
             "id": meeting.id.uuidString,
             "title": meeting.title,
             "startedAt": formatter.string(from: meeting.startTime),
-            "source": meeting.source.rawValue,
+            "source": serverSource(for: meeting.source),
         ]
 
         if let endTime = meeting.endTime {
@@ -659,9 +723,12 @@ final class MeetingsApi {
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, response) = try await APIClient.shared.perform(request)
+        let (data, response) = try await APIClient.shared.perform(request)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            if let body = String(data: data, encoding: .utf8) {
+                NSLog("[MeetingsApi] sync error response: %@", body)
+            }
             throw NSError(
                 domain: "MeetingsApi",
                 code: (response as? HTTPURLResponse)?.statusCode ?? 0,
@@ -670,6 +737,15 @@ final class MeetingsApi {
         }
 
         NSLog("[MeetingsApi] Meeting %@ synced successfully", meeting.id.uuidString)
+    }
+
+    private func serverSource(for source: MeetingSource) -> String {
+        switch source {
+        case .calendar:
+            return "google_calendar"
+        case .adhoc:
+            return "adhoc"
+        }
     }
 
     /// Update action items for a meeting

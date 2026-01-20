@@ -84,29 +84,41 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     }
 }
 
+enum NavigationTarget: Equatable {
+    case item(SidebarItem)
+    case folder(String)
+}
+
 @MainActor
 struct MainAppView: View {
     @ObservedObject private var auth = AuthManager.shared
     // NOTE: Removed unused @ObservedObject subscription - it was causing unnecessary re-renders
     @ObservedObject private var updateManager = UpdateManager.shared
     @EnvironmentObject private var meetingRepository: PersistentMeetingRepository
-    @State private var selection: SidebarItem? = .meetings
+    @State private var selection: NavigationTarget = .item(.meetings)
     @State private var isSettingsMode = false
     @State private var settingsSection: SettingsModalView.Section = .myAccount
-    @State private var previousSelection: SidebarItem? = .meetings
+    @State private var previousSelection: NavigationTarget = .item(.meetings)
     @State private var settingsSectionHistory: [SettingsModalView.Section] = [.myAccount]
     @State private var settingsHistoryIndex: Int = 0
     @State private var showCommandPalette = false
     @State private var pendingMeetingId: UUID?  // used to switch to the currently recording meeting
     @State private var windowReference: NSWindow?
-    @State private var navigationHistory: [SidebarItem] = [.meetings]
+    @State private var navigationHistory: [NavigationTarget] = [.item(.meetings)]
     @State private var meetingsNavigationPath = NavigationPath()
     @State private var historyIndex: Int = 0
     @State private var showUserMenu = false
     @State private var showPaywall = false
     @State private var showCreateWorkspace = false
+    @State private var showCreateFolder = false
+    @State private var showFolderSettings = false
+    @State private var folderSettingsTab: FolderSettingsTab = .details
+    @State private var folderSettingsId: String?
+    @State private var hoveredFolderId: String?
+    @State private var hoveredFolderMenuId: String?
     @State private var switchingToOrgId: String?  // Track which org we're switching to (prevents race condition)
     @StateObject private var commandPaletteViewModel = CommandPaletteViewModel()
+    @StateObject private var foldersManager = FoldersManager.shared
     @StateObject private var pageChrome = AppScreenLayout(
         initialState: AppScreenLayoutState(
             breadcrumb: [Breadcrumb(title: "Calls")],
@@ -192,6 +204,7 @@ struct MainAppView: View {
             .onAppear {
                 updateChromeForCurrentSelection()
                 setupCommandPaletteCallbacks()
+                Task { await foldersManager.refresh() }
             }
             .onChange(of: selection) { _ in
                 updateChromeForCurrentSelection()
@@ -227,6 +240,29 @@ struct MainAppView: View {
                     dismissCommandPalette()
                 } else if isSettingsMode {
                     exitSettingsMode()
+                }
+            }
+            .sheet(isPresented: $showCreateFolder) {
+                CreateFolderView(
+                    onCreate: { name, accessType, memberUserIds in
+                        Task {
+                            _ = try? await foldersManager.createFolder(
+                                name: name,
+                                accessType: accessType,
+                                memberUserIds: memberUserIds
+                            )
+                        }
+                    },
+                    onCancel: { showCreateFolder = false }
+                )
+            }
+            .sheet(isPresented: $showFolderSettings) {
+                if let folderId = folderSettingsId {
+                    FolderSettingsModalView(
+                        folderId: folderId,
+                        initialTab: folderSettingsTab,
+                        onClose: { showFolderSettings = false }
+                    )
                 }
             }
         }
@@ -266,6 +302,8 @@ struct MainAppView: View {
                         sidebarButton(for: item)
                     }
                 }
+
+                foldersSection
             }
 
             Spacer()
@@ -412,7 +450,7 @@ struct MainAppView: View {
     }
 
     private func sidebarButton(for item: SidebarItem) -> some View {
-        let isSelected = selection == item
+        let isSelected = selection == .item(item)
         return Button {
             handleSelectionTap(item)
         } label: {
@@ -437,6 +475,145 @@ struct MainAppView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private var foldersSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Folders")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+                    .textCase(.uppercase)
+                    .kerning(0.5)
+                    .padding(.horizontal, 12)
+
+                Spacer()
+
+                Button {
+                    showCreateFolder = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(AppTheme.secondaryText)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 6)
+            }
+
+            if foldersManager.folders.isEmpty {
+                Text("No folders yet")
+                    .font(.system(size: 11))
+                    .foregroundColor(AppTheme.secondaryText.opacity(0.7))
+                    .padding(.horizontal, 12)
+            } else {
+                VStack(spacing: 2) {
+                    ForEach(foldersManager.folders) { folder in
+                        folderButton(folder)
+                    }
+                }
+            }
+        }
+        .padding(.top, 10)
+    }
+
+    private func folderButton(_ folder: Folder) -> some View {
+        let isSelected = selection == .folder(folder.id)
+        return Button {
+            selectFolder(folder.id)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                    .frame(width: 18)
+                Text(folder.name)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .foregroundColor(isSelected ? AppTheme.primaryText : AppTheme.secondaryText)
+                    .lineLimit(1)
+                Spacer()
+
+                if hoveredFolderId == folder.id {
+                    Menu {
+                        Button {
+                            openFolderSettings(folder.id, tab: .details)
+                        } label: {
+                            Label("Rename", systemImage: "pencil")
+                        }
+
+                        Button {
+                            openFolderSettings(folder.id, tab: .sharing)
+                        } label: {
+                            Label("Sharing settings", systemImage: "person.2")
+                        }
+
+                        Button {
+                            openFolderSettings(folder.id, tab: .integrations)
+                        } label: {
+                            Label("Flows (coming soon)", systemImage: "command")
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            openFolderSettings(folder.id, tab: .details)
+                        } label: {
+                            Label("Delete folder", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .frame(width: 22, height: 22)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(
+                                        hoveredFolderMenuId == folder.id
+                                            ? Color.white.opacity(0.18)
+                                            : Color.clear
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .stroke(
+                                                hoveredFolderMenuId == folder.id
+                                                    ? Color.white.opacity(0.2)
+                                                    : Color.clear,
+                                                lineWidth: 1
+                                            )
+                                    )
+                            )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        hoveredFolderMenuId = hovering ? folder.id : nil
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 7)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? Color.white.opacity(0.15)
+                            : (hoveredFolderId == folder.id ? Color.white.opacity(0.08) : Color.clear)
+                    )
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            hoveredFolderId = hovering ? folder.id : nil
+        }
+    }
+
+    private func openFolderSettings(_ folderId: String, tab: FolderSettingsTab) {
+        folderSettingsId = folderId
+        folderSettingsTab = tab
+        showFolderSettings = true
     }
 
     private var contactFounderButton: some View {
@@ -532,16 +709,18 @@ struct MainAppView: View {
             SettingsContentView(section: $settingsSection)
         } else {
             switch selection {
-            case .meetings:
+            case .item(.meetings):
                 MeetingsListView(
                     repository: meetingRepository, pendingMeetingId: $pendingMeetingId,
                     navigationPath: $meetingsNavigationPath)
-            case .flows:
+            case .item(.flows):
                 FlowsView()
-            case .integrations:
+            case .item(.integrations):
                 IntegrationsView()
-            case .settings, .none:
+            case .item(.settings):
                 OnboardingGate()
+            case .folder(let folderId):
+                FolderMeetingsView(folderId: folderId, repository: meetingRepository)
             }
         }
     }
@@ -622,7 +801,7 @@ struct MainAppView: View {
     private func defaultActionForSelection() -> AppScreenAction? {
         // No action button in settings mode
         guard !isSettingsMode else { return nil }
-        guard selection == .meetings else { return nil }
+        guard selection == .item(.meetings) else { return nil }
         return AppScreenAction(title: "Record", systemImage: "plus") {
             NotificationCenter.default.post(name: .requestMeetingRecording, object: nil)
         }
@@ -720,20 +899,37 @@ struct MainAppView: View {
 
     private func selectSidebarItem(_ item: SidebarItem, pushToHistory: Bool = true) {
         // Reset navigation path when clicking Meetings (even if already selected)
-        if item == .meetings && !meetingsNavigationPath.isEmpty {
+        if item == .meetings && selection == .item(.meetings) && !meetingsNavigationPath.isEmpty {
             // Pop all items explicitly - more reliable than assigning new NavigationPath()
             meetingsNavigationPath.removeLast(meetingsNavigationPath.count)
             return  // Already on meetings, just needed to pop back to list
         }
 
-        guard selection != item else { return }
+        guard selection != .item(item) else { return }
 
-        selection = item
+        selection = .item(item)
         if pushToHistory {
             if historyIndex < navigationHistory.count - 1 {
                 navigationHistory = Array(navigationHistory.prefix(historyIndex + 1))
             }
-            navigationHistory.append(item)
+            navigationHistory.append(.item(item))
+            historyIndex = navigationHistory.count - 1
+        }
+    }
+
+    private func selectFolder(_ folderId: String, pushToHistory: Bool = true) {
+        guard selection != .folder(folderId) else { return }
+
+        if !meetingsNavigationPath.isEmpty {
+            meetingsNavigationPath.removeLast(meetingsNavigationPath.count)
+        }
+
+        selection = .folder(folderId)
+        if pushToHistory {
+            if historyIndex < navigationHistory.count - 1 {
+                navigationHistory = Array(navigationHistory.prefix(historyIndex + 1))
+            }
+            navigationHistory.append(.folder(folderId))
             historyIndex = navigationHistory.count - 1
         }
     }
@@ -743,7 +939,7 @@ struct MainAppView: View {
             // In settings mode, can go back if there's section history or can exit to app
             return settingsHistoryIndex > 0 || true  // Always can go back to exit settings
         }
-        if selection == .meetings && !meetingsNavigationPath.isEmpty { return true }
+        if selection == .item(.meetings) && !meetingsNavigationPath.isEmpty { return true }
         return historyIndex > 0
     }
 
@@ -759,16 +955,16 @@ struct MainAppView: View {
             return settingsSection.title
         }
         switch selection {
-        case .meetings:
+        case .item(.meetings):
             return "Calls"
-        case .flows:
+        case .item(.flows):
             return "Flows"
-        case .integrations:
+        case .item(.integrations):
             return "Integrations"
-        case .settings:
+        case .item(.settings):
             return "Settings"
-        case .none:
-            return ""
+        case .folder(let folderId):
+            return foldersManager.folders.first(where: { $0.id == folderId })?.name ?? "Folder"
         }
     }
 
@@ -784,7 +980,7 @@ struct MainAppView: View {
             }
             return
         }
-        if selection == .meetings && !meetingsNavigationPath.isEmpty {
+        if selection == .item(.meetings) && !meetingsNavigationPath.isEmpty {
             meetingsNavigationPath.removeLast()
             return
         }
