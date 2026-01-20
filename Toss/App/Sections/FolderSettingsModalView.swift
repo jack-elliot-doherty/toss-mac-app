@@ -13,9 +13,11 @@ struct FolderSettingsModalView: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var foldersManager = FoldersManager.shared
+    @ObservedObject private var auth = AuthManager.shared
     @State private var selectedTab: FolderSettingsTab
     @State private var name: String = ""
     @State private var accessType: FolderAccessType = .private
+    @State private var isTeamVisible = false
     @State private var teamMembers: [WorkspaceMember] = []
     @State private var selectedMemberIds: Set<String> = []
     @State private var isSaving = false
@@ -140,21 +142,62 @@ struct FolderSettingsModalView: View {
 
     private var sharingTab: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Picker("Access", selection: $accessType) {
-                ForEach(FolderAccessType.allCases, id: \.self) { type in
-                    Text(type.label).tag(type)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Folder visibility")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
+
+                Menu {
+                    Button {
+                        isTeamVisible = false
+                        Task { await loadMembers() }
+                    } label: {
+                        if !isTeamVisible {
+                            Label("Members only", systemImage: "checkmark")
+                        } else {
+                            Text("Members only")
+                        }
+                    }
+
+                    Button {
+                        isTeamVisible = true
+                    } label: {
+                        if isTeamVisible {
+                            Label("Everyone at \(teamName)", systemImage: "checkmark")
+                        } else {
+                            Text("Everyone at \(teamName)")
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isTeamVisible ? "person.2" : "lock")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(isTeamVisible ? "Everyone at \(teamName)" : "Members only")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryText)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
                 }
-            }
-            .pickerStyle(.segmented)
-            .onChange(of: accessType) { _, newValue in
-                if newValue == .subset {
-                    Task { await loadMembers() }
-                } else {
-                    selectedMemberIds.removeAll()
-                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+
+                Text(isTeamVisible
+                     ? "Everyone in \(teamName) can access this folder."
+                     : "Only people added to this folder can access it.")
+                    .font(.system(size: 12))
+                    .foregroundColor(AppTheme.secondaryText)
             }
 
-            if accessType == .subset {
+            if !isTeamVisible {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Members")
                         .font(.system(size: 12, weight: .semibold))
@@ -174,12 +217,6 @@ struct FolderSettingsModalView: View {
                         .frame(maxHeight: 180)
                     }
                 }
-            } else {
-                Text(accessType == .team
-                     ? "All team members can access this folder."
-                     : "Only you can access this folder.")
-                    .font(.system(size: 12))
-                    .foregroundColor(AppTheme.secondaryText)
             }
         }
     }
@@ -218,7 +255,8 @@ struct FolderSettingsModalView: View {
             accessType = folder.accessType
             selectedMemberIds = Set(folder.members)
         }
-        if accessType == .subset {
+        isTeamVisible = accessType == .team
+        if !isTeamVisible {
             Task { await loadMembers() }
         }
         if initialTab == .details {
@@ -241,11 +279,14 @@ struct FolderSettingsModalView: View {
     private func saveChanges() async {
         isSaving = true
         do {
-            let members = accessType == .subset ? Array(selectedMemberIds) : []
+            let members = isTeamVisible ? [] : Array(selectedMemberIds)
+            let nextAccessType: FolderAccessType = isTeamVisible
+                ? .team
+                : (members.isEmpty ? .private : .subset)
             _ = try await foldersManager.updateFolder(
                 folderId: folderId,
                 name: name,
-                accessType: accessType,
+                accessType: nextAccessType,
                 memberUserIds: members
             )
         } catch {
@@ -294,5 +335,9 @@ struct FolderSettingsModalView: View {
         } else {
             selectedMemberIds.insert(userId)
         }
+    }
+
+    private var teamName: String {
+        auth.currentOrg?.name ?? "your team"
     }
 }

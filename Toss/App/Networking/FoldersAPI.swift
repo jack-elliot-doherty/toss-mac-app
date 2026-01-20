@@ -7,9 +7,9 @@ enum FolderAccessType: String, Codable, CaseIterable {
 
     var label: String {
         switch self {
-        case .private: return "Private"
-        case .team: return "Team"
-        case .subset: return "Subset"
+        case .private: return "Members only"
+        case .team: return "Everyone"
+        case .subset: return "Members only"
         }
     }
 }

@@ -5,8 +5,9 @@ struct CreateFolderView: View {
     let onCancel: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var auth = AuthManager.shared
     @State private var name = ""
-    @State private var accessType: FolderAccessType = .private
+    @State private var isTeamVisible = false
     @State private var teamMembers: [WorkspaceMember] = []
     @State private var selectedMemberIds: Set<String> = []
     @State private var isLoadingMembers = false
@@ -20,14 +21,56 @@ struct CreateFolderView: View {
             TextField("Folder name", text: $name)
                 .textFieldStyle(.roundedBorder)
 
-            Picker("Access", selection: $accessType) {
-                ForEach(FolderAccessType.allCases, id: \.self) { type in
-                    Text(type.label).tag(type)
-                }
-            }
-            .pickerStyle(.segmented)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Folder visibility")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppTheme.secondaryText)
 
-            if accessType == .subset {
+                Menu {
+                    Button {
+                        isTeamVisible = false
+                        Task { await loadMembers() }
+                    } label: {
+                        if !isTeamVisible {
+                            Label("Members only", systemImage: "checkmark")
+                        } else {
+                            Text("Members only")
+                        }
+                    }
+
+                    Button {
+                        isTeamVisible = true
+                    } label: {
+                        if isTeamVisible {
+                            Label("Everyone at \(teamName)", systemImage: "checkmark")
+                        } else {
+                            Text("Everyone at \(teamName)")
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isTeamVisible ? "person.2" : "lock")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(isTeamVisible ? "Everyone at \(teamName)" : "Members only")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryText)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+            }
+
+            if !isTeamVisible {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Invite members")
                         .font(.system(size: 13, weight: .semibold))
@@ -59,9 +102,12 @@ struct CreateFolderView: View {
                 Spacer()
 
                 Button("Create") {
-                    onCreate(name.trimmingCharacters(in: .whitespacesAndNewlines),
-                             accessType,
-                             Array(selectedMemberIds))
+                    let accessType: FolderAccessType = isTeamVisible ? .team : .subset
+                    onCreate(
+                        name.trimmingCharacters(in: .whitespacesAndNewlines),
+                        accessType,
+                        Array(selectedMemberIds)
+                    )
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
@@ -70,12 +116,9 @@ struct CreateFolderView: View {
         }
         .padding(20)
         .frame(width: 360)
-        .onAppear { Task { await loadMembers() } }
-        .onChange(of: accessType) { _, newValue in
-            if newValue == .subset {
+        .onAppear {
+            if !isTeamVisible {
                 Task { await loadMembers() }
-            } else {
-                selectedMemberIds.removeAll()
             }
         }
     }
@@ -83,8 +126,8 @@ struct CreateFolderView: View {
     private var canCreate: Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return false }
-        if accessType == .subset {
-            return !selectedMemberIds.isEmpty
+        if !isTeamVisible {
+            return true
         }
         return true
     }
@@ -122,7 +165,6 @@ struct CreateFolderView: View {
     }
 
     private func loadMembers() async {
-        guard accessType == .subset else { return }
         isLoadingMembers = true
         do {
             teamMembers = try await TeamAPI.shared.fetchMembers()
@@ -130,5 +172,9 @@ struct CreateFolderView: View {
             NSLog("[CreateFolderView] Failed to load members: %@", error.localizedDescription)
         }
         isLoadingMembers = false
+    }
+
+    private var teamName: String {
+        auth.currentOrg?.name ?? "your team"
     }
 }
