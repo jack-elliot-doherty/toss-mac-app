@@ -11,6 +11,13 @@
 		DA130A432F0B064B0066C108 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3E2F0B064B0066C108 /* CommandPaletteView.swift */; };
 		DA130A442F0B064B0066C108 /* Command.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3D2F0B064B0066C108 /* Command.swift */; };
 		DA130A452F0B064B0066C108 /* CommandPaletteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA130A3F2F0B064B0066C108 /* CommandPaletteViewModel.swift */; };
+		DA1D00992F1F037B00AA2794 /* TeamAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00982F1F037B00AA2794 /* TeamAPI.swift */; };
+		DA1D009A2F1F037B00AA2794 /* FoldersAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00972F1F037B00AA2794 /* FoldersAPI.swift */; };
+		DA1D009F2F1F038D00AA2794 /* SharedMeetingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D009E2F1F038D00AA2794 /* SharedMeetingView.swift */; };
+		DA1D00A02F1F038D00AA2794 /* CreateFolderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D009B2F1F038D00AA2794 /* CreateFolderView.swift */; };
+		DA1D00A12F1F038D00AA2794 /* FolderMeetingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D009C2F1F038D00AA2794 /* FolderMeetingsView.swift */; };
+		DA1D00A22F1F038D00AA2794 /* FoldersManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D009D2F1F038D00AA2794 /* FoldersManager.swift */; };
+		DA1D00A42F1FB9C700AA2794 /* FolderSettingsModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00A32F1FB9C700AA2794 /* FolderSettingsModalView.swift */; };
 		DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427522EC37F3A00F85DEB /* ToolCall.swift */; };
 		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
 		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
@@ -112,6 +119,13 @@
 		DA130A3E2F0B064B0066C108 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		DA130A3F2F0B064B0066C108 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
 		DA130A402F0B064B0066C108 /* CommandRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandRegistry.swift; sourceTree = "<group>"; };
+		DA1D00972F1F037B00AA2794 /* FoldersAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoldersAPI.swift; sourceTree = "<group>"; };
+		DA1D00982F1F037B00AA2794 /* TeamAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamAPI.swift; sourceTree = "<group>"; };
+		DA1D009B2F1F038D00AA2794 /* CreateFolderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateFolderView.swift; sourceTree = "<group>"; };
+		DA1D009C2F1F038D00AA2794 /* FolderMeetingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderMeetingsView.swift; sourceTree = "<group>"; };
+		DA1D009D2F1F038D00AA2794 /* FoldersManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoldersManager.swift; sourceTree = "<group>"; };
+		DA1D009E2F1F038D00AA2794 /* SharedMeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedMeetingView.swift; sourceTree = "<group>"; };
+		DA1D00A32F1FB9C700AA2794 /* FolderSettingsModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderSettingsModalView.swift; sourceTree = "<group>"; };
 		DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamParser.swift; sourceTree = "<group>"; };
 		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
 		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
@@ -245,6 +259,8 @@
 		DA3623462EB23FCE000207F0 /* Networking */ = {
 			isa = PBXGroup;
 			children = (
+				DA1D00972F1F037B00AA2794 /* FoldersAPI.swift */,
+				DA1D00982F1F037B00AA2794 /* TeamAPI.swift */,
 				DAF7E0002F082D330052182B /* FlowNotificationManager.swift */,
 				DAD36B7E2EE5B91E0040FA21 /* MeetingSyncManager.swift */,
 				DAEEBF382EDF1148009DE3CF /* APIClient.swift */,
@@ -287,6 +303,11 @@
 		DA3623542EB23FCE000207F0 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				DA1D00A32F1FB9C700AA2794 /* FolderSettingsModalView.swift */,
+				DA1D009B2F1F038D00AA2794 /* CreateFolderView.swift */,
+				DA1D009C2F1F038D00AA2794 /* FolderMeetingsView.swift */,
+				DA1D009D2F1F038D00AA2794 /* FoldersManager.swift */,
+				DA1D009E2F1F038D00AA2794 /* SharedMeetingView.swift */,
 				DA9C43DB2EEFA00000C6D778 /* FlowsView.swift */,
 				DAEEBF2E2ED7CB88009DE3CF /* IntegrationsView.swift */,
 				DA36239B2EBB77CB000207F0 /* HistoryView.swift */,
@@ -596,6 +617,10 @@
 				DA9C43D02EEC4D4900C6D778 /* SignInWindowContent.swift in Sources */,
 				DA3623872EB4F4A0000207F0 /* AuthManager.swift in Sources */,
 				DA3623662EB23FCE000207F0 /* PillViewModel.swift in Sources */,
+				DA1D009F2F1F038D00AA2794 /* SharedMeetingView.swift in Sources */,
+				DA1D00A02F1F038D00AA2794 /* CreateFolderView.swift in Sources */,
+				DA1D00A12F1F038D00AA2794 /* FolderMeetingsView.swift in Sources */,
+				DA1D00A22F1F038D00AA2794 /* FoldersManager.swift in Sources */,
 				DAD483E72EBCE56A001C5902 /* Config.swift in Sources */,
 				DAA4FA072F0D78A7009AD75E /* PreferencesManager.swift in Sources */,
 				DA3427592EC9258F00F85DEB /* AppTheme.swift in Sources */,
@@ -609,6 +634,8 @@
 				DA9C43CA2EE79CC900C6D778 /* ScreenshotCapture.swift in Sources */,
 				DA7827A42EBEB0F50040ED92 /* MeetingDetector.swift in Sources */,
 				DA36239A2EBB77B8000207F0 /* OnboardingManager.swift in Sources */,
+				DA1D00992F1F037B00AA2794 /* TeamAPI.swift in Sources */,
+				DA1D009A2F1F037B00AA2794 /* FoldersAPI.swift in Sources */,
 				DA3623692EB23FCE000207F0 /* ToastPanelController.swift in Sources */,
 				DA36236D2EB23FCE000207F0 /* AudioRecorder.swift in Sources */,
 				DA7827A62EBFFE2D0040ED92 /* MeetingView.swift in Sources */,
@@ -631,6 +658,7 @@
 				DA3623752EB23FCE000207F0 /* PasteManager.swift in Sources */,
 				DAEB723F2EBD5E79006A17C7 /* TossApp.swift in Sources */,
 				DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */,
+				DA1D00A42F1FB9C700AA2794 /* FolderSettingsModalView.swift in Sources */,
 				DA3623762EB23FCE000207F0 /* TranscribeAPI.swift in Sources */,
 				DA3623782EB23FCE000207F0 /* AXFocusHelper.swift in Sources */,
 				DAD36B7B2EE2608E0040FA21 /* PaywallView.swift in Sources */,

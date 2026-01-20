@@ -48,7 +48,11 @@ final class MeetingSyncManager: ObservableObject {
 
     /// Sync a meeting to the server (called after meeting ends or after edits)
     /// Set triggerFlows to true for initial sync after meeting ends (not for subsequent edits)
-    func syncMeeting(_ meetingId: UUID, triggerFlows: Bool = false) async {
+    func syncMeeting(
+        _ meetingId: UUID,
+        triggerFlows: Bool = false,
+        allowInProgress: Bool = false
+    ) async {
         NSLog("[MeetingSyncManager] Syncing meeting: \(meetingId)")
 
         guard let repository = getRepository() else {
@@ -61,8 +65,8 @@ final class MeetingSyncManager: ObservableObject {
             return
         }
 
-        // Only sync ended meetings
-        guard meeting.endTime != nil else {
+        // Only sync ended meetings unless explicitly allowed
+        if meeting.endTime == nil && !allowInProgress {
             NSLog("[MeetingSyncManager] Meeting not ended yet, skipping sync: \(meetingId)")
             return
         }

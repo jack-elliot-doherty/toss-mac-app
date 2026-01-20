@@ -130,6 +130,7 @@ struct MeetingView: View {
     @ObservedObject var repository: PersistentMeetingRepository
     @EnvironmentObject private var pageChrome: AppScreenLayout
     @ObservedObject private var auth = AuthManager.shared
+    @StateObject private var foldersManager = FoldersManager.shared
 
     @SceneStorage private var selectedTabRaw: String  // Store raw value for persistence
     @Namespace private var tabAnimation
@@ -158,6 +159,8 @@ struct MeetingView: View {
     @State private var userFlows: [Flow] = []  // All user's enabled flows (shown during recording)
     @State private var isLoadingFlows = false
     @State private var expandedFlowRunId: String?
+    @State private var meetingFolders: [FolderSummary] = []
+    @State private var isLoadingFolders = false
 
     // Computed property to convert between raw string and enum
     private var selectedTab: MeetingDetailTab {
@@ -243,7 +246,14 @@ struct MeetingView: View {
             .frame(maxWidth: .infinity, alignment: .center)  // Center the block in the window
         }
         .clipped()
-        .onAppear(perform: configureChrome)
+        .onAppear {
+            configureChrome()
+            meetingFolders = meeting?.folderAssignments ?? []
+            Task {
+                await foldersManager.refresh()
+                await loadMeetingFolders()
+            }
+        }
         .onDisappear { pageChrome.clearOverride() }
         .onChange(of: meeting?.title) { _, _ in configureChrome() }
     }
@@ -283,18 +293,10 @@ struct MeetingView: View {
                     }
             }
 
-            // Horizontal metadata with colon
-            HStack(spacing: 16) {
-                HStack(spacing: 6) {
-                    Text("Created:")
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.secondaryText)
-                    Text(createdAtString)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(AppTheme.primaryText)
-                }
+            // Compact metadata row (icon + label)
+            HStack(spacing: 18) {
+                metadataItem(icon: "clock", text: createdAtString)
 
-                // Join Call button (only shown if meeting has a join URL)
                 if let joinUrl = meeting?.joinUrl, let url = URL(string: joinUrl) {
                     Button {
                         NSWorkspace.shared.open(url)
@@ -306,7 +308,7 @@ struct MeetingView: View {
                                 .font(.system(size: 12, weight: .semibold))
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
                             Capsule()
@@ -315,10 +317,152 @@ struct MeetingView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                folderPicker
             }
 
             // Removed Divider
         }
+    }
+
+    private var folderPicker: some View {
+        HStack(spacing: 10) {
+            Menu {
+                if !meetingFolders.isEmpty {
+                    Button("Remove from all folders") {
+                        Task { await removeAllFolders() }
+                    }
+                    Divider()
+                }
+
+                ForEach(foldersManager.folders) { folder in
+                    Button {
+                        Task { await toggleFolder(folder) }
+                    } label: {
+                        if isFolderAssigned(folder.id) {
+                            Label(folder.name, systemImage: "checkmark")
+                        } else {
+                            Text(folder.name)
+                        }
+                    }
+                }
+            } label: {
+                metadataMenuLabel(icon: "folder", text: folderLabel)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+
+            loadingDot
+
+            Spacer()
+        }
+    }
+
+    private var loadingDot: some View {
+        Group {
+            if isLoadingFolders {
+                ProgressView()
+                    .scaleEffect(0.5)
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: 12, height: 12)
+    }
+
+    private func metadataItem(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(AppTheme.secondaryText)
+            Text(text)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.primaryText)
+        }
+    }
+
+    private func metadataMenuLabel(icon: String, text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(AppTheme.secondaryText)
+            Text(text)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(AppTheme.primaryText)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(AppTheme.secondaryText)
+        }
+    }
+
+    private var folderLabel: String {
+        if meetingFolders.isEmpty { return "Add to folder" }
+        if meetingFolders.count == 1 { return meetingFolders.first?.name ?? "1 folder" }
+        return "\(meetingFolders.count) folders"
+    }
+
+    private func isFolderAssigned(_ folderId: String) -> Bool {
+        meetingFolders.contains { $0.id == folderId }
+    }
+
+    private func loadMeetingFolders(force: Bool = false) async {
+        if !force && !meetingFolders.isEmpty {
+            return
+        }
+        isLoadingFolders = true
+        do {
+            await MeetingSyncManager.shared.syncMeeting(
+                meetingId,
+                triggerFlows: false,
+                allowInProgress: true
+            )
+            meetingFolders = try await MeetingsApi.shared.fetchMeetingFolders(meetingId: meetingId)
+            repository.updateMeetingFolders(meetingId: meetingId, folders: meetingFolders)
+        } catch {
+            NSLog("[MeetingView] Failed to load meeting folders: %@", error.localizedDescription)
+        }
+        isLoadingFolders = false
+    }
+
+    private func toggleFolder(_ folder: Folder) async {
+        let isAssigned = isFolderAssigned(folder.id)
+        do {
+            await MeetingSyncManager.shared.syncMeeting(
+                meetingId,
+                triggerFlows: false,
+                allowInProgress: true
+            )
+            if isAssigned {
+                try await FoldersAPI.shared.removeMeeting(
+                    folderId: folder.id,
+                    meetingId: meetingId.uuidString
+                )
+                meetingFolders.removeAll { $0.id == folder.id }
+                repository.updateMeetingFolders(meetingId: meetingId, folders: meetingFolders)
+            } else {
+                try await FoldersAPI.shared.assignMeeting(
+                    folderId: folder.id,
+                    meetingId: meetingId.uuidString
+                )
+                meetingFolders.append(
+                    FolderSummary(id: folder.id, name: folder.name, accessType: folder.accessType)
+                )
+                repository.updateMeetingFolders(meetingId: meetingId, folders: meetingFolders)
+            }
+        } catch {
+            NSLog("[MeetingView] Failed to toggle folder: %@", error.localizedDescription)
+        }
+    }
+
+    private func removeAllFolders() async {
+        for folder in meetingFolders {
+            try? await FoldersAPI.shared.removeMeeting(
+                folderId: folder.id,
+                meetingId: meetingId.uuidString
+            )
+        }
+        meetingFolders.removeAll()
+        repository.updateMeetingFolders(meetingId: meetingId, folders: meetingFolders)
     }
 
     private var tabSection: some View {

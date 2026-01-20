@@ -26,6 +26,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var joinUrl: String?  // URL to join the call (e.g., Google Meet, Zoom)
     var externalId: String?  // External calendar event ID (for linking to Google Calendar)
     var orgId: String?  // Organization ID for multi-workspace partitioning
+    var folderAssignments: [FolderSummary] = []  // Local cache of folder membership
 
     // Custom decoder for backwards compatibility with existing data
     init(from decoder: Decoder) throws {
@@ -45,13 +46,16 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         joinUrl = try container.decodeIfPresent(String.self, forKey: .joinUrl)
         externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
         orgId = try container.decodeIfPresent(String.self, forKey: .orgId)
+        folderAssignments =
+            try container.decodeIfPresent([FolderSummary].self, forKey: .folderAssignments) ?? []
     }
 
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
         notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc,
         actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
-        joinUrl: String? = nil, externalId: String? = nil, orgId: String? = nil
+        joinUrl: String? = nil, externalId: String? = nil, orgId: String? = nil,
+        folderAssignments: [FolderSummary] = []
     ) {
         self.id = id
         self.title = title
@@ -67,6 +71,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.joinUrl = joinUrl
         self.externalId = externalId
         self.orgId = orgId
+        self.folderAssignments = folderAssignments
     }
 }
 
@@ -121,6 +126,7 @@ protocol MeetingRepositoryProtocol {
     func updateMeetingNotes(meetingId: UUID, notes: String)
     func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
     func updateMeetingActionItems(meetingId: UUID, actionItems: [StoredActionItem])
+    func updateMeetingFolders(meetingId: UUID, folders: [FolderSummary])
     func markMeetingSynced(meetingId: UUID)
     func cleanupOrphanedMeetings()
     func endMeetingIfActive(id: UUID)
@@ -365,6 +371,16 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         queue.sync {
             guard var meeting = meetings[meetingId] else { return }
             meeting.actionItems = actionItems
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
+    func updateMeetingFolders(meetingId: UUID, folders: [FolderSummary]) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.folderAssignments = folders
             meeting.updatedAt = Date()
             meetings[meetingId] = meeting
         }
