@@ -683,6 +683,46 @@ struct SettingsModalView: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize()
                 }
+
+                // Agent text input shortcut (double-tap option)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Agent text input")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("Open text input to message agent")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer()
+
+                    Menu {
+                        Button("Double-tap ⌥ Option") {
+                            preferences.doubleOptionShortcut = .enabled
+                        }
+                        Divider()
+                        Button("No shortcut") {
+                            preferences.doubleOptionShortcut = .disabled
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.doubleOptionShortcut.doubleOptionDisplayName)
+                                .font(.system(size: 13))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.black.opacity(0.05))
+                        )
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                }
             }
 
             Divider()
@@ -2890,6 +2930,31 @@ struct SettingsContentView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text(preferences.agentModeShortcut.agentModeDisplayName).font(.system(size: 13))
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                    }
+                    .menuStyle(.borderlessButton).fixedSize()
+                }
+
+                // Agent text input shortcut (double-tap option)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Agent text input").font(.system(size: 14, weight: .medium))
+                        Text("Open text input to message agent")
+                            .font(.system(size: 12)).foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Double-tap ⌥ Option") { preferences.doubleOptionShortcut = .enabled }
+                        Divider()
+                        Button("No shortcut") { preferences.doubleOptionShortcut = .disabled }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(preferences.doubleOptionShortcut.doubleOptionDisplayName).font(.system(size: 13))
                             Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.primary)

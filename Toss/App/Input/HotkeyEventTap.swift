@@ -60,20 +60,23 @@ final class HotkeyEventTap {
 
                 // --- Option edges (double-tap detection) ---
                 if !optionWasDown && optionIsDown {
-                    var isDouble = false
-                    if let last = self.lastOptionDownAt,
-                        now.timeIntervalSince(last) <= self.doubleTapWindow,
-                        self.optionCooldownUntil.map({ now >= $0 }) ?? true
-                    {
-                        isDouble = true
-                    }
+                    // Only detect double-tap if preference is enabled
+                    if PreferencesManager.shared.doubleOptionShortcut == .enabled {
+                        var isDouble = false
+                        if let last = self.lastOptionDownAt,
+                            now.timeIntervalSince(last) <= self.doubleTapWindow,
+                            self.optionCooldownUntil.map({ now >= $0 }) ?? true
+                        {
+                            isDouble = true
+                        }
 
-                    if isDouble {
-                        self.onDoubleTapOption?()
-                        self.optionCooldownUntil = now.addingTimeInterval(0.35)
-                        self.lastOptionDownAt = nil
-                        self.previousFlags = flags
-                        return
+                        if isDouble {
+                            self.onDoubleTapOption?()
+                            self.optionCooldownUntil = now.addingTimeInterval(0.35)
+                            self.lastOptionDownAt = nil
+                            self.previousFlags = flags
+                            return
+                        }
                     }
 
                     self.lastOptionDownAt = now
@@ -250,20 +253,23 @@ final class HotkeyEventTap {
 
                 // --- Option edges (double-tap detection) ---
                 if !optionWasDown && optionIsDown {
-                    var isDouble = false
-                    if let last = self.lastOptionDownAt,
-                        now.timeIntervalSince(last) <= self.doubleTapWindow,
-                        self.optionCooldownUntil.map({ now >= $0 }) ?? true
-                    {
-                        isDouble = true
-                    }
+                    // Only detect double-tap if preference is enabled
+                    if PreferencesManager.shared.doubleOptionShortcut == .enabled {
+                        var isDouble = false
+                        if let last = self.lastOptionDownAt,
+                            now.timeIntervalSince(last) <= self.doubleTapWindow,
+                            self.optionCooldownUntil.map({ now >= $0 }) ?? true
+                        {
+                            isDouble = true
+                        }
 
-                    if isDouble {
-                        self.onDoubleTapOption?()
-                        self.optionCooldownUntil = now.addingTimeInterval(0.35)
-                        self.lastOptionDownAt = nil
-                        self.previousFlags = flags
-                        return event
+                        if isDouble {
+                            self.onDoubleTapOption?()
+                            self.optionCooldownUntil = now.addingTimeInterval(0.35)
+                            self.lastOptionDownAt = nil
+                            self.previousFlags = flags
+                            return event
+                        }
                     }
 
                     self.lastOptionDownAt = now

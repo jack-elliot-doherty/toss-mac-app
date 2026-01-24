@@ -20,6 +20,13 @@ enum ShortcutOption: String, CaseIterable, Codable {
         case .disabled: return "No shortcut"
         }
     }
+    
+    var doubleOptionDisplayName: String {
+        switch self {
+        case .enabled: return "Double-tap ⌥ Option"
+        case .disabled: return "No shortcut"
+        }
+    }
 }
 
 final class PreferencesManager: ObservableObject {
@@ -31,6 +38,7 @@ final class PreferencesManager: ObservableObject {
         static let autoDetectMeetings = "autoDetectMeetings"
         static let dictationShortcut = "dictationShortcut"
         static let agentModeShortcut = "agentModeShortcut"
+        static let doubleOptionShortcut = "doubleOptionShortcut"
         static let hideFromScreenCapture = "hideFromScreenCapture"
     }
 
@@ -69,6 +77,13 @@ final class PreferencesManager: ObservableObject {
         }
     }
 
+    @Published var doubleOptionShortcut: ShortcutOption {
+        didSet {
+            UserDefaults.standard.set(doubleOptionShortcut.rawValue, forKey: Keys.doubleOptionShortcut)
+            NotificationCenter.default.post(name: .doubleOptionShortcutChanged, object: doubleOptionShortcut)
+        }
+    }
+
     @Published var hideFromScreenCapture: Bool {
         didSet {
             UserDefaults.standard.set(hideFromScreenCapture, forKey: Keys.hideFromScreenCapture)
@@ -96,6 +111,13 @@ final class PreferencesManager: ObservableObject {
         } else {
             self.agentModeShortcut = .enabled
         }
+        
+        if let doubleOptionRaw = UserDefaults.standard.string(forKey: Keys.doubleOptionShortcut),
+           let doubleOption = ShortcutOption(rawValue: doubleOptionRaw) {
+            self.doubleOptionShortcut = doubleOption
+        } else {
+            self.doubleOptionShortcut = .enabled
+        }
     }
 }
 
@@ -105,5 +127,6 @@ extension Notification.Name {
     static let autoDetectMeetingsChanged = Notification.Name("autoDetectMeetingsChanged")
     static let dictationShortcutChanged = Notification.Name("dictationShortcutChanged")
     static let agentModeShortcutChanged = Notification.Name("agentModeShortcutChanged")
+    static let doubleOptionShortcutChanged = Notification.Name("doubleOptionShortcutChanged")
     static let hideFromScreenCaptureChanged = Notification.Name("hideFromScreenCaptureChanged")
 }
