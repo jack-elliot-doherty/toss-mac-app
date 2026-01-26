@@ -160,7 +160,9 @@ class ImagePasteTextView: NSTextView {
     }
     
     override func becomeFirstResponder() -> Bool {
+        #if DEBUG
         NSLog("[NotesTextView] becomeFirstResponder")
+        #endif
         return super.becomeFirstResponder()
     }
     
@@ -169,7 +171,9 @@ class ImagePasteTextView: NSTextView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // Check for Cmd+V
         if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "v" {
+            #if DEBUG
             NSLog("[NotesTextView] Cmd+V detected via performKeyEquivalent")
+            #endif
             paste(nil)
             return true
         }
@@ -191,17 +195,23 @@ class ImagePasteTextView: NSTextView {
     override func paste(_ sender: Any?) {
         let pasteboard = NSPasteboard.general
         
+        #if DEBUG
         NSLog("[NotesTextView] paste() called, pasteboard types: %@", pasteboard.types?.map { $0.rawValue } ?? [])
+        #endif
 
         // Check for image types first
         if let imageData = getImageDataFromPasteboard(pasteboard) {
+            #if DEBUG
             NSLog("[NotesTextView] Pasting image: %d bytes", imageData.count)
+            #endif
             onImagePasted?(imageData)
             return
         }
 
         // Fall back to normal paste for text
+        #if DEBUG
         NSLog("[NotesTextView] No image found, falling back to text paste")
+        #endif
         super.paste(sender)
     }
 
@@ -210,7 +220,9 @@ class ImagePasteTextView: NSTextView {
 
         // Check for image types first
         if let imageData = getImageDataFromPasteboard(pasteboard) {
+            #if DEBUG
             NSLog("[NotesTextView] Pasting image (plain): %d bytes", imageData.count)
+            #endif
             onImagePasted?(imageData)
             return
         }
@@ -222,13 +234,17 @@ class ImagePasteTextView: NSTextView {
     private func getImageDataFromPasteboard(_ pasteboard: NSPasteboard) -> Data? {
         // Try PNG first (most common for screenshots)
         if let data = pasteboard.data(forType: .png) {
+            #if DEBUG
             NSLog("[NotesTextView] Found PNG data: %d bytes", data.count)
+            #endif
             return data
         }
 
         // Try TIFF (also common for screenshots on macOS)
         if let data = pasteboard.data(forType: .tiff) {
+            #if DEBUG
             NSLog("[NotesTextView] Found TIFF data: %d bytes", data.count)
+            #endif
             return data
         }
 
@@ -238,7 +254,9 @@ class ImagePasteTextView: NSTextView {
                 if let uti = try? url.resourceValues(forKeys: [.typeIdentifierKey]).typeIdentifier,
                    UTType(uti)?.conforms(to: .image) == true,
                    let data = try? Data(contentsOf: url) {
+                    #if DEBUG
                     NSLog("[NotesTextView] Found image file URL: %@", url.path)
+                    #endif
                     return data
                 }
             }
@@ -251,7 +269,9 @@ class ImagePasteTextView: NSTextView {
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         if hasImageInDrag(sender) {
+            #if DEBUG
             NSLog("[NotesTextView] Drag entered with image")
+            #endif
             return .copy
         }
         return super.draggingEntered(sender)
@@ -267,11 +287,15 @@ class ImagePasteTextView: NSTextView {
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pasteboard = sender.draggingPasteboard
 
+        #if DEBUG
         NSLog("[NotesTextView] performDragOperation - types: %@", pasteboard.types?.map { $0.rawValue } ?? [])
+        #endif
 
         // Try to get image data
         if let imageData = getImageDataFromDrag(pasteboard) {
+            #if DEBUG
             NSLog("[NotesTextView] Dropped image: %d bytes", imageData.count)
+            #endif
             onImagePasted?(imageData)
             return true
         }
@@ -293,32 +317,42 @@ class ImagePasteTextView: NSTextView {
     private func getImageDataFromDrag(_ pasteboard: NSPasteboard) -> Data? {
         // Try PNG
         if let data = pasteboard.data(forType: .png) {
+            #if DEBUG
             NSLog("[NotesTextView] Got PNG from drag")
+            #endif
             return data
         }
 
         // Try TIFF
         if let data = pasteboard.data(forType: .tiff) {
+            #if DEBUG
             NSLog("[NotesTextView] Got TIFF from drag")
+            #endif
             return data
         }
 
         // Try public.image
         if let data = pasteboard.data(forType: NSPasteboard.PasteboardType("public.image")) {
+            #if DEBUG
             NSLog("[NotesTextView] Got public.image from drag")
+            #endif
             return data
         }
 
-        // Try file URLs
+        // Try file URLs - use UTType for consistent image detection
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] {
             for url in urls {
+                #if DEBUG
                 NSLog("[NotesTextView] Checking file URL: %@", url.path)
-                let ext = url.pathExtension.lowercased()
-                if ["png", "jpg", "jpeg", "gif", "tiff", "bmp", "webp"].contains(ext) {
-                    if let data = try? Data(contentsOf: url) {
-                        NSLog("[NotesTextView] Loaded image from file: %d bytes", data.count)
-                        return data
-                    }
+                #endif
+                // Use UTType for consistent image format checking (same as getImageDataFromPasteboard)
+                if let uti = try? url.resourceValues(forKeys: [.typeIdentifierKey]).typeIdentifier,
+                   UTType(uti)?.conforms(to: .image) == true,
+                   let data = try? Data(contentsOf: url) {
+                    #if DEBUG
+                    NSLog("[NotesTextView] Loaded image from file: %d bytes", data.count)
+                    #endif
+                    return data
                 }
             }
         }

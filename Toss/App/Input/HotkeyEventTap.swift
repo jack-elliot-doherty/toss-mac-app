@@ -97,7 +97,7 @@ final class HotkeyEventTap {
                         self.onDoubleTapFn?()
                         cooldownUntil = now.addingTimeInterval(0.35)
 
-                        // Swallow the down up the formed the double tap
+                        // Swallow the down and up that formed the double tap
                         self.swallowFnDownAfterDoubleTap = true
                         self.swallowNextFnUp = true
 
@@ -159,40 +159,9 @@ final class HotkeyEventTap {
                             self?.onFnUp?()
                             self?.pendingFnUpTimer = nil
                         }
-                        RunLoop.main.add(pendingFnUpTimer!, forMode: .common)  // don't let UI interactions pause it
-
-                    }
-
-                }
-                if fnWasDown && !fnIsDown {
-
-                    if self.swallowFnUpAfterEscape {
-                        self.swallowFnUpAfterEscape = false
-                        self.previousFlags = flags
-                        return
-                    }
-
-                    // If we just decided to swallow the post-double-tap UP, eat it and reset the flag
-                    if self.swallowNextFnUp {
-                        self.swallowNextFnUp = false
-                        self.swallowFnDownAfterDoubleTap = false
-                        self.previousFlags = flags
-                        return
-                    }
-
-                    let held = now.timeIntervalSince(lastFnDownAt ?? now)
-                    if held >= minFnHold {
-                        onFnUp?()
-                    } else {
-                        let delay = max(0, minFnHold - held)
-                        pendingFnUpTimer?.invalidate()
-                        pendingFnUpTimer = Timer.scheduledTimer(
-                            withTimeInterval: delay, repeats: false
-                        ) { [weak self] _ in
-                            self?.onFnUp?()
-                            self?.pendingFnUpTimer = nil
+                        if let timer = pendingFnUpTimer {
+                            RunLoop.main.add(timer, forMode: .common)  // don't let UI interactions pause it
                         }
-                        RunLoop.main.add(pendingFnUpTimer!, forMode: .common)  // don’t let UI interactions pause it
 
                     }
 
@@ -249,7 +218,6 @@ final class HotkeyEventTap {
                 let optionWasDown = previousFlags.contains(.option)
                 let optionIsDown = flags.contains(.option)
 
-                print(flags)
 
                 // --- Option edges (double-tap detection) ---
                 if !optionWasDown && optionIsDown {
@@ -343,7 +311,9 @@ final class HotkeyEventTap {
                             self?.onFnUp?()
                             self?.pendingFnUpTimer = nil
                         }
-                        RunLoop.main.add(pendingFnUpTimer!, forMode: .common)
+                        if let timer = pendingFnUpTimer {
+                            RunLoop.main.add(timer, forMode: .common)
+                        }
                     }
                 }
 

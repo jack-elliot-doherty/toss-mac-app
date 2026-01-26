@@ -859,11 +859,25 @@ final class MeetingsApi {
 
     // MARK: - Note Images
 
+    /// Maximum image size allowed (10MB, matching server limit)
+    private static let maxImageSize = 10 * 1024 * 1024
+    
     /// Upload an image to attach to meeting notes
     /// Returns the NoteImage with URL from server
     func uploadNoteImage(meetingId: UUID, imageData: Data) async throws -> NoteImage {
+        // Validate image size before uploading (server enforces 10MB limit)
+        guard imageData.count <= Self.maxImageSize else {
+            let sizeMB = Double(imageData.count) / (1024 * 1024)
+            NSLog("[MeetingsApi] Image too large: %.2f MB (max 10MB)", sizeMB)
+            throw NSError(
+                domain: "MeetingsApi",
+                code: 413,
+                userInfo: [NSLocalizedDescriptionKey: "Image too large (max 10MB)"]
+            )
+        }
+        
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images")
-        NSLog("[MeetingsApi] POST %@ (upload note image)", url.absoluteString)
+        NSLog("[MeetingsApi] POST %@ (upload note image, size: %d bytes)", url.absoluteString, imageData.count)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
