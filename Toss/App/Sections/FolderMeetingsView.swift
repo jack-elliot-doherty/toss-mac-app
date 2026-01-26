@@ -187,7 +187,8 @@ private struct FolderMeetingDetailView: View {
 
     var body: some View {
         if let uuid = UUID(uuidString: meetingId),
-           repository.getMeeting(id: uuid) != nil {
+            repository.getMeeting(id: uuid) != nil
+        {
             MeetingView(meetingId: uuid, repository: repository)
         } else {
             SharedMeetingView(meetingId: meetingId)

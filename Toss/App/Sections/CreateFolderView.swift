@@ -137,8 +137,13 @@ struct CreateFolderView: View {
             toggleMember(member.userId)
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: selectedMemberIds.contains(member.userId) ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(selectedMemberIds.contains(member.userId) ? .accentColor : AppTheme.secondaryText)
+                Image(
+                    systemName: selectedMemberIds.contains(member.userId)
+                        ? "checkmark.circle.fill" : "circle"
+                )
+                .foregroundColor(
+                    selectedMemberIds.contains(member.userId)
+                        ? .accentColor : AppTheme.secondaryText)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(member.name)
                         .font(.system(size: 12, weight: .medium))

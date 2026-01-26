@@ -6,21 +6,21 @@ import SwiftUI
 enum ShortcutOption: String, CaseIterable, Codable {
     case enabled = "enabled"
     case disabled = "disabled"
-    
+
     var displayName: String {
         switch self {
         case .enabled: return "Hold Fn (Globe)"
         case .disabled: return "No shortcut"
         }
     }
-    
+
     var agentModeDisplayName: String {
         switch self {
         case .enabled: return "Hold Fn + \u{2318}"
         case .disabled: return "No shortcut"
         }
     }
-    
+
     var doubleOptionDisplayName: String {
         switch self {
         case .enabled: return "Double-tap ⌥ Option"
@@ -52,68 +52,80 @@ final class PreferencesManager: ObservableObject {
     @Published var meetingReminderTime: String {
         didSet {
             UserDefaults.standard.set(meetingReminderTime, forKey: Keys.meetingReminderTime)
-            NotificationCenter.default.post(name: .meetingReminderTimeChanged, object: meetingReminderTime)
+            NotificationCenter.default.post(
+                name: .meetingReminderTimeChanged, object: meetingReminderTime)
         }
     }
 
     @Published var autoDetectMeetings: Bool {
         didSet {
             UserDefaults.standard.set(autoDetectMeetings, forKey: Keys.autoDetectMeetings)
-            NotificationCenter.default.post(name: .autoDetectMeetingsChanged, object: autoDetectMeetings)
+            NotificationCenter.default.post(
+                name: .autoDetectMeetingsChanged, object: autoDetectMeetings)
         }
     }
 
     @Published var dictationShortcut: ShortcutOption {
         didSet {
             UserDefaults.standard.set(dictationShortcut.rawValue, forKey: Keys.dictationShortcut)
-            NotificationCenter.default.post(name: .dictationShortcutChanged, object: dictationShortcut)
+            NotificationCenter.default.post(
+                name: .dictationShortcutChanged, object: dictationShortcut)
         }
     }
 
     @Published var agentModeShortcut: ShortcutOption {
         didSet {
             UserDefaults.standard.set(agentModeShortcut.rawValue, forKey: Keys.agentModeShortcut)
-            NotificationCenter.default.post(name: .agentModeShortcutChanged, object: agentModeShortcut)
+            NotificationCenter.default.post(
+                name: .agentModeShortcutChanged, object: agentModeShortcut)
         }
     }
 
     @Published var doubleOptionShortcut: ShortcutOption {
         didSet {
-            UserDefaults.standard.set(doubleOptionShortcut.rawValue, forKey: Keys.doubleOptionShortcut)
-            NotificationCenter.default.post(name: .doubleOptionShortcutChanged, object: doubleOptionShortcut)
+            UserDefaults.standard.set(
+                doubleOptionShortcut.rawValue, forKey: Keys.doubleOptionShortcut)
+            NotificationCenter.default.post(
+                name: .doubleOptionShortcutChanged, object: doubleOptionShortcut)
         }
     }
 
     @Published var hideFromScreenCapture: Bool {
         didSet {
             UserDefaults.standard.set(hideFromScreenCapture, forKey: Keys.hideFromScreenCapture)
-            NotificationCenter.default.post(name: .hideFromScreenCaptureChanged, object: hideFromScreenCapture)
+            NotificationCenter.default.post(
+                name: .hideFromScreenCaptureChanged, object: hideFromScreenCapture)
         }
     }
 
     private init() {
         self.hideIdlePill = UserDefaults.standard.bool(forKey: Keys.hideIdlePill)
-        self.meetingReminderTime = UserDefaults.standard.string(forKey: Keys.meetingReminderTime) ?? "Before 1m"
-        self.autoDetectMeetings = UserDefaults.standard.object(forKey: Keys.autoDetectMeetings) as? Bool ?? true
+        self.meetingReminderTime =
+            UserDefaults.standard.string(forKey: Keys.meetingReminderTime) ?? "Before 1m"
+        self.autoDetectMeetings =
+            UserDefaults.standard.object(forKey: Keys.autoDetectMeetings) as? Bool ?? true
         self.hideFromScreenCapture = UserDefaults.standard.bool(forKey: Keys.hideFromScreenCapture)
-        
+
         // Load shortcut preferences (default to enabled)
         if let dictationRaw = UserDefaults.standard.string(forKey: Keys.dictationShortcut),
-           let dictation = ShortcutOption(rawValue: dictationRaw) {
+            let dictation = ShortcutOption(rawValue: dictationRaw)
+        {
             self.dictationShortcut = dictation
         } else {
             self.dictationShortcut = .enabled
         }
-        
+
         if let agentModeRaw = UserDefaults.standard.string(forKey: Keys.agentModeShortcut),
-           let agentMode = ShortcutOption(rawValue: agentModeRaw) {
+            let agentMode = ShortcutOption(rawValue: agentModeRaw)
+        {
             self.agentModeShortcut = agentMode
         } else {
             self.agentModeShortcut = .enabled
         }
-        
+
         if let doubleOptionRaw = UserDefaults.standard.string(forKey: Keys.doubleOptionShortcut),
-           let doubleOption = ShortcutOption(rawValue: doubleOptionRaw) {
+            let doubleOption = ShortcutOption(rawValue: doubleOptionRaw)
+        {
             self.doubleOptionShortcut = doubleOption
         } else {
             self.doubleOptionShortcut = .enabled
