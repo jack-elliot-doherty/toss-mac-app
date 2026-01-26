@@ -203,7 +203,7 @@ struct SettingsModalView: View {
     @State private var deleteConfirmationText = ""
     @State private var isLeavingOrg = false
     @State private var isDeletingOrg = false
-    
+
     // Error state for user feedback
     @State private var operationError: String?
     @State private var showOperationError = false
@@ -530,7 +530,8 @@ struct SettingsModalView: View {
             // Hide idle pill
             toggleRow(
                 title: "Hide pill when idle",
-                subtitle: "Hide the floating pill when not recording or transcribing. It will appear when active.",
+                subtitle:
+                    "Hide the floating pill when not recording or transcribing. It will appear when active.",
                 isOn: $preferences.hideIdlePill
             )
 
@@ -943,7 +944,10 @@ struct SettingsModalView: View {
             } message: {
                 Text("You'll lose access to all shared meetings and data in this workspace.")
             }
-            .alert("Delete \(auth.currentOrg?.name ?? "workspace")?", isPresented: $showDeleteConfirmation) {
+            .alert(
+                "Delete \(auth.currentOrg?.name ?? "workspace")?",
+                isPresented: $showDeleteConfirmation
+            ) {
                 TextField("Type 'delete' to confirm", text: $deleteConfirmationText)
                 Button("Delete", role: .destructive) {
                     Task { await deleteWorkspace() }
@@ -953,7 +957,9 @@ struct SettingsModalView: View {
                     deleteConfirmationText = ""
                 }
             } message: {
-                Text("This will permanently delete all data in this workspace. This action cannot be undone.")
+                Text(
+                    "This will permanently delete all data in this workspace. This action cannot be undone."
+                )
             }
 
             #if DEBUG
@@ -1088,10 +1094,14 @@ struct SettingsModalView: View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(requiresReauth ? Color.orange.opacity(0.15) : (isConnected ? iconColor.opacity(0.15) : Color.gray.opacity(0.1)))
+                    .fill(
+                        requiresReauth
+                            ? Color.orange.opacity(0.15)
+                            : (isConnected ? iconColor.opacity(0.15) : Color.gray.opacity(0.1)))
                 Image(systemName: requiresReauth ? "exclamationmark.triangle.fill" : icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(requiresReauth ? .orange : (isConnected ? iconColor : .secondary))
+                    .foregroundColor(
+                        requiresReauth ? .orange : (isConnected ? iconColor : .secondary))
             }
             .frame(width: 48, height: 48)
 
@@ -1108,7 +1118,8 @@ struct SettingsModalView: View {
                         .background(Capsule().fill(Color.green.opacity(0.15)))
                     } else if requiresReauth {
                         HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.circle.fill").font(.system(size: 9, weight: .bold))
+                            Image(systemName: "exclamationmark.circle.fill").font(
+                                .system(size: 9, weight: .bold))
                             Text("Reauth").font(.system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.orange)
@@ -1295,7 +1306,9 @@ struct SettingsModalView: View {
         } message: {
             Text("You'll lose access to all shared meetings and data in this workspace.")
         }
-        .alert("Delete \(auth.currentOrg?.name ?? "workspace")?", isPresented: $showDeleteConfirmation) {
+        .alert(
+            "Delete \(auth.currentOrg?.name ?? "workspace")?", isPresented: $showDeleteConfirmation
+        ) {
             TextField("Type 'delete' to confirm", text: $deleteConfirmationText)
             Button("Delete", role: .destructive) {
                 Task { await deleteWorkspace() }
@@ -1305,7 +1318,9 @@ struct SettingsModalView: View {
                 deleteConfirmationText = ""
             }
         } message: {
-            Text("This will permanently delete all data in this workspace. This action cannot be undone.")
+            Text(
+                "This will permanently delete all data in this workspace. This action cannot be undone."
+            )
         }
         .alert("Error", isPresented: $showOperationError) {
             Button("OK", role: .cancel) {
@@ -1321,8 +1336,8 @@ struct SettingsModalView: View {
             return teamMembers
         }
         return teamMembers.filter { member in
-            member.name.localizedCaseInsensitiveContains(memberSearchText) ||
-            member.email.localizedCaseInsensitiveContains(memberSearchText)
+            member.name.localizedCaseInsensitiveContains(memberSearchText)
+                || member.email.localizedCaseInsensitiveContains(memberSearchText)
         }
     }
 
@@ -1527,10 +1542,12 @@ struct SettingsModalView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Leave workspace")
                             .font(.system(size: 14, weight: .medium))
-                        Text("Remove yourself from this workspace. You'll lose access to all shared meetings and data.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Text(
+                            "Remove yourself from this workspace. You'll lose access to all shared meetings and data."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
 
                     Spacer()
@@ -1564,10 +1581,12 @@ struct SettingsModalView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Delete workspace")
                                 .font(.system(size: 14, weight: .medium))
-                            Text("Permanently delete this workspace and all its data. This action cannot be undone.")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            Text(
+                                "Permanently delete this workspace and all its data. This action cannot be undone."
+                            )
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                         }
 
                         Spacer()
@@ -1624,11 +1643,13 @@ struct SettingsModalView: View {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                     if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let membersData = json["members"] as? [[String: Any]] {
+                        let membersData = json["members"] as? [[String: Any]]
+                    {
                         teamMembers = membersData.compactMap { memberData -> TeamMember? in
                             guard let id = memberData["id"] as? String,
-                                  let userId = memberData["userId"] as? String,
-                                  let email = memberData["email"] as? String else { return nil }
+                                let userId = memberData["userId"] as? String,
+                                let email = memberData["email"] as? String
+                            else { return nil }
                             return TeamMember(
                                 id: id,
                                 userId: userId,
@@ -1655,11 +1676,15 @@ struct SettingsModalView: View {
                 do {
                     let (data, response) = try await URLSession.shared.data(for: request)
                     if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let invitationsData = json["invitations"] as? [[String: Any]] {
-                            teamInvitations = invitationsData.compactMap { invData -> TeamInvitation? in
+                        if let json = try JSONSerialization.jsonObject(with: data)
+                            as? [String: Any],
+                            let invitationsData = json["invitations"] as? [[String: Any]]
+                        {
+                            teamInvitations = invitationsData.compactMap {
+                                invData -> TeamInvitation? in
                                 guard let id = invData["id"] as? String,
-                                      let email = invData["emailAddress"] as? String else { return nil }
+                                    let email = invData["emailAddress"] as? String
+                                else { return nil }
                                 return TeamInvitation(
                                     id: id,
                                     emailAddress: email,
@@ -1682,7 +1707,8 @@ struct SettingsModalView: View {
         defer { isInviting = false }
 
         guard let token = AuthManager.shared.accessToken,
-              let url = URL(string: "\(Config.serverURL)/team/invite") else { return }
+            let url = URL(string: "\(Config.serverURL)/team/invite")
+        else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -1717,7 +1743,8 @@ struct SettingsModalView: View {
 
     private func removeMember(_ member: TeamMember) async {
         guard let token = AuthManager.shared.accessToken,
-              let url = URL(string: "\(Config.serverURL)/team/members/\(member.userId)") else { return }
+            let url = URL(string: "\(Config.serverURL)/team/members/\(member.userId)")
+        else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -1745,7 +1772,8 @@ struct SettingsModalView: View {
 
     private func revokeInvitation(_ invitation: TeamInvitation) async {
         guard let token = AuthManager.shared.accessToken,
-              let url = URL(string: "\(Config.serverURL)/team/invitations/\(invitation.id)/revoke") else { return }
+            let url = URL(string: "\(Config.serverURL)/team/invitations/\(invitation.id)/revoke")
+        else { return }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -1973,7 +2001,9 @@ struct SettingsModalView: View {
                                 .foregroundColor(.green)
                         } else {
                             Image(systemName: "doc.on.doc")
-                                .foregroundColor(hoveredDictationId == message.id ? .primary : .secondary.opacity(0.5))
+                                .foregroundColor(
+                                    hoveredDictationId == message.id
+                                        ? .primary : .secondary.opacity(0.5))
                         }
                     }
                     .font(.system(size: 11))
@@ -1989,10 +2019,18 @@ struct SettingsModalView: View {
                             showingRawId = showingRawId == message.id ? nil : message.id
                         }
                     } label: {
-                        Image(systemName: showingRawId == message.id ? "text.badge.checkmark" : "text.badge.minus")
-                            .font(.system(size: 11))
-                            .foregroundColor(showingRawId == message.id ? .orange : (hoveredDictationId == message.id ? .primary : .secondary.opacity(0.5)))
-                            .frame(width: 20, height: 20)
+                        Image(
+                            systemName: showingRawId == message.id
+                                ? "text.badge.checkmark" : "text.badge.minus"
+                        )
+                        .font(.system(size: 11))
+                        .foregroundColor(
+                            showingRawId == message.id
+                                ? .orange
+                                : (hoveredDictationId == message.id
+                                    ? .primary : .secondary.opacity(0.5))
+                        )
+                        .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain)
                     .help(showingRawId == message.id ? "Show AI formatted" : "View raw transcript")
@@ -2005,7 +2043,12 @@ struct SettingsModalView: View {
                 } label: {
                     Image(systemName: message.flaggedAt != nil ? "flag.fill" : "flag")
                         .font(.system(size: 11))
-                        .foregroundColor(message.flaggedAt != nil ? .orange : (hoveredDictationId == message.id ? .primary : .secondary.opacity(0.5)))
+                        .foregroundColor(
+                            message.flaggedAt != nil
+                                ? .orange
+                                : (hoveredDictationId == message.id
+                                    ? .primary : .secondary.opacity(0.5))
+                        )
                         .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.plain)
@@ -2033,7 +2076,9 @@ struct SettingsModalView: View {
                     Text("Report Formatting Issue")
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
-                    Button { feedbackMessage = nil } label: {
+                    Button {
+                        feedbackMessage = nil
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
@@ -2053,7 +2098,9 @@ struct SettingsModalView: View {
                                     .font(.system(size: 12))
                                     .padding(8)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.08)))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6).fill(
+                                            Color.black.opacity(0.08)))
                             }
 
                             VStack(alignment: .leading, spacing: 3) {
@@ -2065,7 +2112,9 @@ struct SettingsModalView: View {
                                     .font(.system(size: 12))
                                     .padding(8)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.08)))
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6).fill(
+                                            Color.blue.opacity(0.08)))
                             }
                         }
                     } else {
@@ -2085,7 +2134,9 @@ struct SettingsModalView: View {
                     .scrollContentBackground(.hidden)
                     .padding(10)
                     .frame(height: 80)
-                    .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+                    .background(
+                        RoundedRectangle(cornerRadius: 8).stroke(
+                            Color.secondary.opacity(0.3), lineWidth: 1))
 
                 HStack {
                     Spacer()
@@ -2101,13 +2152,17 @@ struct SettingsModalView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                    .opacity(
+                        feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? 0.5 : 1)
                     Spacer()
                 }
             }
             .padding(20)
             .frame(width: 420)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(NSColor.windowBackgroundColor)))
+            .background(
+                RoundedRectangle(cornerRadius: 14).fill(Color(NSColor.windowBackgroundColor))
+            )
             .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
         }
     }
@@ -2244,7 +2299,9 @@ struct SettingsModalView: View {
                     Text("Edit Memory")
                         .font(.system(size: 16, weight: .semibold))
                     Spacer()
-                    Button { editingMemory = nil } label: {
+                    Button {
+                        editingMemory = nil
+                    } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
@@ -2257,7 +2314,9 @@ struct SettingsModalView: View {
                     .scrollContentBackground(.hidden)
                     .padding(10)
                     .frame(height: 80)
-                    .background(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.3), lineWidth: 1))
+                    .background(
+                        RoundedRectangle(cornerRadius: 8).stroke(
+                            Color.secondary.opacity(0.3), lineWidth: 1))
 
                 HStack {
                     Button("Cancel") { editingMemory = nil }
@@ -2277,13 +2336,19 @@ struct SettingsModalView: View {
                             .background(Capsule().fill(Color.accentColor))
                     }
                     .buttonStyle(.plain)
-                    .disabled(editMemoryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .opacity(editMemoryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                    .disabled(
+                        editMemoryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+                    .opacity(
+                        editMemoryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? 0.5 : 1)
                 }
             }
             .padding(20)
             .frame(width: 380)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(NSColor.windowBackgroundColor)))
+            .background(
+                RoundedRectangle(cornerRadius: 14).fill(Color(NSColor.windowBackgroundColor))
+            )
             .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
         }
     }
@@ -2313,7 +2378,8 @@ struct SettingsModalView: View {
                 } label: {
                     Image(systemName: "pencil")
                         .font(.system(size: 11))
-                        .foregroundColor(hoveredMemoryId == memory.id ? .primary : .secondary.opacity(0.5))
+                        .foregroundColor(
+                            hoveredMemoryId == memory.id ? .primary : .secondary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
 
@@ -2327,7 +2393,9 @@ struct SettingsModalView: View {
                     } else {
                         Image(systemName: "trash")
                             .font(.system(size: 11))
-                            .foregroundColor(hoveredMemoryId == memory.id ? .red.opacity(0.8) : .secondary.opacity(0.5))
+                            .foregroundColor(
+                                hoveredMemoryId == memory.id
+                                    ? .red.opacity(0.8) : .secondary.opacity(0.5))
                     }
                 }
                 .buttonStyle(.plain)
@@ -2735,10 +2803,12 @@ struct SettingsContentView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Delete account")
                             .font(.system(size: 14, weight: .medium))
-                        Text("Delete your account and detach from all workspaces. This action cannot be undone.")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        Text(
+                            "Delete your account and detach from all workspaces. This action cannot be undone."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer()
                     Button(action: {}) {
@@ -2763,16 +2833,23 @@ struct SettingsContentView: View {
             VStack(spacing: 6) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(googleRequiresReauth ? Color.orange.opacity(0.15) : Color(red: 0.2, green: 0.5, blue: 0.3))
-                    Image(systemName: googleRequiresReauth ? "exclamationmark.triangle.fill" : "calendar.badge.clock")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(googleRequiresReauth ? .orange : .white)
+                        .fill(
+                            googleRequiresReauth
+                                ? Color.orange.opacity(0.15)
+                                : Color(red: 0.2, green: 0.5, blue: 0.3))
+                    Image(
+                        systemName: googleRequiresReauth
+                            ? "exclamationmark.triangle.fill" : "calendar.badge.clock"
+                    )
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(googleRequiresReauth ? .orange : .white)
                 }
                 .frame(width: 48, height: 48)
 
                 if googleRequiresReauth {
                     HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.circle.fill").font(.system(size: 9, weight: .bold))
+                        Image(systemName: "exclamationmark.circle.fill").font(
+                            .system(size: 9, weight: .bold))
                         Text("Reauth needed").font(.system(size: 10, weight: .medium))
                     }
                     .foregroundColor(.orange)
@@ -2792,11 +2869,14 @@ struct SettingsContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Google Calendar").font(.system(size: 14, weight: .semibold))
                 if googleRequiresReauth {
-                    Text("Connection expired — tap Reconnect").font(.system(size: 12)).foregroundColor(.orange)
+                    Text("Connection expired — tap Reconnect").font(.system(size: 12))
+                        .foregroundColor(.orange)
                 } else if let status = integrations.googleStatus, status.connected {
-                    Text("Calendar events sync and meeting data").font(.system(size: 12)).foregroundColor(.secondary)
+                    Text("Calendar events sync and meeting data").font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 } else {
-                    Text("Connect to sync calendar events").font(.system(size: 12)).foregroundColor(.secondary)
+                    Text("Connect to sync calendar events").font(.system(size: 12)).foregroundColor(
+                        .secondary)
                 }
             }
 
@@ -2820,7 +2900,8 @@ struct SettingsContentView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(googleRequiresReauth ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
+                .stroke(
+                    googleRequiresReauth ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
         )
     }
 
@@ -2828,22 +2909,26 @@ struct SettingsContentView: View {
 
     private var preferencesPane: some View {
         VStack(alignment: .leading, spacing: 28) {
-            toggleRow(title: "Launch when system starts",
-                      subtitle: "This will launch Toss automatically when your system starts.",
-                      isOn: $launchAtLogin.isEnabled)
+            toggleRow(
+                title: "Launch when system starts",
+                subtitle: "This will launch Toss automatically when your system starts.",
+                isOn: $launchAtLogin.isEnabled)
 
-            toggleRow(title: "Hide pill when idle",
-                      subtitle: "Hide the floating pill when not recording or transcribing.",
-                      isOn: $preferences.hideIdlePill)
+            toggleRow(
+                title: "Hide pill when idle",
+                subtitle: "Hide the floating pill when not recording or transcribing.",
+                isOn: $preferences.hideIdlePill)
 
-            toggleRow(title: "Hide from screenshots & recordings",
-                      subtitle: "The pill won't appear in screenshots or screen recordings.",
-                      isOn: $preferences.hideFromScreenCapture)
+            toggleRow(
+                title: "Hide from screenshots & recordings",
+                subtitle: "The pill won't appear in screenshots or screen recordings.",
+                isOn: $preferences.hideFromScreenCapture)
 
             Divider()
 
             VStack(alignment: .leading, spacing: 20) {
-                Text("Recording").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                Text("Recording").font(.system(size: 13, weight: .semibold)).foregroundColor(
+                    .secondary)
 
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -2863,31 +2948,36 @@ struct SettingsContentView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text(meetingReminderTime).font(.system(size: 13))
-                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                            Image(systemName: "chevron.down").font(
+                                .system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.primary)
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
 
-                toggleRow(title: "Auto-detect meetings",
-                          subtitle: "Show notifications when a call is detected (Determined by microphone usage).",
-                          isOn: Binding(
-                              get: { autoDetectMeetings },
-                              set: { newValue in
-                                  autoDetectMeetings = newValue
-                                  preferences.autoDetectMeetings = newValue
-                              }
-                          ))
+                toggleRow(
+                    title: "Auto-detect meetings",
+                    subtitle:
+                        "Show notifications when a call is detected (Determined by microphone usage).",
+                    isOn: Binding(
+                        get: { autoDetectMeetings },
+                        set: { newValue in
+                            autoDetectMeetings = newValue
+                            preferences.autoDetectMeetings = newValue
+                        }
+                    ))
             }
 
             Divider()
 
             // Keyboard Shortcuts section
             VStack(alignment: .leading, spacing: 20) {
-                Text("Keyboard Shortcuts").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                Text("Keyboard Shortcuts").font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.secondary)
 
                 // Dictation shortcut
                 HStack(alignment: .top) {
@@ -2905,11 +2995,13 @@ struct SettingsContentView: View {
                     } label: {
                         HStack(spacing: 6) {
                             Text(preferences.dictationShortcut.displayName).font(.system(size: 13))
-                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                            Image(systemName: "chevron.down").font(
+                                .system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.primary)
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
@@ -2929,12 +3021,15 @@ struct SettingsContentView: View {
                         Button("No shortcut") { preferences.agentModeShortcut = .disabled }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(preferences.agentModeShortcut.agentModeDisplayName).font(.system(size: 13))
-                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                            Text(preferences.agentModeShortcut.agentModeDisplayName).font(
+                                .system(size: 13))
+                            Image(systemName: "chevron.down").font(
+                                .system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.primary)
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
@@ -2949,17 +3044,22 @@ struct SettingsContentView: View {
                     }
                     Spacer()
                     Menu {
-                        Button("Double-tap ⌥ Option") { preferences.doubleOptionShortcut = .enabled }
+                        Button("Double-tap ⌥ Option") {
+                            preferences.doubleOptionShortcut = .enabled
+                        }
                         Divider()
                         Button("No shortcut") { preferences.doubleOptionShortcut = .disabled }
                     } label: {
                         HStack(spacing: 6) {
-                            Text(preferences.doubleOptionShortcut.doubleOptionDisplayName).font(.system(size: 13))
-                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                            Text(preferences.doubleOptionShortcut.doubleOptionDisplayName).font(
+                                .system(size: 13))
+                            Image(systemName: "chevron.down").font(
+                                .system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.primary)
                         .padding(.horizontal, 12).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
@@ -2968,18 +3068,28 @@ struct SettingsContentView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 20) {
-                Text("Permissions").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                Text("Permissions").font(.system(size: 13, weight: .semibold)).foregroundColor(
+                    .secondary)
 
-                formFieldWithAction(title: "Microphone",
-                                    subtitle: ob.micGranted ? "Allowed" : "Required for dictation",
-                                    actionTitle: ob.micGranted ? "Change" : "Allow") {
+                formFieldWithAction(
+                    title: "Microphone",
+                    subtitle: ob.micGranted ? "Allowed" : "Required for dictation",
+                    actionTitle: ob.micGranted ? "Change" : "Allow"
+                ) {
                     if ob.micGranted { ob.openMicSettings() } else { ob.requestMic() }
                 }
 
-                formFieldWithAction(title: "Accessibility",
-                                    subtitle: ob.axGranted ? "Allowed" : "Required for pasting",
-                                    actionTitle: ob.axGranted ? "Open Settings" : "Allow…") {
-                    if ob.axGranted { ob.openAXSettings() } else { ob.requestAX(); ob.openAXSettings() }
+                formFieldWithAction(
+                    title: "Accessibility",
+                    subtitle: ob.axGranted ? "Allowed" : "Required for pasting",
+                    actionTitle: ob.axGranted ? "Open Settings" : "Allow…"
+                ) {
+                    if ob.axGranted {
+                        ob.openAXSettings()
+                    } else {
+                        ob.requestAX()
+                        ob.openAXSettings()
+                    }
                 }
             }
         }
@@ -3002,7 +3112,7 @@ struct SettingsContentView: View {
         }
         return sections.sorted { lhs, rhs in
             guard let lhsDate = lhs.messages.first?.createdAt,
-                  let rhsDate = rhs.messages.first?.createdAt
+                let rhsDate = rhs.messages.first?.createdAt
             else { return false }
             return lhsDate > rhsDate
         }
@@ -3010,9 +3120,11 @@ struct SettingsContentView: View {
 
     private func sectionTitle(for date: Date) -> String {
         let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "Today" }
-        else if calendar.isDateInYesterday(date) { return "Yesterday" }
-        else {
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday"
+        } else {
             let formatter = DateFormatter()
             formatter.dateFormat = "EEEE, MMM d"
             return formatter.string(from: date)
@@ -3026,9 +3138,11 @@ struct SettingsContentView: View {
 
             if dictations.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "text.bubble").font(.system(size: 28)).foregroundColor(.secondary.opacity(0.5))
+                    Image(systemName: "text.bubble").font(.system(size: 28)).foregroundColor(
+                        .secondary.opacity(0.5))
                     Text("No dictations yet").font(.system(size: 14, weight: .medium))
-                    Text("Hold Fn to start dictating").font(.system(size: 12)).foregroundColor(.secondary)
+                    Text("Hold Fn to start dictating").font(.system(size: 12)).foregroundColor(
+                        .secondary)
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
             } else {
@@ -3036,7 +3150,8 @@ struct SettingsContentView: View {
                     ForEach(dictationSections) { section in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(section.title)
-                                .font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                                .font(.system(size: 12, weight: .medium)).foregroundColor(
+                                    .secondary)
 
                             VStack(spacing: 2) {
                                 ForEach(section.messages) { message in
@@ -3060,7 +3175,8 @@ struct SettingsContentView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if showingRawId == message.id, let raw = message.rawTranscript {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Raw transcript").font(.system(size: 9, weight: .medium)).foregroundColor(.orange).textCase(.uppercase)
+                        Text("Raw transcript").font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.orange).textCase(.uppercase)
                         Text(raw).font(.system(size: 13)).foregroundColor(.primary.opacity(0.8))
                     }
                 } else {
@@ -3078,7 +3194,9 @@ struct SettingsContentView: View {
                             Image(systemName: "checkmark").foregroundColor(.green)
                         } else {
                             Image(systemName: "doc.on.doc")
-                                .foregroundColor(hoveredDictationId == message.id ? .primary : .secondary.opacity(0.5))
+                                .foregroundColor(
+                                    hoveredDictationId == message.id
+                                        ? .primary : .secondary.opacity(0.5))
                         }
                     }
                     .font(.system(size: 11)).frame(width: 20, height: 20)
@@ -3091,18 +3209,29 @@ struct SettingsContentView: View {
                             showingRawId = showingRawId == message.id ? nil : message.id
                         }
                     } label: {
-                        Image(systemName: showingRawId == message.id ? "text.quote" : "arrow.uturn.left")
-                            .font(.system(size: 11))
-                            .foregroundColor(showingRawId == message.id ? .orange : .secondary.opacity(0.5))
-                            .frame(width: 20, height: 20)
+                        Image(
+                            systemName: showingRawId == message.id
+                                ? "text.quote" : "arrow.uturn.left"
+                        )
+                        .font(.system(size: 11))
+                        .foregroundColor(
+                            showingRawId == message.id ? .orange : .secondary.opacity(0.5)
+                        )
+                        .frame(width: 20, height: 20)
                     }
-                    .buttonStyle(.plain).help(showingRawId == message.id ? "Show corrected" : "Show raw")
+                    .buttonStyle(.plain).help(
+                        showingRawId == message.id ? "Show corrected" : "Show raw")
                 }
             }
-            .opacity(hoveredDictationId == message.id || copiedDictationId == message.id || showingRawId == message.id ? 1 : 0)
+            .opacity(
+                hoveredDictationId == message.id || copiedDictationId == message.id
+                    || showingRawId == message.id ? 1 : 0)
         }
         .padding(.vertical, 8).padding(.horizontal, 12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(hoveredDictationId == message.id ? Color.black.opacity(0.04) : Color.clear))
+        .background(
+            RoundedRectangle(cornerRadius: 8).fill(
+                hoveredDictationId == message.id ? Color.black.opacity(0.04) : Color.clear)
+        )
         .onHover { hovering in hoveredDictationId = hovering ? message.id : nil }
     }
 
@@ -3142,7 +3271,8 @@ struct SettingsContentView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
             } else if let error = memoriesError {
                 VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.triangle").font(.system(size: 28)).foregroundColor(.orange)
+                    Image(systemName: "exclamationmark.triangle").font(.system(size: 28))
+                        .foregroundColor(.orange)
                     Text("Failed to load memories").font(.system(size: 14, weight: .medium))
                     Text(error).font(.system(size: 12)).foregroundColor(.secondary)
                     Button("Retry") { loadAgentMemories() }.buttonStyle(.bordered)
@@ -3150,10 +3280,12 @@ struct SettingsContentView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
             } else if memories.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "brain.head.profile").font(.system(size: 28)).foregroundColor(.secondary.opacity(0.5))
+                    Image(systemName: "brain.head.profile").font(.system(size: 28)).foregroundColor(
+                        .secondary.opacity(0.5))
                     Text("No memories yet").font(.system(size: 14, weight: .medium))
                     Text("The agent will remember facts as you interact with it")
-                        .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                        .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(
+                            .center)
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
             } else {
@@ -3169,13 +3301,15 @@ struct SettingsContentView: View {
 
     private func memoryRow(_ memory: AgentMemory) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "brain").font(.system(size: 12)).foregroundColor(.secondary).padding(.top, 2)
+            Image(systemName: "brain").font(.system(size: 12)).foregroundColor(.secondary).padding(
+                .top, 2)
 
             if editingMemory?.id == memory.id {
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Memory", text: $editMemoryText, axis: .vertical)
                         .textFieldStyle(.plain).font(.system(size: 13))
-                        .padding(8).background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.05)))
+                        .padding(8).background(
+                            RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.05)))
 
                     HStack(spacing: 8) {
                         Button("Cancel") {
@@ -3186,7 +3320,8 @@ struct SettingsContentView: View {
 
                         Button("Save") {
                             Task {
-                                try? await MemoriesAPI.shared.updateMemory(id: memory.id, content: editMemoryText)
+                                try? await MemoriesAPI.shared.updateMemory(
+                                    id: memory.id, content: editMemoryText)
                                 if let idx = memories.firstIndex(where: { $0.id == memory.id }) {
                                     memories[idx].content = editMemoryText
                                 }
@@ -3202,7 +3337,8 @@ struct SettingsContentView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(memory.content).font(.system(size: 13)).foregroundColor(.primary)
                     if let date = memory.createdAtDate {
-                        Text(date, style: .relative).font(.system(size: 11)).foregroundColor(.secondary)
+                        Text(date, style: .relative).font(.system(size: 11)).foregroundColor(
+                            .secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -3213,7 +3349,9 @@ struct SettingsContentView: View {
                         editMemoryText = memory.content
                     } label: {
                         Image(systemName: "pencil").font(.system(size: 11))
-                            .foregroundColor(hoveredMemoryId == memory.id ? .primary : .secondary.opacity(0.5))
+                            .foregroundColor(
+                                hoveredMemoryId == memory.id ? .primary : .secondary.opacity(0.5)
+                            )
                             .frame(width: 20, height: 20)
                     }
                     .buttonStyle(.plain).help("Edit memory")
@@ -3230,7 +3368,9 @@ struct SettingsContentView: View {
                             ProgressView().scaleEffect(0.5).frame(width: 20, height: 20)
                         } else {
                             Image(systemName: "trash").font(.system(size: 11))
-                                .foregroundColor(hoveredMemoryId == memory.id ? .red : .secondary.opacity(0.5))
+                                .foregroundColor(
+                                    hoveredMemoryId == memory.id ? .red : .secondary.opacity(0.5)
+                                )
                                 .frame(width: 20, height: 20)
                         }
                     }
@@ -3240,8 +3380,13 @@ struct SettingsContentView: View {
             }
         }
         .padding(.vertical, 8).padding(.horizontal, 12)
-        .background(RoundedRectangle(cornerRadius: 8).fill(hoveredMemoryId == memory.id ? Color.black.opacity(0.04) : Color.clear))
-        .onHover { hovering in if editingMemory == nil { hoveredMemoryId = hovering ? memory.id : nil } }
+        .background(
+            RoundedRectangle(cornerRadius: 8).fill(
+                hoveredMemoryId == memory.id ? Color.black.opacity(0.04) : Color.clear)
+        )
+        .onHover { hovering in
+            if editingMemory == nil { hoveredMemoryId = hovering ? memory.id : nil }
+        }
     }
 
     private func loadAgentMemories() {
@@ -3265,44 +3410,55 @@ struct SettingsContentView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.accentColor.opacity(0.2))
                     .frame(width: 80, height: 100)
-                    .overlay(Text("T").font(.system(size: 32, weight: .bold)).foregroundColor(.accentColor))
+                    .overlay(
+                        Text("T").font(.system(size: 32, weight: .bold)).foregroundColor(
+                            .accentColor))
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Name").font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    Text("Name").font(.system(size: 12, weight: .medium)).foregroundColor(
+                        .secondary)
                     TextField("Workspace name", text: $workspaceName)
                         .textFieldStyle(.plain).font(.system(size: 14))
                         .padding(.horizontal, 14).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                 }
             }
 
             Divider()
 
             VStack(alignment: .leading, spacing: 20) {
-                Text("Company").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                Text("Company").font(.system(size: 13, weight: .semibold)).foregroundColor(
+                    .secondary)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Company name").font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    Text("Company name").font(.system(size: 12, weight: .medium)).foregroundColor(
+                        .secondary)
                     TextField("Enter company name", text: $companyName)
                         .textFieldStyle(.plain).font(.system(size: 14))
                         .padding(.horizontal, 14).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Website URL").font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    Text("Website URL").font(.system(size: 12, weight: .medium)).foregroundColor(
+                        .secondary)
                     TextField("https://", text: $websiteURL)
                         .textFieldStyle(.plain).font(.system(size: 14))
                         .padding(.horizontal, 14).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Brief description").font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    Text("Brief description").font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
                     TextEditor(text: $briefDescription)
                         .font(.system(size: 14)).scrollContentBackground(.hidden)
                         .padding(12).frame(height: 100)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
                 }
             }
         }
@@ -3394,10 +3550,14 @@ struct SettingsContentView: View {
         HStack(spacing: 16) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(requiresReauth ? Color.orange.opacity(0.15) : (isConnected ? iconColor.opacity(0.15) : Color.gray.opacity(0.1)))
+                    .fill(
+                        requiresReauth
+                            ? Color.orange.opacity(0.15)
+                            : (isConnected ? iconColor.opacity(0.15) : Color.gray.opacity(0.1)))
                 Image(systemName: requiresReauth ? "exclamationmark.triangle.fill" : icon)
                     .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(requiresReauth ? .orange : (isConnected ? iconColor : .secondary))
+                    .foregroundColor(
+                        requiresReauth ? .orange : (isConnected ? iconColor : .secondary))
             }
             .frame(width: 48, height: 48)
 
@@ -3414,7 +3574,8 @@ struct SettingsContentView: View {
                         .background(Capsule().fill(Color.green.opacity(0.15)))
                     } else if requiresReauth {
                         HStack(spacing: 4) {
-                            Image(systemName: "exclamationmark.circle.fill").font(.system(size: 9, weight: .bold))
+                            Image(systemName: "exclamationmark.circle.fill").font(
+                                .system(size: 9, weight: .bold))
                             Text("Reauth").font(.system(size: 10, weight: .medium))
                         }
                         .foregroundColor(.orange)
@@ -3456,8 +3617,8 @@ struct SettingsContentView: View {
             return teamMembers
         }
         return teamMembers.filter { member in
-            member.name.localizedCaseInsensitiveContains(memberSearchText) ||
-            member.email.localizedCaseInsensitiveContains(memberSearchText)
+            member.name.localizedCaseInsensitiveContains(memberSearchText)
+                || member.email.localizedCaseInsensitiveContains(memberSearchText)
         }
     }
 
@@ -3465,8 +3626,10 @@ struct SettingsContentView: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 12) {
                 HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").font(.system(size: 13)).foregroundColor(.secondary)
-                    TextField("Search", text: $memberSearchText).textFieldStyle(.plain).font(.system(size: 14))
+                    Image(systemName: "magnifyingglass").font(.system(size: 13)).foregroundColor(
+                        .secondary)
+                    TextField("Search", text: $memberSearchText).textFieldStyle(.plain).font(
+                        .system(size: 14))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
@@ -3487,13 +3650,19 @@ struct SettingsContentView: View {
             Divider()
 
             if isLoadingMembers {
-                HStack { Spacer(); ProgressView().scaleEffect(0.8); Spacer() }.padding(.vertical, 40)
+                HStack {
+                    Spacer()
+                    ProgressView().scaleEffect(0.8)
+                    Spacer()
+                }.padding(.vertical, 40)
             } else if filteredMembers.isEmpty {
                 VStack(spacing: 12) {
-                    Image(systemName: "person.3").font(.system(size: 28)).foregroundColor(.secondary.opacity(0.5))
+                    Image(systemName: "person.3").font(.system(size: 28)).foregroundColor(
+                        .secondary.opacity(0.5))
                     Text("No members found").font(.system(size: 14, weight: .medium))
                     if !memberSearchText.isEmpty {
-                        Text("Try a different search term").font(.system(size: 12)).foregroundColor(.secondary)
+                        Text("Try a different search term").font(.system(size: 12)).foregroundColor(
+                            .secondary)
                     }
                 }
                 .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -3528,7 +3697,9 @@ struct SettingsContentView: View {
                                 }
                             }
                         }
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.02)))
+                        .background(
+                            RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.02))
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                 }
@@ -3563,7 +3734,9 @@ struct SettingsContentView: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(member.isAdmin ? .orange : .secondary)
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 4).fill(member.isAdmin ? Color.orange.opacity(0.15) : Color.gray.opacity(0.1)))
+                .background(
+                    RoundedRectangle(cornerRadius: 4).fill(
+                        member.isAdmin ? Color.orange.opacity(0.15) : Color.gray.opacity(0.1)))
 
             if auth.currentOrg?.isAdmin == true {
                 Menu {
@@ -3643,11 +3816,13 @@ struct SettingsContentView: View {
                 let (data, response) = try await URLSession.shared.data(for: request)
                 if let http = response as? HTTPURLResponse, http.statusCode == 200 {
                     if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let membersData = json["members"] as? [[String: Any]] {
+                        let membersData = json["members"] as? [[String: Any]]
+                    {
                         teamMembers = membersData.compactMap { memberData -> TeamMember? in
                             guard let id = memberData["id"] as? String,
-                                  let userId = memberData["userId"] as? String,
-                                  let email = memberData["email"] as? String else { return nil }
+                                let userId = memberData["userId"] as? String,
+                                let email = memberData["email"] as? String
+                            else { return nil }
                             return TeamMember(
                                 id: id,
                                 userId: userId,
@@ -3674,11 +3849,15 @@ struct SettingsContentView: View {
                 do {
                     let (data, response) = try await URLSession.shared.data(for: request)
                     if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                           let invitationsData = json["invitations"] as? [[String: Any]] {
-                            teamInvitations = invitationsData.compactMap { invData -> TeamInvitation? in
+                        if let json = try JSONSerialization.jsonObject(with: data)
+                            as? [String: Any],
+                            let invitationsData = json["invitations"] as? [[String: Any]]
+                        {
+                            teamInvitations = invitationsData.compactMap {
+                                invData -> TeamInvitation? in
                                 guard let id = invData["id"] as? String,
-                                      let email = invData["emailAddress"] as? String else { return nil }
+                                    let email = invData["emailAddress"] as? String
+                                else { return nil }
                                 return TeamInvitation(
                                     id: id,
                                     emailAddress: email,
@@ -3721,7 +3900,8 @@ struct SettingsContentView: View {
                 }) {
                     HStack(spacing: 6) {
                         Text("Manage").font(.system(size: 13, weight: .medium))
-                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                        Image(systemName: "arrow.up.right").font(
+                            .system(size: 11, weight: .semibold))
                     }
                 }
                 .buttonStyle(.borderedProminent).controlSize(.regular)
@@ -3748,14 +3928,17 @@ struct SettingsContentView: View {
             HStack {
                 Text(value).font(.system(size: 14))
                 Spacer()
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium)).foregroundColor(.secondary)
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.secondary)
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.05)))
         }
     }
 
-    private func formFieldWithAction(title: String, subtitle: String, actionTitle: String, action: @escaping () -> Void) -> some View {
+    private func formFieldWithAction(
+        title: String, subtitle: String, actionTitle: String, action: @escaping () -> Void
+    ) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.system(size: 14, weight: .medium))

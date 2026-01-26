@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MeetingParticipant: Codable, Identifiable, Equatable {
     var id: String { email }
@@ -147,6 +148,10 @@ struct MeetingView: View {
     @State private var hasPendingSummary = false  // Summary ready but user hasn't viewed yet
     @State private var summaryDotPulse = false  // For pulsing animation
 
+    // Note images state
+    @State private var uploadingImageIds: Set<String> = []  // Track which images are uploading
+    @State private var notesContentHeight: CGFloat = 200  // Dynamic height from text content
+
     // Action items state
     @State private var extractedActions: [ExtractedAction] = []
     @State private var isExtractingActions = false
@@ -234,24 +239,27 @@ struct MeetingView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                header
-                tabSection
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
+                    header
+                    tabSection(availableHeight: geometry.size.height)
+                }
+                .frame(maxWidth: 960, alignment: .leading)  // Content left-aligned within 960px block
+                .padding(.horizontal, 32)
+                .padding(.top, 28)
+                .padding(.bottom, 60)
+                .frame(maxWidth: .infinity, alignment: .center)  // Center the block in the window
             }
-            .frame(maxWidth: 960, alignment: .leading)  // Content left-aligned within 960px block
-            .padding(.horizontal, 32)
-            .padding(.top, 28)
-            .padding(.bottom, 60)
-            .frame(maxWidth: .infinity, alignment: .center)  // Center the block in the window
+            .clipped()
         }
-        .clipped()
         .onAppear {
             configureChrome()
             meetingFolders = meeting?.folderAssignments ?? []
             Task {
                 await foldersManager.refresh()
                 await loadMeetingFolders()
+                await refreshImageUrls()
             }
         }
         .onDisappear { pageChrome.clearOverride() }
@@ -465,10 +473,10 @@ struct MeetingView: View {
         repository.updateMeetingFolders(meetingId: meetingId, folders: meetingFolders)
     }
 
-    private var tabSection: some View {
-        VStack(alignment: .leading, spacing: 18) {  // Add spacing back
+    private func tabSection(availableHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
             tabSwitcher
-            tabContent
+            tabContent(availableHeight: availableHeight)
         }
     }
 
@@ -525,10 +533,10 @@ struct MeetingView: View {
     }
 
     @ViewBuilder
-    private var tabContent: some View {
+    private func tabContent(availableHeight: CGFloat) -> some View {
         switch selectedTab {
         case .overview:
-            overviewView
+            overviewView(availableHeight: availableHeight)
         case .transcript:
             MeetingTranscriptView(
                 chunks: chunks,
@@ -588,8 +596,11 @@ struct MeetingView: View {
         !(meeting?.notes ?? "").isEmpty
     }
 
-    private var overviewView: some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private func overviewView(availableHeight: CGFloat) -> some View {
+        // Calculate height for notes editor: screen height minus header/padding (~250px estimate)
+        let notesMinHeight = max(300, availableHeight - 250)
+        
+        return VStack(alignment: .leading, spacing: 16) {
             // Toggle on the left + actions on the right
             HStack(spacing: 12) {
                 // Mode toggle (only show if we have AI summary)
@@ -642,7 +653,7 @@ struct MeetingView: View {
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.secondaryText)
             } else {
-                userNotesEditor
+                userNotesEditor(minHeight: notesMinHeight)
             }
 
             // Action Items Section (only show when viewing AI summary, not user notes)
@@ -650,7 +661,7 @@ struct MeetingView: View {
                 actionItemsSection
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .onAppear {
             editableUserNotes = meeting?.userNotes ?? ""
             // Load stored actions on appear
@@ -1264,31 +1275,241 @@ struct MeetingView: View {
         .buttonStyle(.plain)
     }
 
-    private var userNotesEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack(alignment: .topLeading) {
-                // Inline placeholder when empty and recording
-                if editableUserNotes.isEmpty && isRecording {
-                    Text("Take notes here... these will be used to guide the overview.")
-                        .font(.system(size: 14))
-                        .foregroundColor(AppTheme.secondaryText.opacity(0.5))
-                        .padding(.top, 1)
-                        .padding(.leading, 6)
-                        .allowsHitTesting(false)
-                }
-
-                TextEditor(text: $editableUserNotes)
-                    .font(.system(size: 14))
-                    .foregroundColor(AppTheme.primaryText)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                    .frame(minHeight: 200)
-                    .padding(.leading, -5)  // Align with placeholder
-                    .onChange(of: editableUserNotes) { _, newValue in
-                        saveUserNotes(newValue)
+    private func userNotesEditor(minHeight: CGFloat) -> some View {
+        let hasImages = !(meeting?.userNoteImages.isEmpty ?? true)
+        
+        // Calculate image section height: header (~30) + rows of images (each ~85px)
+        let imageCount = meeting?.userNoteImages.count ?? 0
+        let imageRows = imageCount > 0 ? Int(ceil(Double(imageCount) / 5.0)) : 0
+        let imageSectionHeight: CGFloat = imageCount > 0 ? CGFloat(30 + (imageRows * 85)) : 0
+        
+        // Base height fills remaining space, pushing images to bottom of viewport
+        // When text grows beyond this, it pushes images below the fold
+        let baseHeight = max(100, minHeight - imageSectionHeight - 24)  // 24 = spacing + padding
+        let editorHeight = max(baseHeight, notesContentHeight)
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            // Custom text view with image paste/drop support
+            // Grows dynamically - page scrolls, not the text view
+            NotesTextViewWithPlaceholder(
+                text: $editableUserNotes,
+                contentHeight: $notesContentHeight,
+                placeholder: "Take notes here... these will be used to guide the overview.",
+                isRecording: isRecording,
+                hasImages: hasImages,
+                onImagePasted: { imageData in
+                    Task { @MainActor in
+                        await uploadNoteImage(imageData: imageData)
                     }
+                }
+            )
+            .frame(height: editorHeight)  // Fills available space, grows with content
+            .onChange(of: editableUserNotes) { _, newValue in
+                saveUserNotes(newValue)
             }
 
+            // Attached images section - at bottom, only show when there are images
+            if let images = meeting?.userNoteImages, !images.isEmpty {
+                attachedImagesSection(images: images)
+            }
+        }
+    }
+
+    private let maxNoteImages = 10
+    
+    private func attachedImagesSection(images: [NoteImage]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header with count
+            HStack {
+                Image(systemName: "photo.on.rectangle")
+                    .font(.system(size: 12))
+                Text("Attached images (\(images.count)/\(maxNoteImages))")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(AppTheme.secondaryText)
+
+            // Thumbnails - flex wrap layout using LazyVGrid
+            let columns = [GridItem(.adaptive(minimum: 100, maximum: 120), spacing: 8)]
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+                ForEach(images) { image in
+                    noteImageThumbnail(image: image)
+                }
+            }
+        }
+    }
+
+    private func noteImageThumbnail(image: NoteImage) -> some View {
+        let isUploading = uploadingImageIds.contains(image.id) || image.url.isEmpty
+
+        return ZStack(alignment: .topTrailing) {
+            if isUploading {
+                // Uploading state - show placeholder with spinner
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(AppTheme.elevatedBackground)
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+                .frame(width: 100, height: 75)
+            } else {
+                // Loaded state - show image
+                AsyncImage(url: URL(string: image.url)) { phase in
+                    switch phase {
+                    case .empty:
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(AppTheme.elevatedBackground)
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                    case .success(let loadedImage):
+                        loadedImage
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 100, height: 75)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    case .failure:
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(AppTheme.elevatedBackground)
+                            VStack(spacing: 4) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.system(size: 16))
+                                Text("Failed")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundColor(AppTheme.secondaryText)
+                        }
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .frame(width: 100, height: 75)
+            }
+
+            // Delete button - dark circle with white X, positioned at top-right corner
+            Button {
+                deleteNoteImage(image)
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.7))
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .shadow(color: .black.opacity(0.3), radius: 2)
+            }
+            .buttonStyle(.plain)
+            .offset(x: 8, y: -8)
+        }
+    }
+
+    private func uploadNoteImage(imageData: Data) async {
+        NSLog("[MeetingView] uploadNoteImage called with %d bytes", imageData.count)
+        
+        // Check image limit
+        let currentCount = meeting?.userNoteImages.count ?? 0
+        guard currentCount < maxNoteImages else {
+            NSLog("[MeetingView] Maximum of %d images reached, not uploading", maxNoteImages)
+            return
+        }
+
+        // Convert to PNG if needed
+        guard let image = NSImage(data: imageData) else {
+            NSLog("[MeetingView] Failed to create NSImage from data")
+            return
+        }
+
+        guard let tiffData = image.tiffRepresentation else {
+            NSLog("[MeetingView] Failed to get TIFF representation")
+            return
+        }
+
+        guard let bitmap = NSBitmapImageRep(data: tiffData) else {
+            NSLog("[MeetingView] Failed to create bitmap rep")
+            return
+        }
+
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            NSLog("[MeetingView] Failed to convert to PNG")
+            return
+        }
+
+        NSLog("[MeetingView] Converted to PNG: %d bytes", pngData.count)
+
+        // Create a temporary local image with placeholder ID
+        let tempId = UUID().uuidString
+        let tempImage = NoteImage(id: tempId, url: "", uploadedAt: Date())
+        uploadingImageIds.insert(tempId)
+
+        // Optimistically add to local storage
+        repository.addMeetingNoteImage(meetingId: meetingId, image: tempImage)
+        NSLog("[MeetingView] Added temp image to repository: %@", tempId)
+
+        do {
+            // Upload to server
+            NSLog("[MeetingView] Uploading to server...")
+            let uploadedImage = try await MeetingsApi.shared.uploadNoteImage(
+                meetingId: meetingId,
+                imageData: pngData
+            )
+
+            // Replace temp image with real one
+            repository.removeMeetingNoteImage(meetingId: meetingId, imageId: tempId)
+            repository.addMeetingNoteImage(meetingId: meetingId, image: uploadedImage)
+
+            NSLog("[MeetingView] Note image uploaded successfully: %@", uploadedImage.id)
+        } catch {
+            NSLog("[MeetingView] Failed to upload note image: %@", error.localizedDescription)
+            // Remove the temp image on failure
+            repository.removeMeetingNoteImage(meetingId: meetingId, imageId: tempId)
+        }
+
+        uploadingImageIds.remove(tempId)
+    }
+
+    private func deleteNoteImage(_ image: NoteImage) {
+        // Remove locally first
+        repository.removeMeetingNoteImage(meetingId: meetingId, imageId: image.id)
+
+        // Delete from server in background
+        Task {
+            do {
+                try await MeetingsApi.shared.deleteNoteImage(meetingId: meetingId, imageId: image.id)
+                NSLog("[MeetingView] Note image deleted: %@", image.id)
+            } catch {
+                NSLog("[MeetingView] Failed to delete note image from server: %@", error.localizedDescription)
+                // Re-add locally if server delete fails (for sync consistency)
+                repository.addMeetingNoteImage(meetingId: meetingId, image: image)
+            }
+        }
+    }
+    
+    /// Refresh presigned URLs for meeting images from the server
+    /// Called on view appear to ensure URLs are fresh (they expire after 1 hour)
+    private func refreshImageUrls() async {
+        // Only refresh if we have images locally
+        guard let localImages = meeting?.userNoteImages, !localImages.isEmpty else {
+            return
+        }
+        
+        do {
+            let freshImages = try await MeetingsApi.shared.fetchNoteImageUrls(meetingId: meetingId)
+            
+            // Update local storage with fresh URLs
+            for image in freshImages {
+                // Remove old and add with fresh URL
+                repository.removeMeetingNoteImage(meetingId: meetingId, imageId: image.id)
+                repository.addMeetingNoteImage(meetingId: meetingId, image: image)
+            }
+            
+            NSLog("[MeetingView] Refreshed %d image URLs", freshImages.count)
+        } catch {
+            NSLog("[MeetingView] Failed to refresh image URLs: %@", error.localizedDescription)
+            // Continue with cached URLs - they might still work if not expired
         }
     }
 

@@ -33,7 +33,7 @@ final class HotkeyEventTap {
     private(set) var isStarted: Bool = false
 
     private var previousFlags: NSEvent.ModifierFlags = []
-    
+
     // Track whether we started an Fn session (for preference-aware up handling)
     private var fnSessionStarted: Bool = false
 
@@ -144,7 +144,7 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return
                     }
-                    
+
                     let held = now.timeIntervalSince(lastFnDownAt ?? now)
                     if held >= minFnHold {
                         self.fnSessionStarted = false
@@ -204,7 +204,7 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return
                     }
-                    
+
                     // If Fn is held but no session started (e.g., dictation disabled),
                     // try to start agent mode session now
                     if fnIsDown && !self.fnSessionStarted {
@@ -214,7 +214,7 @@ final class HotkeyEventTap {
                             onFnDown?(true)  // Start agent mode
                         }
                     }
-                    
+
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
@@ -300,7 +300,7 @@ final class HotkeyEventTap {
                     pendingFnUpTimer?.invalidate()
                     pendingFnUpTimer = nil
                     lastFnDownAt = now
-                    
+
                     // Check preferences to determine if we should start a session
                     let (shouldStart, isCmdMode) = self.shouldStartSession(isCmdHeld: cmdIsDown)
                     if shouldStart {
@@ -328,7 +328,7 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return event
                     }
-                    
+
                     let held = now.timeIntervalSince(lastFnDownAt ?? now)
                     if held >= minFnHold {
                         self.fnSessionStarted = false
@@ -353,7 +353,7 @@ final class HotkeyEventTap {
                         self.previousFlags = flags
                         return event
                     }
-                    
+
                     // If Fn is held but no session started (e.g., dictation disabled),
                     // try to start agent mode session now
                     if fnIsDown && !self.fnSessionStarted {
@@ -363,7 +363,7 @@ final class HotkeyEventTap {
                             onFnDown?(true)  // Start agent mode
                         }
                     }
-                    
+
                     onCmdDown?()
                 }
                 if cmdWasDown && !cmdIsDown {
@@ -387,7 +387,9 @@ final class HotkeyEventTap {
                 guard let self = self else { return }
                 // Escape key code is 53
                 if event.keyCode == 53 {
-                    NSLog("[HotkeyEventTap] Global escape detected, fnHeld=\(self.previousFlags.contains(.function))")
+                    NSLog(
+                        "[HotkeyEventTap] Global escape detected, fnHeld=\(self.previousFlags.contains(.function))"
+                    )
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
@@ -396,7 +398,9 @@ final class HotkeyEventTap {
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
                     }
-                    NSLog("[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))")
+                    NSLog(
+                        "[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))"
+                    )
                     self.onEscapePressed?()
                 }
             })
@@ -411,7 +415,9 @@ final class HotkeyEventTap {
                 guard let self = self else { return event }
                 // Escape key code is 53
                 if event.keyCode == 53 {
-                    NSLog("[HotkeyEventTap] Local escape detected, fnHeld=\(self.previousFlags.contains(.function))")
+                    NSLog(
+                        "[HotkeyEventTap] Local escape detected, fnHeld=\(self.previousFlags.contains(.function))"
+                    )
                     // If Fn is currently held, swallow the next Fn up
                     if self.previousFlags.contains(.function) {
                         self.swallowFnUpAfterEscape = true
@@ -420,7 +426,9 @@ final class HotkeyEventTap {
                         self.pendingFnUpTimer?.invalidate()
                         self.pendingFnUpTimer = nil
                     }
-                    NSLog("[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))")
+                    NSLog(
+                        "[HotkeyEventTap] Calling onEscapePressed callback (isNil=\(self.onEscapePressed == nil))"
+                    )
                     self.onEscapePressed?()
                     return nil  // Consume the event
                 }
@@ -474,35 +482,35 @@ final class HotkeyEventTap {
         ignoreCmdEventsUntil = nil
         return false
     }
-    
+
     /// Checks preferences and determines if we should start a session.
     /// Returns: (shouldStart: Bool, isCmdMode: Bool)
     private func shouldStartSession(isCmdHeld: Bool) -> (shouldStart: Bool, isCmdMode: Bool) {
         let prefs = PreferencesManager.shared
         let dictationEnabled = prefs.dictationShortcut == .enabled
         let agentModeEnabled = prefs.agentModeShortcut == .enabled
-        
+
         // If both disabled, don't start
         if !dictationEnabled && !agentModeEnabled {
             return (false, false)
         }
-        
+
         // If cmd is held, check agent mode preference
         if isCmdHeld {
             if agentModeEnabled {
                 return (true, true)  // Start agent mode
             } else if dictationEnabled {
-                return (true, false) // Fall back to dictation if agent mode disabled
+                return (true, false)  // Fall back to dictation if agent mode disabled
             } else {
                 return (false, false)
             }
         }
-        
+
         // Cmd not held - check dictation preference
         if dictationEnabled {
             return (true, false)  // Start dictation
         }
-        
+
         // Dictation disabled, cmd not held - don't start
         return (false, false)
     }

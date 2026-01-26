@@ -677,6 +677,9 @@ final class MeetingsApi {
         if !meeting.userNotes.isEmpty {
             body["userNotes"] = meeting.userNotes
         }
+        
+        // Note: userNoteImages are NOT synced here - they're managed via dedicated
+        // upload/delete endpoints (/meetings/:id/images) to handle presigned URLs correctly
 
         // Build transcript from chunks
         let transcript =
@@ -852,5 +855,130 @@ final class MeetingsApi {
         }
 
         NSLog("[MeetingsApi] Meeting %@ deleted from server", meetingId.uuidString)
+    }
+
+    // MARK: - Note Images
+
+    /// Upload an image to attach to meeting notes
+    /// Returns the NoteImage with URL from server
+    func uploadNoteImage(meetingId: UUID, imageData: Data) async throws -> NoteImage {
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images")
+        NSLog("[MeetingsApi] POST %@ (upload note image)", url.absoluteString)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let base64Data = imageData.base64EncodedString()
+        let body: [String: Any] = [
+            "imageData": base64Data,
+            "contentType": "image/png",
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            if let body = String(data: data, encoding: .utf8) {
+                NSLog("[MeetingsApi] upload image error response: %@", body)
+            }
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to upload image"]
+            )
+        }
+
+        struct UploadResponse: Codable {
+            let success: Bool
+            let image: ImageData
+
+            struct ImageData: Codable {
+                let id: String
+                let url: String
+                let uploadedAt: String
+            }
+        }
+
+        let result = try JSONDecoder().decode(UploadResponse.self, from: data)
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let uploadedAt = formatter.date(from: result.image.uploadedAt) ?? Date()
+
+        NSLog("[MeetingsApi] Image uploaded: %@ url: %@", result.image.id, result.image.url)
+
+        return NoteImage(id: result.image.id, url: result.image.url, uploadedAt: uploadedAt)
+    }
+
+    /// Delete an image from meeting notes
+    func deleteNoteImage(meetingId: UUID, imageId: String) async throws {
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images/\(imageId)")
+        NSLog("[MeetingsApi] DELETE %@", url.absoluteString)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            if let body = String(data: data, encoding: .utf8) {
+                NSLog("[MeetingsApi] delete image error response: %@", body)
+            }
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to delete image"]
+            )
+        }
+
+        NSLog("[MeetingsApi] Image %@ deleted from meeting %@", imageId, meetingId.uuidString)
+    }
+    
+    /// Fetch fresh presigned URLs for meeting images
+    /// Call this when displaying meeting images or when URLs have expired
+    func fetchNoteImageUrls(meetingId: UUID) async throws -> [NoteImage] {
+        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images")
+        NSLog("[MeetingsApi] GET %@ (fetch image URLs)", url.absoluteString)
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        
+        let (data, response) = try await APIClient.shared.perform(request)
+        
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            if let body = String(data: data, encoding: .utf8) {
+                NSLog("[MeetingsApi] fetch images error response: %@", body)
+            }
+            throw NSError(
+                domain: "MeetingsApi",
+                code: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch image URLs"]
+            )
+        }
+        
+        struct ImageInfo: Decodable {
+            let id: String
+            let url: String
+            let uploadedAt: String
+        }
+        
+        struct Response: Decodable {
+            let success: Bool
+            let images: [ImageInfo]
+        }
+        
+        let result = try JSONDecoder().decode(Response.self, from: data)
+        
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        let noteImages = result.images.map { img -> NoteImage in
+            let uploadedAt = formatter.date(from: img.uploadedAt) ?? Date()
+            return NoteImage(id: img.id, url: img.url, uploadedAt: uploadedAt)
+        }
+        
+        NSLog("[MeetingsApi] Fetched %d image URLs for meeting %@", noteImages.count, meetingId.uuidString)
+        return noteImages
     }
 }

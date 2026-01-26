@@ -11,6 +11,35 @@ enum MeetingSource: String, Codable {
     case adhoc  // Manually started (Slack huddle, quick record, etc.)
 }
 
+/// Image attached to user notes (screenshot pasted during a call)
+struct NoteImage: Identifiable, Equatable, Codable {
+    let id: String
+    let url: String
+    let uploadedAt: Date
+
+    init(id: String = UUID().uuidString, url: String, uploadedAt: Date = Date()) {
+        self.id = id
+        self.url = url
+        self.uploadedAt = uploadedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        url = try container.decode(String.self, forKey: .url)
+        // Handle both Date and ISO string formats
+        if let date = try? container.decode(Date.self, forKey: .uploadedAt) {
+            uploadedAt = date
+        } else if let isoString = try? container.decode(String.self, forKey: .uploadedAt) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            uploadedAt = formatter.date(from: isoString) ?? Date()
+        } else {
+            uploadedAt = Date()
+        }
+    }
+}
+
 struct MeetingModel: Identifiable, Equatable, Codable {
     let id: UUID
     var title: String
@@ -20,6 +49,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var updatedAt: Date
     var notes: String = ""  // AI-generated summary
     var userNotes: String = ""  // User's live notes during the meeting (Granola-style)
+    var userNoteImages: [NoteImage] = []  // Screenshots pasted into notes during the call
     var source: MeetingSource = .adhoc
     var actionItems: [StoredActionItem] = []  // Extracted action items
     var syncedAt: Date?  // Last sync to server
@@ -39,6 +69,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
         userNotes = try container.decodeIfPresent(String.self, forKey: .userNotes) ?? ""
+        userNoteImages = try container.decodeIfPresent([NoteImage].self, forKey: .userNoteImages) ?? []
         source = try container.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .adhoc
         actionItems =
             try container.decodeIfPresent([StoredActionItem].self, forKey: .actionItems) ?? []
@@ -52,8 +83,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
 
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
-        notes: String = "", userNotes: String = "", source: MeetingSource = .adhoc,
-        actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
+        notes: String = "", userNotes: String = "", userNoteImages: [NoteImage] = [],
+        source: MeetingSource = .adhoc, actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
         joinUrl: String? = nil, externalId: String? = nil, orgId: String? = nil,
         folderAssignments: [FolderSummary] = []
     ) {
@@ -65,6 +96,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.updatedAt = updatedAt
         self.notes = notes
         self.userNotes = userNotes
+        self.userNoteImages = userNoteImages
         self.source = source
         self.actionItems = actionItems
         self.syncedAt = syncedAt
@@ -125,6 +157,8 @@ protocol MeetingRepositoryProtocol {
     func updateMeetingTitle(meetingId: UUID, title: String)
     func updateMeetingNotes(meetingId: UUID, notes: String)
     func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
+    func addMeetingNoteImage(meetingId: UUID, image: NoteImage)
+    func removeMeetingNoteImage(meetingId: UUID, imageId: String)
     func updateMeetingActionItems(meetingId: UUID, actionItems: [StoredActionItem])
     func updateMeetingFolders(meetingId: UUID, folders: [FolderSummary])
     func markMeetingSynced(meetingId: UUID)
@@ -361,6 +395,26 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         queue.sync {
             guard var meeting = meetings[meetingId] else { return }
             meeting.userNotes = userNotes
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
+    func addMeetingNoteImage(meetingId: UUID, image: NoteImage) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.userNoteImages.append(image)
+            meeting.updatedAt = Date()
+            meetings[meetingId] = meeting
+        }
+        save()
+    }
+
+    func removeMeetingNoteImage(meetingId: UUID, imageId: String) {
+        queue.sync {
+            guard var meeting = meetings[meetingId] else { return }
+            meeting.userNoteImages.removeAll { $0.id == imageId }
             meeting.updatedAt = Date()
             meetings[meetingId] = meeting
         }
