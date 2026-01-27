@@ -761,11 +761,7 @@ struct MeetingView: View {
                             executionResult: actionExecutionResult?.id == action.id
                                 ? actionExecutionResult : nil,
                             onExecute: { editedAction in
-                                if editedAction.mode == .direct {
-                                    executeDirectAction(editedAction)
-                                } else {
-                                    delegateToAgent(editedAction)
-                                }
+                                executeDirectAction(editedAction)
                             }
                         )
                     }
@@ -1078,6 +1074,9 @@ struct MeetingView: View {
     }
 
     private func loadStoredActions() {
+        // Only load if we don't already have actions (preserves user edits)
+        guard extractedActions.isEmpty else { return }
+        
         // Load action items from the meeting model if available
         if let meeting = meeting, !meeting.actionItems.isEmpty {
             extractedActions = meeting.actionItems.map { $0.toExtractedAction() }
@@ -1184,26 +1183,6 @@ struct MeetingView: View {
             // Sync to server
             Task { await MeetingSyncManager.shared.syncMeeting(meetingId) }
         }
-    }
-
-    private func delegateToAgent(_ action: ExtractedAction) {
-        guard let taskSpec = action.taskSpec else { return }
-
-        // Include context for the agent
-        let fullMessage = """
-            Task from meeting "\(meetingTitle)":
-
-            \(taskSpec)
-
-            Context: \(action.context)
-            """
-
-        // Post notification to show agent panel with the task
-        NotificationCenter.default.post(
-            name: NSNotification.Name("ShowAgentPanel"),
-            object: nil,
-            userInfo: ["message": fullMessage]
-        )
     }
 
     private var summaryToggle: some View {
@@ -2828,8 +2807,7 @@ private struct ActionItemCard: View {
 
     // Check if the required integration is connected
     private var isIntegrationConnected: Bool {
-        guard let toolName = action.toolName else { return true }
-        switch toolName {
+        switch action.toolName {
         case "slackSendMessage", "slackListChannels":
             return integrationsManager.slackStatus?.connected ?? false
         case "linearCreateIssue":
@@ -2842,8 +2820,7 @@ private struct ActionItemCard: View {
     }
 
     private var integrationName: String {
-        guard let toolName = action.toolName else { return "" }
-        switch toolName {
+        switch action.toolName {
         case "slackSendMessage", "slackListChannels":
             return "Slack"
         case "linearCreateIssue":
@@ -2856,8 +2833,7 @@ private struct ActionItemCard: View {
     }
 
     private var integrationIcon: String {
-        guard let toolName = action.toolName else { return "" }
-        switch toolName {
+        switch action.toolName {
         case "slackSendMessage", "slackListChannels":
             return "SlackLogo"
         case "linearCreateIssue":
@@ -2870,8 +2846,7 @@ private struct ActionItemCard: View {
     }
 
     private var integrationColor: Color {
-        guard let toolName = action.toolName else { return .blue }
-        switch toolName {
+        switch action.toolName {
         case "slackSendMessage", "slackListChannels":
             return Color(hex: "4A154B") ?? .purple
         case "linearCreateIssue":
@@ -2887,13 +2862,19 @@ private struct ActionItemCard: View {
         guard let edited = editedParams else { return action }
         return ExtractedAction(
             id: action.id,
-            mode: action.mode,
             title: action.title,
             context: action.context,
             toolName: action.toolName,
-            toolParams: edited,
-            taskSpec: action.taskSpec
+            toolParams: edited
         )
+    }
+
+    /// Returns edited params if available, otherwise original action params
+    private var currentParams: ToolParams {
+        if let edited = editedParams {
+            return ToolParams(edited)
+        }
+        return ToolParams(action.toolParams)
     }
 
     var body: some View {
@@ -2990,62 +2971,53 @@ private struct ActionItemCard: View {
 
     @ViewBuilder
     private var toolPreview: some View {
-        if action.mode == .agent, let taskSpec = action.taskSpec {
-            AgentTaskPreview(taskSpec: taskSpec, compact: false)
-        } else if let toolName = action.toolName, let params = action.toolParams {
-            switch toolName {
-            case "calendarCreateEvent":
-                EditableCalendarEventPreview(
-                    params: ToolParams(params),
-                    compact: false,
-                    onParamsChanged: { editedParams = $0 },
-                    isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
-                    isConnecting: isConnecting,
-                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
-                )
-            case "linearCreateIssue":
-                EditableLinearIssuePreview(
-                    params: ToolParams(params),
-                    compact: false,
-                    onParamsChanged: { editedParams = $0 },
-                    isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
-                    isConnecting: isConnecting,
-                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
-                )
-            case "slackSendMessage":
-                EditableSlackMessagePreview(
-                    params: ToolParams(params),
-                    compact: false,
-                    onParamsChanged: { editedParams = $0 },
-                    isExecuting: isExecuting,
-                    onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
-                    isConnecting: isConnecting,
-                    onConnect: isIntegrationConnected ? nil : { connectIntegration() }
-                )
-            case "cursorOpenPrompt":
-                CursorPromptPreview(
-                    params: ToolParams(params),
-                    compact: false,
-                    title: action.title,
-                    context: action.context,
-                    isExecuting: isExecuting,
-                    onOpenInCursor: {
-                        openInCursor(params: params)
-                    },
-                    onCopyLink: {
-                        copyCursorLink(params: params)
-                    }
-                )
-            default:
-                ToolPreviewFactory.preview(for: toolName, params: params, compact: false)
-            }
-        } else {
-            Text("Action details unavailable")
-                .font(.system(size: 12))
-                .foregroundColor(AppTheme.secondaryText)
-                .italic()
+        switch action.toolName {
+        case "calendarCreateEvent":
+            EditableCalendarEventPreview(
+                params: currentParams,
+                compact: false,
+                onParamsChanged: { editedParams = $0 },
+                isExecuting: isExecuting,
+                onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                isConnecting: isConnecting,
+                onConnect: isIntegrationConnected ? nil : { connectIntegration() }
+            )
+        case "linearCreateIssue":
+            EditableLinearIssuePreview(
+                params: currentParams,
+                compact: false,
+                onParamsChanged: { editedParams = $0 },
+                isExecuting: isExecuting,
+                onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                isConnecting: isConnecting,
+                onConnect: isIntegrationConnected ? nil : { connectIntegration() }
+            )
+        case "slackSendMessage":
+            EditableSlackMessagePreview(
+                params: currentParams,
+                compact: false,
+                onParamsChanged: { editedParams = $0 },
+                isExecuting: isExecuting,
+                onExecute: isIntegrationConnected ? { onExecute(currentAction) } : nil,
+                isConnecting: isConnecting,
+                onConnect: isIntegrationConnected ? nil : { connectIntegration() }
+            )
+        case "cursorOpenPrompt":
+            CursorPromptPreview(
+                params: currentParams,
+                compact: false,
+                title: action.title,
+                context: action.context,
+                isExecuting: isExecuting,
+                onOpenInCursor: {
+                    openInCursor(params: action.toolParams)
+                },
+                onCopyLink: {
+                    copyCursorLink(params: action.toolParams)
+                }
+            )
+        default:
+            ToolPreviewFactory.preview(for: action.toolName, params: action.toolParams, compact: false)
         }
     }
 
@@ -3076,12 +3048,10 @@ private struct ActionApprovalSheet: View {
         guard let edited = editedParams else { return action }
         return ExtractedAction(
             id: action.id,
-            mode: action.mode,
             title: action.title,
             context: action.context,
             toolName: action.toolName,
-            toolParams: edited,
-            taskSpec: action.taskSpec
+            toolParams: edited
         )
     }
 
@@ -3122,9 +3092,7 @@ private struct ActionApprovalSheet: View {
                 .background(AppTheme.subtleStroke)
 
             // Tool-specific preview - use editable version for calendar
-            if let toolName = action.toolName, let params = action.toolParams {
-                editablePreview(for: toolName, params: params)
-            }
+            editablePreview(for: action.toolName, params: action.toolParams)
 
             Spacer()
 

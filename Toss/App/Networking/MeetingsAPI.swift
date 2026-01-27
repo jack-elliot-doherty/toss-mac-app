@@ -2,30 +2,22 @@ import Foundation
 
 // MARK: - Action Items Models
 
-enum ActionExecutionMode: String, Codable, Equatable {
-    case direct  // One-click tool call
-    case agent  // Delegate to TOS agent
-}
-
+// Each action is a single tool call that the user can one-click approve
 struct ExtractedAction: Codable, Identifiable, Equatable {
     let id: String
-    let mode: ActionExecutionMode
     let title: String
     let context: String
-    let toolName: String?
-    let toolParams: [String: AnyCodableValue]?
-    let taskSpec: String?
+    let toolName: String
+    let toolParams: [String: AnyCodableValue]
 }
 
 // Stored action item (for local persistence, with execution tracking)
 struct StoredActionItem: Codable, Identifiable, Equatable {
     let id: String
-    let mode: ActionExecutionMode
     let title: String
     let context: String
-    let toolName: String?
-    let toolParams: [String: AnyCodableValue]?
-    let taskSpec: String?
+    let toolName: String
+    let toolParams: [String: AnyCodableValue]
     var executedAt: Date?
     var executionSuccess: Bool?
     var executionMessage: String?
@@ -33,24 +25,20 @@ struct StoredActionItem: Codable, Identifiable, Equatable {
     // Convert from ExtractedAction
     init(from action: ExtractedAction) {
         self.id = action.id
-        self.mode = action.mode
         self.title = action.title
         self.context = action.context
         self.toolName = action.toolName
         self.toolParams = action.toolParams
-        self.taskSpec = action.taskSpec
     }
 
     // Convert to ExtractedAction (for UI compatibility)
     func toExtractedAction() -> ExtractedAction {
         ExtractedAction(
             id: id,
-            mode: mode,
             title: title,
             context: context,
             toolName: toolName,
-            toolParams: toolParams,
-            taskSpec: taskSpec
+            toolParams: toolParams
         )
     }
 }
@@ -594,22 +582,11 @@ final class MeetingsApi {
         return result.actions
     }
 
-    // MARK: - Execute Direct Action (via approve-tool endpoint)
+    // MARK: - Execute Action (via approve-tool endpoint)
 
     func executeAction(action: ExtractedAction) async throws -> ToolApprovalResult {
-        guard action.mode == .direct,
-            let toolName = action.toolName,
-            let toolParams = action.toolParams
-        else {
-            throw NSError(
-                domain: "MeetingsApi",
-                code: 100,
-                userInfo: [NSLocalizedDescriptionKey: "Invalid action for direct execution"]
-            )
-        }
-
         let url = Config.serverBaseURL.appendingPathComponent("/agent/approve-tool")
-        NSLog("[MeetingsApi] POST %@ (tool: %@)", url.absoluteString, toolName)
+        NSLog("[MeetingsApi] POST %@ (tool: %@)", url.absoluteString, action.toolName)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -618,8 +595,8 @@ final class MeetingsApi {
         // Build the approve-tool payload
         let payload: [String: Any] = [
             "toolCallId": UUID().uuidString,
-            "toolName": toolName,
-            "arguments": toolParams.mapValues { $0.anyValue },
+            "toolName": action.toolName,
+            "arguments": action.toolParams.mapValues { $0.anyValue },
             "approved": true,
         ]
 
@@ -694,22 +671,13 @@ final class MeetingsApi {
         // Add action items if provided
         if let actions = actionItems {
             body["actionItems"] = actions.map { action -> [String: Any] in
-                var dict: [String: Any] = [
+                [
                     "id": action.id,
-                    "mode": action.mode.rawValue,
                     "title": action.title,
                     "context": action.context,
+                    "toolName": action.toolName,
+                    "toolParams": action.toolParams.mapValues { $0.anyValue },
                 ]
-                if let toolName = action.toolName {
-                    dict["toolName"] = toolName
-                }
-                if let toolParams = action.toolParams {
-                    dict["toolParams"] = toolParams.mapValues { $0.anyValue }
-                }
-                if let taskSpec = action.taskSpec {
-                    dict["taskSpec"] = taskSpec
-                }
-                return dict
             }
         }
 
@@ -765,22 +733,13 @@ final class MeetingsApi {
 
         let body: [String: Any] = [
             "actionItems": actionItems.map { action -> [String: Any] in
-                var dict: [String: Any] = [
+                [
                     "id": action.id,
-                    "mode": action.mode.rawValue,
                     "title": action.title,
                     "context": action.context,
+                    "toolName": action.toolName,
+                    "toolParams": action.toolParams.mapValues { $0.anyValue },
                 ]
-                if let toolName = action.toolName {
-                    dict["toolName"] = toolName
-                }
-                if let toolParams = action.toolParams {
-                    dict["toolParams"] = toolParams.mapValues { $0.anyValue }
-                }
-                if let taskSpec = action.taskSpec {
-                    dict["taskSpec"] = taskSpec
-                }
-                return dict
             }
         ]
 

@@ -1,5 +1,28 @@
 import SwiftUI
 
+// MARK: - Date Parsing Helper
+
+/// Shared utility for parsing ISO date strings, handling both with and without timezone
+enum DateParsingHelper {
+    static func parseISODate(_ string: String) -> Date? {
+        // Try ISO8601 with timezone first
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = isoFormatter.date(from: string) { return date }
+
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        if let date = isoFormatter.date(from: string) { return date }
+
+        // Fallback for timestamps without timezone (e.g., "2026-01-30T13:00:00")
+        let fallbackFormatter = DateFormatter()
+        fallbackFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        fallbackFormatter.locale = Locale(identifier: "en_US_POSIX")
+        if let date = fallbackFormatter.date(from: string) { return date }
+
+        return nil
+    }
+}
+
 // MARK: - Linear User Info
 
 struct LinearUserInfo: Codable {
@@ -333,14 +356,21 @@ struct LinearIssuePreview: View {
                 // Title
                 PreviewField(label: "Title", value: title, compact: compact)
 
-                // Description (if available)
+                // Description (if available) - scrollable when content overflows
                 if let desc = description, !desc.isEmpty {
-                    PreviewField(
-                        label: "Description",
-                        value: desc,
-                        compact: compact,
-                        lineLimit: compact ? 2 : 4
-                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Description")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+                        
+                        ScrollView {
+                            Text(desc)
+                                .font(.system(size: compact ? 12 : 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: compact ? 60 : 100)
+                    }
                 }
 
                 // Team & Assignee row
@@ -414,39 +444,21 @@ struct CalendarEventPreview: View {
     private var formattedTime: String {
         guard let start = startTime else { return "No time specified" }
 
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        // Try parsing with fractional seconds first, then without
-        var startDate = isoFormatter.date(from: start)
-        if startDate == nil {
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            startDate = isoFormatter.date(from: start)
-        }
-
-        guard let date = startDate else { return start }
+        guard let date = DateParsingHelper.parseISODate(start) else { return start }
 
         let displayFormatter = DateFormatter()
         displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
         var result = displayFormatter.string(from: date)
 
         // Add duration if end time available
-        if let end = endTime {
-            var endDate = isoFormatter.date(from: end)
-            if endDate == nil {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                endDate = isoFormatter.date(from: end)
-            }
-
-            if let endD = endDate {
-                let minutes = Int(endD.timeIntervalSince(date) / 60)
-                if minutes == 60 {
-                    result += " (1 hour)"
-                } else if minutes > 60 {
-                    result += " (\(minutes / 60)h \(minutes % 60)m)"
-                } else {
-                    result += " (\(minutes) min)"
-                }
+        if let end = endTime, let endD = DateParsingHelper.parseISODate(end) {
+            let minutes = Int(endD.timeIntervalSince(date) / 60)
+            if minutes == 60 {
+                result += " (1 hour)"
+            } else if minutes > 60 {
+                result += " (\(minutes / 60)h \(minutes % 60)m)"
+            } else {
+                result += " (\(minutes) min)"
             }
         }
 
@@ -1104,36 +1116,20 @@ struct EditableCalendarEventPreview: View {
     private var formattedTime: String {
         guard let start = startTime else { return "No time specified" }
 
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        var startDate = isoFormatter.date(from: start)
-        if startDate == nil {
-            isoFormatter.formatOptions = [.withInternetDateTime]
-            startDate = isoFormatter.date(from: start)
-        }
-
-        guard let date = startDate else { return start }
+        guard let date = DateParsingHelper.parseISODate(start) else { return start }
 
         let displayFormatter = DateFormatter()
         displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
         var result = displayFormatter.string(from: date)
 
-        if let end = endTime {
-            var endDate = isoFormatter.date(from: end)
-            if endDate == nil {
-                isoFormatter.formatOptions = [.withInternetDateTime]
-                endDate = isoFormatter.date(from: end)
-            }
-            if let endD = endDate {
-                let minutes = Int(endD.timeIntervalSince(date) / 60)
-                if minutes == 60 {
-                    result += " (1 hour)"
-                } else if minutes > 60 {
-                    result += " (\(minutes / 60)h \(minutes % 60)m)"
-                } else {
-                    result += " (\(minutes) min)"
-                }
+        if let end = endTime, let endD = DateParsingHelper.parseISODate(end) {
+            let minutes = Int(endD.timeIntervalSince(date) / 60)
+            if minutes == 60 {
+                result += " (1 hour)"
+            } else if minutes > 60 {
+                result += " (\(minutes / 60)h \(minutes % 60)m)"
+            } else {
+                result += " (\(minutes) min)"
             }
         }
         return result
@@ -1542,18 +1538,22 @@ struct EditableLinearIssuePreview: View {
 
                 Divider().background(AppTheme.subtleStroke)
 
-                // Description
+                // Description - with scrollable content when text overflows
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Description")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(AppTheme.secondaryText)
 
-                    TextField("Add a description...", text: $description, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.primaryText)
-                        .lineLimit(3...6)
-                        .onChange(of: description) { _, _ in notifyParamsChanged() }
+                    ScrollView {
+                        TextField("Add a description...", text: $description, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(nil)
+                            .onChange(of: description) { _, _ in notifyParamsChanged() }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 120) // Allow scrolling if content exceeds this height
                 }
                 .padding(14)
             }
