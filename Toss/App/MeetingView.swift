@@ -599,7 +599,7 @@ struct MeetingView: View {
     private func overviewView(availableHeight: CGFloat) -> some View {
         // Calculate height for notes editor: screen height minus header/padding (~250px estimate)
         let notesMinHeight = max(300, availableHeight - 250)
-        
+
         return VStack(alignment: .leading, spacing: 16) {
             // Toggle on the left + actions on the right
             HStack(spacing: 12) {
@@ -704,7 +704,7 @@ struct MeetingView: View {
             // Summary just arrived - show indicator if user isn't already viewing it
             let wasEmpty = (oldValue ?? "").isEmpty
             let nowHasContent = !(newValue ?? "").isEmpty
-            
+
             if wasEmpty && nowHasContent && !showingAISummary {
                 hasPendingSummary = true
             }
@@ -1076,7 +1076,7 @@ struct MeetingView: View {
     private func loadStoredActions() {
         // Only load if we don't already have actions (preserves user edits)
         guard extractedActions.isEmpty else { return }
-        
+
         // Load action items from the meeting model if available
         if let meeting = meeting, !meeting.actionItems.isEmpty {
             extractedActions = meeting.actionItems.map { $0.toExtractedAction() }
@@ -1192,7 +1192,7 @@ struct MeetingView: View {
                     showingAISummary = false
                 }
             }
-            
+
             // Summary chip with notification badge
             Button {
                 withAnimation(.easeInOut(duration: 0.15)) {
@@ -1256,17 +1256,17 @@ struct MeetingView: View {
 
     private func userNotesEditor(minHeight: CGFloat) -> some View {
         let hasImages = !(meeting?.userNoteImages.isEmpty ?? true)
-        
+
         // Calculate image section height: header (~30) + rows of images (each ~85px)
         let imageCount = meeting?.userNoteImages.count ?? 0
         let imageRows = imageCount > 0 ? Int(ceil(Double(imageCount) / 5.0)) : 0
         let imageSectionHeight: CGFloat = imageCount > 0 ? CGFloat(30 + (imageRows * 85)) : 0
-        
+
         // Base height fills remaining space, pushing images to bottom of viewport
         // When text grows beyond this, it pushes images below the fold
         let baseHeight = max(100, minHeight - imageSectionHeight - 24)  // 24 = spacing + padding
         let editorHeight = max(baseHeight, notesContentHeight)
-        
+
         return VStack(alignment: .leading, spacing: 12) {
             // Custom text view with image paste/drop support
             // Grows dynamically - page scrolls, not the text view
@@ -1295,7 +1295,7 @@ struct MeetingView: View {
     }
 
     private let maxNoteImages = 10
-    
+
     private func attachedImagesSection(images: [NoteImage]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with count
@@ -1388,7 +1388,7 @@ struct MeetingView: View {
 
     private func uploadNoteImage(imageData: Data) async {
         NSLog("[MeetingView] uploadNoteImage called with %d bytes", imageData.count)
-        
+
         // Check image limit
         let currentCount = meeting?.userNoteImages.count ?? 0
         guard currentCount < maxNoteImages else {
@@ -1457,16 +1457,19 @@ struct MeetingView: View {
         // Delete from server in background
         Task {
             do {
-                try await MeetingsApi.shared.deleteNoteImage(meetingId: meetingId, imageId: image.id)
+                try await MeetingsApi.shared.deleteNoteImage(
+                    meetingId: meetingId, imageId: image.id)
                 NSLog("[MeetingView] Note image deleted: %@", image.id)
             } catch {
-                NSLog("[MeetingView] Failed to delete note image from server: %@", error.localizedDescription)
+                NSLog(
+                    "[MeetingView] Failed to delete note image from server: %@",
+                    error.localizedDescription)
                 // Re-add locally if server delete fails (for sync consistency)
                 repository.addMeetingNoteImage(meetingId: meetingId, image: image)
             }
         }
     }
-    
+
     /// Refresh presigned URLs for meeting images from the server
     /// Called on view appear to ensure URLs are fresh (they expire after 1 hour)
     private func refreshImageUrls() async {
@@ -1474,17 +1477,17 @@ struct MeetingView: View {
         guard let localImages = meeting?.userNoteImages, !localImages.isEmpty else {
             return
         }
-        
+
         do {
             let freshImages = try await MeetingsApi.shared.fetchNoteImageUrls(meetingId: meetingId)
-            
+
             // Update local storage with fresh URLs
             for image in freshImages {
                 // Remove old and add with fresh URL
                 repository.removeMeetingNoteImage(meetingId: meetingId, imageId: image.id)
                 repository.addMeetingNoteImage(meetingId: meetingId, image: image)
             }
-            
+
             NSLog("[MeetingView] Refreshed %d image URLs", freshImages.count)
         } catch {
             NSLog("[MeetingView] Failed to refresh image URLs: %@", error.localizedDescription)
@@ -2327,13 +2330,16 @@ struct MeetingsListView: View {
                 await MainActor.run {
                     repository.importFromServer(serverMeetings)
                 }
-                NSLog("[MeetingsListView] Imported \(serverMeetings.count) new meetings from server")
+                NSLog(
+                    "[MeetingsListView] Imported \(serverMeetings.count) new meetings from server")
             }
 
             // Update last sync time
             UserDefaults.standard.set(Date(), forKey: Self.lastServerSyncKey)
         } catch {
-            NSLog("[MeetingsListView] Failed to fetch meetings from server: \(error.localizedDescription)")
+            NSLog(
+                "[MeetingsListView] Failed to fetch meetings from server: \(error.localizedDescription)"
+            )
         }
     }
 
@@ -3017,7 +3023,8 @@ private struct ActionItemCard: View {
                 }
             )
         default:
-            ToolPreviewFactory.preview(for: action.toolName, params: action.toolParams, compact: false)
+            ToolPreviewFactory.preview(
+                for: action.toolName, params: action.toolParams, compact: false)
         }
     }
 

@@ -362,7 +362,7 @@ struct LinearIssuePreview: View {
                         Text("Description")
                             .font(.system(size: compact ? 10 : 11, weight: .medium))
                             .foregroundColor(AppTheme.secondaryText)
-                        
+
                         ScrollView {
                             Text(desc)
                                 .font(.system(size: compact ? 12 : 13))
@@ -1553,7 +1553,7 @@ struct EditableLinearIssuePreview: View {
                             .onChange(of: description) { _, _ in notifyParamsChanged() }
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxHeight: 120) // Allow scrolling if content exceeds this height
+                    .frame(maxHeight: 120)  // Allow scrolling if content exceeds this height
                 }
                 .padding(14)
             }

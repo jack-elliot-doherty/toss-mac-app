@@ -195,7 +195,9 @@ final class MeetingsApi {
         let sharedByEmail: String?
     }
 
-    func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0, since: Date? = nil) async throws -> [ServerMeeting] {
+    func fetchRecordedMeetings(limit: Int = 50, offset: Int = 0, since: Date? = nil) async throws
+        -> [ServerMeeting]
+    {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("/meetings/recorded"),
             resolvingAgainstBaseURL: false)!
@@ -234,7 +236,9 @@ final class MeetingsApi {
 
         // Debug: log raw JSON response
         if let jsonString = String(data: data, encoding: .utf8) {
-            NSLog("[MeetingsApi] Raw JSON response (first 2000 chars): \(String(jsonString.prefix(2000)))")
+            NSLog(
+                "[MeetingsApi] Raw JSON response (first 2000 chars): \(String(jsonString.prefix(2000)))"
+            )
         }
 
         let result = try decoder.decode(Response.self, from: data)
@@ -242,14 +246,20 @@ final class MeetingsApi {
         // Debug: log chunk counts for each meeting
         for meeting in result.meetings {
             let chunkCount = meeting.chunks?.count ?? 0
-            NSLog("[MeetingsApi] Meeting '\(meeting.title)' (id: \(meeting.id)) has \(chunkCount) chunks")
+            NSLog(
+                "[MeetingsApi] Meeting '\(meeting.title)' (id: \(meeting.id)) has \(chunkCount) chunks"
+            )
             if let chunks = meeting.chunks, !chunks.isEmpty {
                 let firstChunk = chunks[0]
-                NSLog("[MeetingsApi]   First chunk: id=\(firstChunk.id), speaker=\(firstChunk.speaker), transcript=\(String(firstChunk.transcript.prefix(100)))...")
+                NSLog(
+                    "[MeetingsApi]   First chunk: id=\(firstChunk.id), speaker=\(firstChunk.speaker), transcript=\(String(firstChunk.transcript.prefix(100)))..."
+                )
             }
         }
 
-        NSLog("[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))")
+        NSLog(
+            "[MeetingsApi] Fetched \(result.meetings.count) recorded meetings from server (since: \(since?.description ?? "all"))"
+        )
         return result.meetings
     }
 
@@ -654,7 +664,7 @@ final class MeetingsApi {
         if !meeting.userNotes.isEmpty {
             body["userNotes"] = meeting.userNotes
         }
-        
+
         // Note: userNoteImages are NOT synced here - they're managed via dedicated
         // upload/delete endpoints (/meetings/:id/images) to handle presigned URLs correctly
 
@@ -820,7 +830,7 @@ final class MeetingsApi {
 
     /// Maximum image size allowed (10MB, matching server limit)
     private static let maxImageSize = 10 * 1024 * 1024
-    
+
     /// Upload an image to attach to meeting notes
     /// Returns the NoteImage with URL from server
     func uploadNoteImage(meetingId: UUID, imageData: Data) async throws -> NoteImage {
@@ -834,9 +844,11 @@ final class MeetingsApi {
                 userInfo: [NSLocalizedDescriptionKey: "Image too large (max 10MB)"]
             )
         }
-        
+
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images")
-        NSLog("[MeetingsApi] POST %@ (upload note image, size: %d bytes)", url.absoluteString, imageData.count)
+        NSLog(
+            "[MeetingsApi] POST %@ (upload note image, size: %d bytes)", url.absoluteString,
+            imageData.count)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -886,7 +898,8 @@ final class MeetingsApi {
 
     /// Delete an image from meeting notes
     func deleteNoteImage(meetingId: UUID, imageId: String) async throws {
-        let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images/\(imageId)")
+        let url = baseURL.appendingPathComponent(
+            "/meetings/\(meetingId.uuidString)/images/\(imageId)")
         NSLog("[MeetingsApi] DELETE %@", url.absoluteString)
 
         var request = URLRequest(url: url)
@@ -907,18 +920,18 @@ final class MeetingsApi {
 
         NSLog("[MeetingsApi] Image %@ deleted from meeting %@", imageId, meetingId.uuidString)
     }
-    
+
     /// Fetch fresh presigned URLs for meeting images
     /// Call this when displaying meeting images or when URLs have expired
     func fetchNoteImageUrls(meetingId: UUID) async throws -> [NoteImage] {
         let url = baseURL.appendingPathComponent("/meetings/\(meetingId.uuidString)/images")
         NSLog("[MeetingsApi] GET %@ (fetch image URLs)", url.absoluteString)
-        
+
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        
+
         let (data, response) = try await APIClient.shared.perform(request)
-        
+
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             if let body = String(data: data, encoding: .utf8) {
                 NSLog("[MeetingsApi] fetch images error response: %@", body)
@@ -929,29 +942,31 @@ final class MeetingsApi {
                 userInfo: [NSLocalizedDescriptionKey: "Failed to fetch image URLs"]
             )
         }
-        
+
         struct ImageInfo: Decodable {
             let id: String
             let url: String
             let uploadedAt: String
         }
-        
+
         struct Response: Decodable {
             let success: Bool
             let images: [ImageInfo]
         }
-        
+
         let result = try JSONDecoder().decode(Response.self, from: data)
-        
+
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
+
         let noteImages = result.images.map { img -> NoteImage in
             let uploadedAt = formatter.date(from: img.uploadedAt) ?? Date()
             return NoteImage(id: img.id, url: img.url, uploadedAt: uploadedAt)
         }
-        
-        NSLog("[MeetingsApi] Fetched %d image URLs for meeting %@", noteImages.count, meetingId.uuidString)
+
+        NSLog(
+            "[MeetingsApi] Fetched %d image URLs for meeting %@", noteImages.count,
+            meetingId.uuidString)
         return noteImages
     }
 }
