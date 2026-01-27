@@ -57,6 +57,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
 
+        // Start clipboard monitoring for agent context
+        ClipboardMonitor.shared.startMonitoring()
+
         // Enable launch at login by default on first run
         let hasSetLaunchAtLoginDefault = UserDefaults.standard.bool(forKey: "hasSetLaunchAtLoginDefault")
         if !hasSetLaunchAtLoginDefault {

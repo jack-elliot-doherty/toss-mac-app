@@ -19,6 +19,7 @@
 		DA1D00A22F1F038D00AA2794 /* FoldersManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D009D2F1F038D00AA2794 /* FoldersManager.swift */; };
 		DA1D00A42F1FB9C700AA2794 /* FolderSettingsModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00A32F1FB9C700AA2794 /* FolderSettingsModalView.swift */; };
 		DA1D00A62F278B1E00AA2794 /* NotesTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00A52F278B1E00AA2794 /* NotesTextView.swift */; };
+		DA1D00A82F291A1400AA2794 /* ClipboardMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D00A72F291A1400AA2794 /* ClipboardMonitor.swift */; };
 		DA3427542EC37F3A00F85DEB /* ToolCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427522EC37F3A00F85DEB /* ToolCall.swift */; };
 		DA3427552EC37F3A00F85DEB /* AgentStreamParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */; };
 		DA3427572EC37F6500F85DEB /* QuoteBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */; };
@@ -128,6 +129,7 @@
 		DA1D009E2F1F038D00AA2794 /* SharedMeetingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedMeetingView.swift; sourceTree = "<group>"; };
 		DA1D00A32F1FB9C700AA2794 /* FolderSettingsModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderSettingsModalView.swift; sourceTree = "<group>"; };
 		DA1D00A52F278B1E00AA2794 /* NotesTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesTextView.swift; sourceTree = "<group>"; };
+		DA1D00A72F291A1400AA2794 /* ClipboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitor.swift; sourceTree = "<group>"; };
 		DA3427502EC37F3A00F85DEB /* AgentStreamParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStreamParser.swift; sourceTree = "<group>"; };
 		DA3427522EC37F3A00F85DEB /* ToolCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCall.swift; sourceTree = "<group>"; };
 		DA3427562EC37F6500F85DEB /* QuoteBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuoteBubbleView.swift; sourceTree = "<group>"; };
@@ -321,6 +323,7 @@
 		DA3623592EB23FCE000207F0 /* System */ = {
 			isa = PBXGroup;
 			children = (
+				DA1D00A72F291A1400AA2794 /* ClipboardMonitor.swift */,
 				DA9C43C92EE79CC900C6D778 /* ScreenshotCapture.swift */,
 				DA84BB2A2ECD0E3400A3318B /* ScreenRecordingAuth.swift */,
 				DA3623552EB23FCE000207F0 /* Accessibility.swift */,
@@ -648,6 +651,7 @@
 				DA3623722EB23FCE000207F0 /* HotkeyEventTap.swift in Sources */,
 				DA34275B2ECA889500F85DEB /* SystemAudioRecorder.swift in Sources */,
 				DAEEBF2A2ED5109D009DE3CF /* AudioCompressor.swift in Sources */,
+				DA1D00A82F291A1400AA2794 /* ClipboardMonitor.swift in Sources */,
 				DACC63EF2F1841B5006B153D /* CreateWorkspaceView.swift in Sources */,
 				DA3623742EB23FCE000207F0 /* PillPanelController.swift in Sources */,
 				DAEEBF2D2ED5F065009DE3CF /* LaunchAtLogin.swift in Sources */,

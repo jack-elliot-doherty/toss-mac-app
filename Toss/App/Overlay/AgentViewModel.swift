@@ -503,6 +503,16 @@ final class AgentViewModel: ObservableObject {
             payload["conversationId"] = conversationId
             NSLog("[AgentViewModel] Sending with existing conversationId: %@", conversationId)
         }
+        
+        // Include fresh clipboard context if available (copied within last 90 seconds)
+        if let clipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90) {
+            payload["clipboardContext"] = [
+                "content": clipboard.content,
+                "ageSeconds": clipboard.ageSeconds
+            ]
+            NSLog("[AgentViewModel] Including clipboard context (%d chars, %ds old)", clipboard.content.count, clipboard.ageSeconds)
+        }
+        
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
 
         // Debug log to verify payload (truncated)
