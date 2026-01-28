@@ -585,6 +585,16 @@ final class AgentViewModel: ObservableObject {
                 if !executingTools.contains(where: { $0.id == id }) {
                     executingTools.append(ExecutingTool(id: id, name: name, arguments: arguments))
                 }
+
+                // Check if this is a client-side tool that should auto-execute
+                // Server sets needsApproval: false for these, so no approval event will come
+                let tempToolCall = ToolCall(id: id, name: name, arguments: arguments.mapValues { AnyCodable($0) })
+                if tempToolCall.isClientSideTool {
+                    NSLog("[AgentViewModel] Client-side tool detected, auto-executing: \(name)")
+                    Task {
+                        await executeClientSideToolDirectly(tempToolCall)
+                    }
+                }
             }
 
         case .toolCallAwaitingApproval(let toolCall):  // NEW: Native approval from v6
@@ -743,6 +753,65 @@ final class AgentViewModel: ObservableObject {
     }
 
     // MARK: - Tool Approval
+
+    /// Execute a client-side tool directly (for auto-execute scenarios where needsApproval is false)
+    /// This is called when we receive tool-input-available for a client-side tool
+    private func executeClientSideToolDirectly(_ toolCall: ToolCall) async {
+        NSLog("[AgentViewModel] Executing client-side tool directly: \(toolCall.name)")
+
+        do {
+            // Execute the tool locally
+            let toolResult = await executeClientTool(toolCall)
+
+            // Send result to server
+            try await sendToolApproval(
+                toolCallId: toolCall.id,
+                toolName: toolCall.name,
+                arguments: toolCall.arguments,
+                approved: true,
+                clientResult: toolResult
+            )
+            NSLog("[AgentViewModel] Sent client tool result for: \(toolCall.name)")
+
+            // Convert arguments to [String: Any]
+            let argsDict = toolCall.arguments.mapValues { $0.value }
+
+            // Add the tool result to messages (for history)
+            let toolMessage = DisplayMessage(
+                id: UUID(),
+                role: .assistant,
+                content: "",
+                timestamp: Date(),
+                toolCall: ToolCallInfo(
+                    toolCallId: toolCall.id,
+                    toolName: toolCall.name,
+                    arguments: argsDict
+                ),
+                toolResult: ToolResultInfo(
+                    toolCallId: toolCall.id,
+                    result: toolResult
+                )
+            )
+            messages.append(toolMessage)
+
+            // Update the tool execution message to mark it as complete
+            if let msgIndex = messages.firstIndex(where: { $0.toolExecutionId == toolCall.id }) {
+                messages[msgIndex].toolExecutionComplete = true
+                messages[msgIndex].toolExecutionResult = toolResult
+            }
+
+            // Remove from executingTools
+            executingTools.removeAll { $0.id == toolCall.id }
+
+            // Continue the conversation with the tool result
+            NSLog("[AgentViewModel] Client tool executed, continuing conversation")
+            try await streamFromAgentContinuation()
+
+        } catch {
+            NSLog("[AgentViewModel] Error executing client-side tool: \(error)")
+            errorMessage = "Failed to execute tool: \(error.localizedDescription)"
+        }
+    }
 
     func approveToolCall(_ toolCall: ToolCall) async {
         guard let index = pendingToolCalls.firstIndex(where: { $0.id == toolCall.id }) else {

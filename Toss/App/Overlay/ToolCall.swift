@@ -119,9 +119,10 @@ struct ToolCall: Identifiable, Equatable {
             return true
         }
 
-        // Client-side tools need approval for user consent
+        // Screenshot auto-executes without approval (it's not a destructive action)
+        // Other client-side tools like connect* still go through approval flow
         if lowerName == "screenshot" {
-            return true
+            return false
         }
 
         return false

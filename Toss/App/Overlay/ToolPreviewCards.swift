@@ -214,6 +214,8 @@ struct ToolPreviewFactory {
         switch toolName {
         case "linearCreateIssue":
             LinearIssuePreview(params: wrapped, compact: compact)
+        case "linearUpdateIssue":
+            LinearUpdateIssuePreview(params: wrapped, compact: compact)
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
@@ -242,6 +244,8 @@ struct ToolPreviewFactory {
         switch toolName {
         case "linearCreateIssue":
             LinearIssuePreview(params: wrapped, compact: compact)
+        case "linearUpdateIssue":
+            LinearUpdateIssuePreview(params: wrapped, compact: compact)
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
@@ -424,6 +428,192 @@ struct LinearIssuePreview: View {
             assigneeInfo = try await LinearAPI.shared.getUserInfo(userId: assigneeId)
         } catch {
             NSLog("[LinearIssuePreview] Failed to fetch assignee info: \(error)")
+        }
+        isLoadingAssignee = false
+    }
+}
+
+// MARK: - Linear Update Issue Preview
+
+struct LinearUpdateIssuePreview: View {
+    let params: ToolParams
+    let compact: Bool
+
+    @State private var assigneeInfo: LinearUserInfo?
+    @State private var isLoadingAssignee = true
+
+    private var issueId: String { params.getString("issueId") ?? "Unknown Issue" }
+    private var title: String? { params.getString("title") }
+    private var description: String? { params.getString("description") }
+    private var priority: Int? { params.getInt("priority") }
+    private var assigneeId: String? { params.getString("assigneeId") }
+    private var stateId: String? { params.getString("stateId") }
+
+    private var assigneeDisplay: String {
+        if let info = assigneeInfo {
+            return info.displayName.isEmpty ? info.name : info.displayName
+        }
+        return assigneeId ?? ""
+    }
+
+    private var priorityLabel: String {
+        switch priority {
+        case 0: return "No Priority"
+        case 1: return "Urgent"
+        case 2: return "High"
+        case 3: return "Medium"
+        case 4: return "Low"
+        default: return "No Priority"
+        }
+    }
+
+    private var priorityColor: Color {
+        switch priority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .gray
+        }
+    }
+
+    /// Describes what's being updated
+    private var updateSummary: String {
+        var changes: [String] = []
+        if assigneeId != nil { changes.append("assignee") }
+        if title != nil { changes.append("title") }
+        if description != nil { changes.append("description") }
+        if priority != nil { changes.append("priority") }
+        if stateId != nil { changes.append("status") }
+
+        if changes.isEmpty {
+            return "No changes"
+        } else if changes.count == 1 {
+            return "Updating \(changes[0])"
+        } else {
+            return "Updating \(changes.dropLast().joined(separator: ", ")) and \(changes.last!)"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+            // Header with Linear logo
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "5E6AD2"), Color(hex: "8B5CF6")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: compact ? 20 : 24, height: compact ? 20 : 24)
+                    .overlay(
+                        Text("Li")
+                            .font(.system(size: compact ? 9 : 10, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+
+                Text("Update Linear Issue")
+                    .font(.system(size: compact ? 12 : 14, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Spacer()
+
+                // Priority badge (if being updated)
+                if let _ = priority {
+                    Text(priorityLabel)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(priorityColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(priorityColor.opacity(0.15))
+                        )
+                }
+            }
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Issue details
+            VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+                // Issue ID (always shown)
+                PreviewField(label: "Issue", value: issueId, compact: compact)
+
+                // Update summary
+                Text(updateSummary)
+                    .font(.system(size: compact ? 10 : 11, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText)
+                    .italic()
+
+                // Title (if being updated)
+                if let title = title {
+                    PreviewField(label: "New Title", value: title, compact: compact)
+                }
+
+                // Description (if being updated)
+                if let desc = description, !desc.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("New Description")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+
+                        ScrollView {
+                            Text(desc)
+                                .font(.system(size: compact ? 12 : 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: compact ? 60 : 100)
+                    }
+                }
+
+                // Assignee (if being updated)
+                if assigneeId != nil {
+                    HStack(spacing: 6) {
+                        Text("New Assignee")
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+
+                        if isLoadingAssignee {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 10, height: 10)
+                        }
+
+                        Text(assigneeDisplay)
+                            .font(.system(size: compact ? 11 : 12))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+            }
+        }
+        .padding(compact ? 10 : 14)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(hex: "5E6AD2").opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color(hex: "5E6AD2").opacity(0.2), lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchAssigneeInfo()
+        }
+    }
+
+    private func fetchAssigneeInfo() async {
+        guard let assigneeId = assigneeId, !assigneeId.isEmpty else {
+            isLoadingAssignee = false
+            return
+        }
+
+        do {
+            assigneeInfo = try await LinearAPI.shared.getUserInfo(userId: assigneeId)
+        } catch {
+            NSLog("[LinearUpdateIssuePreview] Failed to fetch assignee info: \(error)")
         }
         isLoadingAssignee = false
     }
