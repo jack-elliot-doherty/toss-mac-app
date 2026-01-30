@@ -579,8 +579,11 @@ struct MeetingView: View {
     private func copySummary() {
         guard let notes = meeting?.notes, !notes.isEmpty else { return }
 
+        let webLink = "\(Config.webAppURL)/m/\(meetingId.uuidString.lowercased())"
+        let summaryWithLink = "\(notes)\n\nChat with meeting transcript: \(webLink)"
+
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(notes, forType: .string)
+        NSPasteboard.general.setString(summaryWithLink, forType: .string)
 
         didCopySummary = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {

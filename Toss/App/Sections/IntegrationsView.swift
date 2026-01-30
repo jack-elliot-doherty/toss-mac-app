@@ -45,7 +45,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
     @Published var error: String?
-    
+
     /// Trigger to force view refresh after deep link (works around SwiftUI text rendering bug)
     @Published var viewRefreshTrigger = UUID()
 
@@ -208,7 +208,7 @@ final class IntegrationsManager: ObservableObject {
         }
         return false
     }
-    
+
     /// Force view to fully re-render (workaround for SwiftUI text rendering bug after deep link)
     private func triggerViewRefresh() {
         // Delay slightly to let the window activation settle
@@ -361,11 +361,11 @@ final class IntegrationsManager: ObservableObject {
 
             if let http = response as? HTTPURLResponse {
                 NSLog("[Integrations] Slack Bot install response status: %d", http.statusCode)
-                
+
                 if let responseStr = String(data: data, encoding: .utf8) {
                     NSLog("[Integrations] Slack Bot install response: %@", responseStr)
                 }
-                
+
                 if http.statusCode == 200,
                     let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                     let urlString = json["url"] as? String,
