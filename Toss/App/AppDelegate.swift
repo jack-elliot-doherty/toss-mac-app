@@ -92,6 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             MeetingSyncManager.shared.startRetryTimer()
         }
 
+        #if !DEBUG
         SentrySDK.start { options in
             options.dsn =
                 "https://a26dd5e1ec6aac34508dc372eae29c87@o4510456233197568.ingest.us.sentry.io/4510456234442752"
@@ -101,6 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // For more information, visit: https://docs.sentry.io/platforms/apple/data-management/data-collected/
             options.sendDefaultPii = true
         }
+        #endif
 
         let POSTHOG_API_KEY = "phc_eclzkTVIbtcxa3WAXBLAP6OUzytVyTzoJPF6tMKmskH"
         let POSTHOG_HOST = "https://us.i.posthog.com"
@@ -406,7 +408,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         NSLog("[AppDelegate] Deep link received: \(urls.map { $0.absoluteString })")
-        
+
         // Mark deep link activation FIRST, before any handlers run
         // This ensures WindowKeyPrevention sees the flag when the window becomes key
         DeepLinkActivation.markActivation()
@@ -414,7 +416,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         var handledByDeepLink = false
         for url in urls {
             NSLog("[AppDelegate] Processing URL: \(url.absoluteString)")
-            
+
             // Handle integration callbacks (Slack, Linear, Google, Notion OAuth)
             if IntegrationsManager.shared.handleDeepLink(url: url) {
                 NSLog("[AppDelegate] URL handled by IntegrationsManager")
@@ -429,7 +431,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         NSLog("[AppDelegate] Deep link processing complete, handledByDeepLink=\(handledByDeepLink)")
-        
+
         // For OAuth callbacks, activate window after a short delay
         // to let browser's focus handling settle and avoid flash
         if handledByDeepLink {
@@ -976,7 +978,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Quick Actions section - context-aware based on current pill state
         let currentState = pillViewModel.visualState
-        
+
         // Determine what's currently active
         let isRecordingMeeting: Bool = {
             if case .meetingRecording = currentState { return true }
@@ -993,7 +995,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if case .agentSessionActive = currentState { return true }
             return false
         }()
-        
+
         let quickActionsHeader = NSMenuItem(
             title: "Quick Actions", action: nil, keyEquivalent: "")
         quickActionsHeader.isEnabled = false
