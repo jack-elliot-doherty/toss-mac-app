@@ -18,6 +18,7 @@ final class AgentPanelController {
     private var initialXPosition: CGFloat?  // Store the X position once
     private var initialYPosition: CGFloat?  // Store the Y position once
     private(set) var isMinimized = false  // Track if we have a minimized session
+    private var keyMonitor: Any?  // Local key monitor for keyboard shortcuts
 
     // Callback for when minimize/restore happens (to update pill state)
     var onShow: (() -> Void)?
@@ -105,6 +106,22 @@ final class AgentPanelController {
             }
         }
 
+        // Cmd+Enter keyboard shortcut to approve pending tool calls
+        // Use global monitor since panel is non-activating and local monitors only work when app is active
+        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self else { return }
+            // Check for Command + Enter (keyCode 36 is Return/Enter)
+            if event.modifierFlags.contains(.command) && event.keyCode == 36 {
+                // Only handle if panel is visible and there's a pending approval
+                if self.panel.isVisible, let pendingCall = self.viewModel.currentPendingApproval {
+                    NSLog("[AgentPanelController] Cmd+Enter pressed (global) - approving tool: \(pendingCall.name)")
+                    Task { @MainActor in
+                        await self.viewModel.approveToolCall(pendingCall)
+                    }
+                }
+            }
+        }
+
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("HideAgentPanel"),
             object: nil,
@@ -148,6 +165,12 @@ final class AgentPanelController {
                     self?.show(with: message)
                 }
             }
+        }
+    }
+
+    deinit {
+        if let monitor = keyMonitor {
+            NSEvent.removeMonitor(monitor)
         }
     }
 

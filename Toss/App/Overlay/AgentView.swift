@@ -282,6 +282,19 @@ private struct KeyboardShortcutHint: View {
     }
 }
 
+/// Compact keyboard shortcut hint for use inside action buttons
+private struct ButtonShortcutHint: View {
+    var body: some View {
+        HStack(spacing: 1) {
+            Text("⌘")
+                .font(.system(size: 10, weight: .medium))
+            Text("↵")
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundColor(.white.opacity(0.5))
+    }
+}
+
 // MARK: - Agent Header
 
 private struct AgentHeader: View {
@@ -1321,6 +1334,32 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "calendarDeleteEvent":
+            EditableCalendarDeleteEventPreview(
+                initialParams: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "calendarUpdateEvent":
+            EditableCalendarUpdateEventPreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         case "connectSlack":
             ConnectIntegrationCard(
                 provider: "Slack",
@@ -1649,6 +1688,7 @@ private struct ConnectToolCard: View {
                                 Image(systemName: "link")
                                     .font(.system(size: 12, weight: .semibold))
                                 Text("Connect \(provider)")
+                                ButtonShortcutHint()
                             }
                         }
                         .font(.system(size: 13, weight: .semibold))
@@ -1793,6 +1833,7 @@ private struct ConnectIntegrationCard: View {
                                 Image(systemName: "link")
                                     .font(.system(size: 12, weight: .semibold))
                                 Text("Connect \(provider)")
+                                ButtonShortcutHint()
                             }
                         }
                         .font(.system(size: 13, weight: .semibold))

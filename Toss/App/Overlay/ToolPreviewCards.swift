@@ -23,6 +23,21 @@ enum DateParsingHelper {
     }
 }
 
+// MARK: - Keyboard Shortcut Hint (for buttons)
+
+/// Compact keyboard shortcut hint for use inside action buttons
+private struct ButtonShortcutHint: View {
+    var body: some View {
+        HStack(spacing: 1) {
+            Text("⌘")
+                .font(.system(size: 10, weight: .medium))
+            Text("↵")
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundColor(.white.opacity(0.5))
+    }
+}
+
 // MARK: - Linear User Info
 
 struct LinearUserInfo: Codable {
@@ -140,6 +155,52 @@ final class NotionAPI {
     }
 }
 
+// MARK: - Calendar Event Info
+
+struct CalendarEventAttendee: Codable {
+    let email: String?
+    let displayName: String?
+    let responseStatus: String?
+}
+
+struct CalendarEventInfo: Codable {
+    let id: String
+    let summary: String?
+    let description: String?
+    let start: String?
+    let end: String?
+    let attendees: [CalendarEventAttendee]?
+    let htmlLink: String?
+    let meetLink: String?
+}
+
+// MARK: - Calendar API
+
+final class CalendarAPI {
+    static let shared = CalendarAPI()
+    private let baseURL: URL
+
+    init(baseURL: URL = Config.serverBaseURL) {
+        self.baseURL = baseURL
+    }
+
+    func getEventInfo(eventId: String) async throws -> CalendarEventInfo {
+        let url = baseURL.appendingPathComponent("google/events/\(eventId)")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "CalendarAPI", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch event info"])
+        }
+
+        return try JSONDecoder().decode(CalendarEventInfo.self, from: data)
+    }
+}
+
 // MARK: - Tool Parameters Wrapper
 
 /// Wrapper to provide unified access to tool parameters from different sources
@@ -218,6 +279,10 @@ struct ToolPreviewFactory {
             LinearUpdateIssuePreview(params: wrapped, compact: compact)
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
+        case "calendarDeleteEvent":
+            CalendarDeleteEventPreview(params: wrapped, compact: compact)
+        case "calendarUpdateEvent":
+            CalendarUpdateEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
             EditableSlackMessagePreview(params: wrapped, compact: compact)
         case "notionCreateDatabase":
@@ -248,6 +313,10 @@ struct ToolPreviewFactory {
             LinearUpdateIssuePreview(params: wrapped, compact: compact)
         case "calendarCreateEvent":
             CalendarEventPreview(params: wrapped, compact: compact)
+        case "calendarDeleteEvent":
+            CalendarDeleteEventPreview(params: wrapped, compact: compact)
+        case "calendarUpdateEvent":
+            CalendarUpdateEventPreview(params: wrapped, compact: compact)
         case "slackSendMessage":
             EditableSlackMessagePreview(params: wrapped, compact: compact)
         case "notionCreateDatabase":
@@ -729,6 +798,212 @@ struct CalendarEventPreview: View {
                             .foregroundColor(AppTheme.secondaryText)
                             .lineLimit(compact ? 1 : 2)
                     }
+                }
+            }
+        }
+        .padding(compact ? 10 : 14)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(hex: "4285F4").opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color(hex: "4285F4").opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Calendar Delete Event Preview
+
+struct CalendarDeleteEventPreview: View {
+    let params: ToolParams
+    let compact: Bool
+
+    private var eventId: String { params.getString("eventId") ?? "Unknown Event" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+            // Header with Google Calendar colors
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "EA4335"), Color(hex: "FBBC05")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: compact ? 20 : 24, height: compact ? 20 : 24)
+                    .overlay(
+                        Image(systemName: "calendar.badge.minus")
+                            .font(.system(size: compact ? 10 : 12, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+
+                Text("Delete Calendar Event")
+                    .font(.system(size: compact ? 12 : 14, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Spacer()
+
+                // Destructive action badge
+                Text("Delete")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.red.opacity(0.15))
+                    )
+            }
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Event ID
+            PreviewField(label: "Event ID", value: eventId, compact: compact)
+        }
+        .padding(compact ? 10 : 14)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.red.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.red.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Calendar Update Event Preview
+
+struct CalendarUpdateEventPreview: View {
+    let params: ToolParams
+    let compact: Bool
+
+    private var eventId: String { params.getString("eventId") ?? "Unknown Event" }
+    private var title: String? { params.getString("title") }
+    private var startTime: String? { params.getString("startTime") }
+    private var endTime: String? { params.getString("endTime") }
+    private var description: String? { params.getString("description") }
+
+    /// Describes what's being updated
+    private var updateSummary: String {
+        var changes: [String] = []
+        if title != nil { changes.append("title") }
+        if startTime != nil { changes.append("start time") }
+        if endTime != nil { changes.append("end time") }
+        if description != nil { changes.append("description") }
+
+        if changes.isEmpty {
+            return "No changes"
+        } else if changes.count == 1 {
+            return "Updating \(changes[0])"
+        } else {
+            return "Updating \(changes.dropLast().joined(separator: ", ")) and \(changes.last!)"
+        }
+    }
+
+    private var formattedNewTime: String? {
+        guard let start = startTime else { return nil }
+
+        guard let date = DateParsingHelper.parseISODate(start) else { return start }
+
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
+        var result = displayFormatter.string(from: date)
+
+        if let end = endTime, let endD = DateParsingHelper.parseISODate(end) {
+            let minutes = Int(endD.timeIntervalSince(date) / 60)
+            if minutes == 60 {
+                result += " (1 hour)"
+            } else if minutes > 60 {
+                result += " (\(minutes / 60)h \(minutes % 60)m)"
+            } else {
+                result += " (\(minutes) min)"
+            }
+        }
+
+        return result
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+            // Header with Google Calendar colors
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "4285F4"), Color(hex: "34A853")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: compact ? 20 : 24, height: compact ? 20 : 24)
+                    .overlay(
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: compact ? 10 : 12, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+
+                Text("Update Calendar Event")
+                    .font(.system(size: compact ? 12 : 14, weight: .semibold))
+                    .foregroundColor(AppTheme.primaryText)
+
+                Spacer()
+
+                // Update badge
+                Text("Update")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(Color(hex: "4285F4"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(hex: "4285F4").opacity(0.15))
+                    )
+            }
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Event details
+            VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+                // Event ID
+                PreviewField(label: "Event", value: eventId, compact: compact)
+
+                // Update summary
+                Text(updateSummary)
+                    .font(.system(size: compact ? 10 : 11, weight: .medium))
+                    .foregroundColor(AppTheme.secondaryText)
+                    .italic()
+
+                // New title (if being updated)
+                if let title = title {
+                    PreviewField(label: "New Title", value: title, compact: compact)
+                }
+
+                // New time (if being updated)
+                if let formattedTime = formattedNewTime {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(formattedTime)
+                            .font(.system(size: compact ? 12 : 13))
+                            .foregroundColor(AppTheme.primaryText)
+                    }
+                }
+
+                // New description (if being updated)
+                if let desc = description, !desc.isEmpty {
+                    PreviewField(
+                        label: "New Description",
+                        value: desc,
+                        compact: compact,
+                        lineLimit: compact ? 2 : 3
+                    )
                 }
             }
         }
@@ -1385,11 +1660,12 @@ struct EditableCalendarEventPreview: View {
                             .background(
                                 RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.7)))
                         } else {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "calendar.badge.plus")
                                     .font(.system(size: 10))
                                 Text("Add to Calendar")
                                     .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
@@ -1511,6 +1787,602 @@ struct EditableCalendarEventPreview: View {
     }
 }
 
+// MARK: - Editable Calendar Delete Event Preview
+
+struct EditableCalendarDeleteEventPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var eventInfo: CalendarEventInfo?
+    @State private var isLoadingEvent = true
+    @State private var loadError: String?
+
+    private var eventId: String { initialParams.getString("eventId") ?? "Unknown Event" }
+
+    private var formattedTime: String? {
+        guard let start = eventInfo?.start else { return nil }
+
+        guard let date = DateParsingHelper.parseISODate(start) else { return start }
+
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
+        var result = displayFormatter.string(from: date)
+
+        if let end = eventInfo?.end, let endD = DateParsingHelper.parseISODate(end) {
+            let minutes = Int(endD.timeIntervalSince(date) / 60)
+            if minutes == 60 {
+                result += " (1 hour)"
+            } else if minutes > 60 {
+                result += " (\(minutes / 60)h \(minutes % 60)m)"
+            } else {
+                result += " (\(minutes) min)"
+            }
+        }
+
+        return result
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                Image("GoogleCalendarLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Delete Calendar Event")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text("This event will be permanently removed from your calendar")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Deleting...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.red.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 10))
+                                Text("Delete Event")
+                                    .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.red))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting || isLoadingEvent)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Event details - use fixed minimum height to prevent layout shift
+            VStack(spacing: 0) {
+                if isLoadingEvent {
+                    // Loading skeleton - reserve space for typical event content
+                    VStack(spacing: 0) {
+                        // Event title skeleton
+                        FormRow(label: "Event") {
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(AppTheme.secondaryText.opacity(0.2))
+                                    .frame(width: 180, height: 16)
+                                Spacer()
+                            }
+                        }
+                        Divider().background(AppTheme.subtleStroke)
+                        // Time skeleton
+                        FormRow(label: "When") {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppTheme.secondaryText.opacity(0.15))
+                                .frame(width: 200, height: 14)
+                        }
+                        Divider().background(AppTheme.subtleStroke)
+                        // Guests skeleton
+                        FormRow(label: "Guests") {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppTheme.secondaryText.opacity(0.15))
+                                .frame(width: 150, height: 14)
+                        }
+                    }
+                } else if let error = loadError {
+                    // Error state
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Spacer()
+                    }
+                    .padding(14)
+                } else if let event = eventInfo {
+                    // Event title
+                    FormRow(label: "Event") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                            Text(event.summary ?? "Untitled Event")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(2)
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    // Time
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "When") {
+                        if let time = formattedTime {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                Text(time)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                                Spacer(minLength: 0)
+                            }
+                        } else {
+                            Text("No time specified")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.secondaryText)
+                        }
+                    }
+
+                    // Attendees - always show row to prevent layout shift
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "Guests") {
+                        if let attendees = event.attendees, !attendees.isEmpty {
+                            let names = attendees.compactMap { $0.displayName ?? $0.email }
+                            Text(names.joined(separator: ", "))
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(2)
+                        } else {
+                            Text("No guests")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.secondaryText)
+                        }
+                    }
+
+                    // Description (if available)
+                    if let desc = event.description, !desc.isEmpty {
+                        Divider().background(AppTheme.subtleStroke)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Description")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(AppTheme.secondaryText)
+                            Text(desc)
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(3)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchEventInfo()
+        }
+    }
+
+    private func fetchEventInfo() async {
+        guard !eventId.isEmpty, eventId != "Unknown Event" else {
+            isLoadingEvent = false
+            loadError = "No event ID provided"
+            return
+        }
+
+        do {
+            eventInfo = try await CalendarAPI.shared.getEventInfo(eventId: eventId)
+        } catch {
+            NSLog("[EditableCalendarDeleteEventPreview] Failed to fetch event info: \(error)")
+            loadError = "Could not load event details"
+        }
+        isLoadingEvent = false
+    }
+}
+
+// MARK: - Editable Calendar Update Event Preview
+
+struct EditableCalendarUpdateEventPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var title: String
+    @State private var description: String
+    @State private var eventInfo: CalendarEventInfo?
+    @State private var isLoadingEvent = true
+    @State private var loadError: String?
+
+    private var eventId: String { initialParams.getString("eventId") ?? "Unknown Event" }
+    private var newStartTime: String? { initialParams.getString("startTime") }
+    private var newEndTime: String? { initialParams.getString("endTime") }
+
+    /// Describes what's being updated
+    private var updateSummary: String {
+        var changes: [String] = []
+        if !title.isEmpty || initialParams.getString("title") != nil { changes.append("title") }
+        if newStartTime != nil { changes.append("time") }
+        if !description.isEmpty || initialParams.getString("description") != nil {
+            changes.append("description")
+        }
+
+        if changes.isEmpty {
+            return "No changes specified"
+        } else if changes.count == 1 {
+            return "Updating \(changes[0])"
+        } else {
+            return "Updating \(changes.dropLast().joined(separator: ", ")) and \(changes.last!)"
+        }
+    }
+
+    private func formatTime(start: String?, end: String?) -> String? {
+        guard let start = start else { return nil }
+
+        guard let date = DateParsingHelper.parseISODate(start) else { return start }
+
+        let displayFormatter = DateFormatter()
+        displayFormatter.dateFormat = "EEE, MMM d 'at' h:mm a"
+        var result = displayFormatter.string(from: date)
+
+        if let end = end, let endD = DateParsingHelper.parseISODate(end) {
+            let minutes = Int(endD.timeIntervalSince(date) / 60)
+            if minutes == 60 {
+                result += " (1 hour)"
+            } else if minutes > 60 {
+                result += " (\(minutes / 60)h \(minutes % 60)m)"
+            } else {
+                result += " (\(minutes) min)"
+            }
+        }
+
+        return result
+    }
+
+    private var formattedCurrentTime: String? {
+        formatTime(start: eventInfo?.start, end: eventInfo?.end)
+    }
+
+    private var formattedNewTime: String? {
+        formatTime(start: newStartTime, end: newEndTime)
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _title = State(initialValue: params.getString("title") ?? "")
+        _description = State(initialValue: params.getString("description") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                Image("GoogleCalendarLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Update Calendar Event")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    if isLoadingEvent {
+                        Text("Loading event details...")
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                    } else {
+                        Text(updateSummary)
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Updating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color.blue.opacity(0.7)))
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 10))
+                                Text("Update Event")
+                                    .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color.blue))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting || isLoadingEvent)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Event details - use consistent row structure to prevent layout shift
+            VStack(spacing: 0) {
+                if isLoadingEvent {
+                    // Loading skeleton - matches loaded state structure
+                    VStack(spacing: 0) {
+                        // Event title skeleton
+                        FormRow(label: "Event") {
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(AppTheme.secondaryText.opacity(0.2))
+                                    .frame(width: 180, height: 16)
+                                Spacer()
+                            }
+                        }
+                        Divider().background(AppTheme.subtleStroke)
+                        // Time skeleton
+                        FormRow(label: "When") {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppTheme.secondaryText.opacity(0.15))
+                                .frame(width: 200, height: 14)
+                        }
+                        Divider().background(AppTheme.subtleStroke)
+                        // Guests skeleton
+                        FormRow(label: "Guests") {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppTheme.secondaryText.opacity(0.15))
+                                .frame(width: 150, height: 14)
+                        }
+                    }
+                } else if let error = loadError {
+                    // Error state
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                    .padding(14)
+                } else if let event = eventInfo {
+                    // Current event title
+                    FormRow(label: "Event") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color(hex: "4285F4"))
+                                .frame(width: 8, height: 8)
+                            Text(event.summary ?? "Untitled Event")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(2)
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    // Title change (if updating)
+                    if !title.isEmpty || initialParams.getString("title") != nil {
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "New Title") {
+                            TextField("New title", text: $title)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .onChange(of: title) { _, _ in notifyParamsChanged() }
+                        }
+                    }
+
+                    // Time change (current -> new)
+                    if newStartTime != nil {
+                        Divider().background(AppTheme.subtleStroke)
+
+                        // Current time (with strikethrough)
+                        if let currentTime = formattedCurrentTime {
+                            FormRow(label: "Current") {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                    Text(currentTime)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                        .strikethrough(true, color: AppTheme.secondaryText)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                        }
+
+                        // New time
+                        if let newTime = formattedNewTime {
+                            FormRow(label: "New Time") {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "clock.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(Color(hex: "4285F4"))
+                                    Text(newTime)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.primaryText)
+                                    Spacer(minLength: 0)
+                                }
+                            }
+                        }
+                    } else if let currentTime = formattedCurrentTime {
+                        // Just show current time (not being changed)
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "When") {
+                            HStack(spacing: 6) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                Text(currentTime)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                                Spacer(minLength: 0)
+                            }
+                        }
+                    }
+
+                    // Attendees - always show row to prevent layout shift
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "Guests") {
+                        if let attendees = event.attendees, !attendees.isEmpty {
+                            let names = attendees.compactMap { $0.displayName ?? $0.email }
+                            Text(names.joined(separator: ", "))
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(2)
+                        } else {
+                            Text("No guests")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.secondaryText)
+                        }
+                    }
+
+                    // Description change (if updating)
+                    if !description.isEmpty || initialParams.getString("description") != nil {
+                        Divider().background(AppTheme.subtleStroke)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("New Description")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(AppTheme.secondaryText)
+
+                            TextField("New description...", text: $description, axis: .vertical)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                                .lineLimit(3...6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .onChange(of: description) { _, _ in notifyParamsChanged() }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchEventInfo()
+        }
+    }
+
+    private func fetchEventInfo() async {
+        guard !eventId.isEmpty, eventId != "Unknown Event" else {
+            isLoadingEvent = false
+            loadError = "No event ID provided"
+            return
+        }
+
+        do {
+            eventInfo = try await CalendarAPI.shared.getEventInfo(eventId: eventId)
+        } catch {
+            NSLog("[EditableCalendarUpdateEventPreview] Failed to fetch event info: \(error)")
+            loadError = "Could not load event details"
+        }
+        isLoadingEvent = false
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["eventId"] = .string(eventId)
+        if let start = newStartTime {
+            updatedParams["startTime"] = .string(start)
+        }
+        if let end = newEndTime {
+            updatedParams["endTime"] = .string(end)
+        }
+        if !title.isEmpty {
+            updatedParams["title"] = .string(title)
+        }
+        if !description.isEmpty {
+            updatedParams["description"] = .string(description)
+        }
+        onParamsChanged?(updatedParams)
+    }
+}
+
 // MARK: - Editable Linear Issue Preview
 
 struct EditableLinearIssuePreview: View {
@@ -1625,11 +2497,12 @@ struct EditableLinearIssuePreview: View {
                                 RoundedRectangle(cornerRadius: 6).fill(
                                     Color(hex: "5E6AD2").opacity(0.7)))
                         } else {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 10))
                                 Text("Create Issue")
                                     .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
@@ -1915,11 +2788,12 @@ struct EditableSlackMessagePreview: View {
                                 RoundedRectangle(cornerRadius: 6).fill(
                                     Color(hex: "4A154B").opacity(0.7)))
                         } else {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 Image(systemName: isScheduled ? "clock.fill" : "paperplane.fill")
                                     .font(.system(size: 10))
                                 Text(isScheduled ? "Schedule Message" : "Send Message")
                                     .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
                             }
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
