@@ -1,54 +1,42 @@
 import SwiftUI
 
 struct OnboardingProgressBar: View {
-    let currentPhase: OnboardingPhase
+    let currentStep: OnboardingStep
+    private let totalSteps = OnboardingStep.allCases.count
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(OnboardingPhase.allCases.enumerated()), id: \.element) { index, phase in
-                if index > 0 {
-                    // Chevron separator
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(Color.white.opacity(0.3))
-                        .padding(.horizontal, 16)
-                }
-
-                Button {
-                    // Only allow clicking on completed phases
-                } label: {
-                    Text(phase.title)
-                        .font(.system(size: 12, weight: .semibold))
-                        .tracking(0.5)
-                        .foregroundColor(textColor(for: phase))
-                }
-                .buttonStyle(.plain)
-                .disabled(true)  // Navigation handled by back/continue buttons
+        HStack(spacing: 8) {
+            ForEach(0..<totalSteps, id: \.self) { index in
+                Circle()
+                    .fill(dotColor(for: index))
+                    .frame(width: 8, height: 8)
+                    .animation(.easeInOut(duration: 0.2), value: currentStep)
             }
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 24)
-        .frame(maxWidth: .infinity)
-        .background(Color.black.opacity(0.2))
+        .padding(.vertical, 20)
     }
 
-    private func textColor(for phase: OnboardingPhase) -> Color {
-        if phase == currentPhase {
-            return .white
-        } else if phase.rawValue < currentPhase.rawValue {
-            return Color.white.opacity(0.6)
+    private func dotColor(for index: Int) -> Color {
+        if index < currentStep.rawValue {
+            return Color.white.opacity(0.5)  // Completed
+        } else if index == currentStep.rawValue {
+            return Color.white  // Current
         } else {
-            return Color.white.opacity(0.35)
+            return Color.white.opacity(0.2)  // Future
         }
     }
 }
 
 #Preview {
-    VStack(spacing: 0) {
-        OnboardingProgressBar(currentPhase: .permissions)
-        OnboardingProgressBar(currentPhase: .setup)
-        OnboardingProgressBar(currentPhase: .learn)
-        OnboardingProgressBar(currentPhase: .meetings)
+    VStack(spacing: 20) {
+        OnboardingProgressBar(currentStep: .welcome)
+        OnboardingProgressBar(currentStep: .permissions)
+        OnboardingProgressBar(currentStep: .setupTest)
+        OnboardingProgressBar(currentStep: .meetings)
+        OnboardingProgressBar(currentStep: .dictation)
+        OnboardingProgressBar(currentStep: .agent)
+        OnboardingProgressBar(currentStep: .connectApps)
     }
+    .padding(40)
     .background(Color.black)
 }

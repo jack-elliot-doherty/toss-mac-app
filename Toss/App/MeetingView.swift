@@ -1092,13 +1092,15 @@ struct MeetingView: View {
         if extractedActions.isEmpty {
             loadStoredActions()
         }
-        // Only extract if still empty and not currently extracting
-        guard extractedActions.isEmpty && !isExtractingActions else { return }
+        // Only extract if we haven't already attempted extraction for this meeting
+        // (actionItemsExtractedAt being set means we tried, even if result was empty)
+        guard meeting?.actionItemsExtractedAt == nil && !isExtractingActions else { return }
         extractActions()
     }
 
     private func extractActions() {
-        let transcript = repository.getFullTranscript(meetingId: meetingId)
+        // Use diarized transcript so the model knows which statements are from the user vs others
+        let transcript = repository.getDiarizedTranscript(meetingId: meetingId)
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -1119,6 +1121,9 @@ struct MeetingView: View {
                     repository.updateMeetingActionItems(
                         meetingId: meetingId, actionItems: storedItems)
                     NSLog("[MeetingView] Stored %d action items to repository", storedItems.count)
+
+                    // Sync to server so action items persist across devices/sessions
+                    Task { await MeetingSyncManager.shared.syncMeeting(meetingId) }
                 }
             } catch {
                 NSLog("[MeetingView] Extract actions failed: \(error)")

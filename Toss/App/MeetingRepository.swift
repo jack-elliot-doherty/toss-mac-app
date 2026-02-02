@@ -52,6 +52,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     var userNoteImages: [NoteImage] = []  // Screenshots pasted into notes during the call
     var source: MeetingSource = .adhoc
     var actionItems: [StoredActionItem] = []  // Extracted action items
+    var actionItemsExtractedAt: Date?  // When action items were last extracted (nil = never attempted)
     var syncedAt: Date?  // Last sync to server
     var joinUrl: String?  // URL to join the call (e.g., Google Meet, Zoom)
     var externalId: String?  // External calendar event ID (for linking to Google Calendar)
@@ -73,6 +74,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         source = try container.decodeIfPresent(MeetingSource.self, forKey: .source) ?? .adhoc
         actionItems =
             try container.decodeIfPresent([StoredActionItem].self, forKey: .actionItems) ?? []
+        actionItemsExtractedAt = try container.decodeIfPresent(Date.self, forKey: .actionItemsExtractedAt)
         syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
         joinUrl = try container.decodeIfPresent(String.self, forKey: .joinUrl)
         externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
@@ -84,7 +86,8 @@ struct MeetingModel: Identifiable, Equatable, Codable {
     init(
         id: UUID, title: String, startTime: Date, endTime: Date?, createdAt: Date, updatedAt: Date,
         notes: String = "", userNotes: String = "", userNoteImages: [NoteImage] = [],
-        source: MeetingSource = .adhoc, actionItems: [StoredActionItem] = [], syncedAt: Date? = nil,
+        source: MeetingSource = .adhoc, actionItems: [StoredActionItem] = [],
+        actionItemsExtractedAt: Date? = nil, syncedAt: Date? = nil,
         joinUrl: String? = nil, externalId: String? = nil, orgId: String? = nil,
         folderAssignments: [FolderSummary] = []
     ) {
@@ -99,6 +102,7 @@ struct MeetingModel: Identifiable, Equatable, Codable {
         self.userNoteImages = userNoteImages
         self.source = source
         self.actionItems = actionItems
+        self.actionItemsExtractedAt = actionItemsExtractedAt
         self.syncedAt = syncedAt
         self.joinUrl = joinUrl
         self.externalId = externalId
@@ -154,6 +158,7 @@ protocol MeetingRepositoryProtocol {
     func listMeetings(forOrgId orgId: String?) -> [MeetingModel]
     func getChunks(meetingId: UUID) -> [MeetingChunkModel]
     func getFullTranscript(meetingId: UUID) -> String
+    func getDiarizedTranscript(meetingId: UUID) -> String
     func updateMeetingTitle(meetingId: UUID, title: String)
     func updateMeetingNotes(meetingId: UUID, notes: String)
     func updateMeetingUserNotes(meetingId: UUID, userNotes: String)
@@ -371,6 +376,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         }
     }
 
+    func getDiarizedTranscript(meetingId: UUID) -> String {
+        return queue.sync {
+            (chunks[meetingId] ?? [])
+                .sorted { $0.startedAt < $1.startedAt }
+                .map { chunk in
+                    let speaker = chunk.speaker == .user ? "[You]" : "[Them]"
+                    return "\(speaker) \(chunk.transcript)"
+                }
+                .joined(separator: "\n\n")
+        }
+    }
+
     func updateMeetingTitle(meetingId: UUID, title: String) {
         queue.sync {
             guard var meeting = meetings[meetingId] else { return }
@@ -425,6 +442,7 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         queue.sync {
             guard var meeting = meetings[meetingId] else { return }
             meeting.actionItems = actionItems
+            meeting.actionItemsExtractedAt = Date()  // Mark that extraction was attempted
             meeting.updatedAt = Date()
             meetings[meetingId] = meeting
         }

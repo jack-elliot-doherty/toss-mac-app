@@ -2,40 +2,16 @@ import AVFoundation
 import Combine
 import SwiftUI
 
-// MARK: - Onboarding Phase
+// MARK: - Onboarding Step
 
-enum OnboardingPhase: Int, CaseIterable {
-    case permissions
-    case setup
-    case learn
-    case meetings
-
-    var title: String {
-        switch self {
-        case .permissions: return "PERMISSIONS"
-        case .setup: return "SET UP"
-        case .learn: return "LEARN"
-        case .meetings: return "MEETINGS"
-        }
-    }
-}
-
-// MARK: - Sub-steps within each phase
-
-enum PermissionsStep: Int, CaseIterable {
-    case accessibility
-    case microphone
-    case complete
-}
-
-enum SetupStep: Int, CaseIterable {
-    case micTest
-    case hotkeyTest
-}
-
-enum LearnStep: Int, CaseIterable {
-    case dictationDemo
-    case agentIntro
+enum OnboardingStep: Int, CaseIterable {
+    case welcome          // Value prop + context preview
+    case permissions      // All permissions consolidated
+    case setupTest        // Mic test + Hotkey test combined
+    case meetings         // Action items preview + screen recording
+    case dictation        // Practice dictation
+    case agent            // Meet the agent
+    case connectApps      // Optional integrations
 }
 
 // MARK: - Onboarding Manager
@@ -57,15 +33,13 @@ final class OnboardingManager: ObservableObject {
     @Published var isSignedIn: Bool = false
     @Published var completedVersion: Int = 0
 
-    // Phase navigation
-    @Published var currentPhase: OnboardingPhase = .permissions
-    @Published var permissionsStep: PermissionsStep = .accessibility
-    @Published var setupStep: SetupStep = .micTest
-    @Published var learnStep: LearnStep = .dictationDemo
+    // Step navigation
+    @Published var currentStep: OnboardingStep = .welcome
 
     // Setup confirmations
     @Published var micTestPassed: Bool = false
     @Published var hotkeyTestPassed: Bool = false
+    @Published var dictationTested: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -78,21 +52,29 @@ final class OnboardingManager: ObservableObject {
         return !isSignedIn || !isOnboardingComplete
     }
 
-    /// Whether the user can proceed from the current permissions step
-    var canProceedFromPermissions: Bool {
-        switch permissionsStep {
-        case .accessibility:
-            return axGranted
-        case .microphone:
-            return micGranted
-        case .complete:
+    /// Whether the user can proceed from the current step
+    var canProceedFromCurrentStep: Bool {
+        switch currentStep {
+        case .welcome:
             return true
+        case .permissions:
+            return axGranted && micGranted  // Screen recording is optional
+        case .setupTest:
+            return micTestPassed && hotkeyTestPassed
+        case .meetings:
+            return true  // Just informational, screen recording already requested in permissions
+        case .dictation:
+            return true  // Optional to actually dictate
+        case .agent:
+            return true  // Just informational
+        case .connectApps:
+            return true  // All integrations optional
         }
     }
 
-    /// Whether all required permissions for the PERMISSIONS phase are granted
-    var allPermissionsGranted: Bool {
-        axGranted && micGranted
+    /// Whether the user can go back from the current step
+    var canGoBack: Bool {
+        return currentStep != .welcome
     }
 
     private init() {
@@ -108,51 +90,8 @@ final class OnboardingManager: ObservableObject {
         NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
                 self?.refresh()
-                self?.autoAdvancePermissionsIfNeeded()
             }
             .store(in: &cancellables)
-
-        // Auto-advance when permissions change
-        $axGranted
-            .dropFirst()
-            .sink { [weak self] granted in
-                if granted {
-                    self?.autoAdvancePermissionsIfNeeded()
-                }
-            }
-            .store(in: &cancellables)
-
-        $micStatus
-            .dropFirst()
-            .sink { [weak self] status in
-                if status == .authorized {
-                    self?.autoAdvancePermissionsIfNeeded()
-                }
-            }
-            .store(in: &cancellables)
-    }
-
-    func autoAdvancePermissionsIfNeeded() {
-        guard currentPhase == .permissions else { return }
-
-        // Loop to advance through all already-granted permissions
-        while true {
-            switch permissionsStep {
-            case .accessibility:
-                if axGranted {
-                    permissionsStep = .microphone
-                } else {
-                    return
-                }
-            case .microphone:
-                if micGranted {
-                    permissionsStep = .complete
-                }
-                return
-            case .complete:
-                return
-            }
-        }
     }
 
     func refresh() {
@@ -226,100 +165,20 @@ final class OnboardingManager: ObservableObject {
 
     // MARK: - Navigation
 
-    func goToNextPermissionsStep() {
-        switch permissionsStep {
-        case .accessibility:
-            permissionsStep = .microphone
-        case .microphone:
-            permissionsStep = .complete
-        case .complete:
-            currentPhase = .setup
+    func goForward() {
+        guard let nextStep = OnboardingStep(rawValue: currentStep.rawValue + 1) else {
+            // We're at the last step - complete onboarding
+            markOnboardingComplete()
+            return
         }
-    }
-
-    func goToPreviousPermissionsStep() {
-        switch permissionsStep {
-        case .accessibility:
-            break  // Can't go back
-        case .microphone:
-            permissionsStep = .accessibility
-        case .complete:
-            permissionsStep = .microphone
-        }
-    }
-
-    func goToNextSetupStep() {
-        switch setupStep {
-        case .micTest:
-            setupStep = .hotkeyTest
-        case .hotkeyTest:
-            currentPhase = .learn
-        }
-    }
-
-    func goToPreviousSetupStep() {
-        switch setupStep {
-        case .micTest:
-            currentPhase = .permissions
-            permissionsStep = .complete
-        case .hotkeyTest:
-            setupStep = .micTest
-        }
-    }
-
-    func goToNextLearnStep() {
-        switch learnStep {
-        case .dictationDemo:
-            learnStep = .agentIntro
-        case .agentIntro:
-            currentPhase = .meetings
-        }
-    }
-
-    func goToPreviousLearnStep() {
-        switch learnStep {
-        case .dictationDemo:
-            currentPhase = .setup
-            setupStep = .hotkeyTest
-        case .agentIntro:
-            learnStep = .dictationDemo
-        }
+        currentStep = nextStep
     }
 
     func goBack() {
-        switch currentPhase {
-        case .permissions:
-            goToPreviousPermissionsStep()
-        case .setup:
-            goToPreviousSetupStep()
-        case .learn:
-            goToPreviousLearnStep()
-        case .meetings:
-            currentPhase = .learn
-            learnStep = .agentIntro
+        guard let previousStep = OnboardingStep(rawValue: currentStep.rawValue - 1) else {
+            return  // Can't go back from first step
         }
-    }
-
-    func goForward() {
-        switch currentPhase {
-        case .permissions:
-            goToNextPermissionsStep()
-        case .setup:
-            goToNextSetupStep()
-        case .learn:
-            goToNextLearnStep()
-        case .meetings:
-            markOnboardingComplete()
-        }
-    }
-
-    var canGoBack: Bool {
-        switch currentPhase {
-        case .permissions:
-            return permissionsStep != .accessibility
-        case .setup, .learn, .meetings:
-            return true
-        }
+        currentStep = previousStep
     }
 
     func markOnboardingComplete() {
@@ -330,12 +189,10 @@ final class OnboardingManager: ObservableObject {
     /// Reset onboarding for testing
     func resetOnboarding() {
         UserDefaults.standard.removeObject(forKey: onboardingVersionKey)
-        currentPhase = .permissions
-        permissionsStep = .accessibility
-        setupStep = .micTest
-        learnStep = .dictationDemo
+        currentStep = .welcome
         micTestPassed = false
         hotkeyTestPassed = false
+        dictationTested = false
         refresh()
     }
 }

@@ -6,6 +6,7 @@ struct PermissionCard: View {
     let isGranted: Bool
     let actionTitle: String
     let onAllow: () -> Void
+    var isOptional: Bool = false
 
     private let grantedColor = Color(red: 0.3, green: 0.8, blue: 0.5)
 
@@ -25,10 +26,17 @@ struct PermissionCard: View {
                 }
 
                 if !isGranted {
-                    Text(description)
-                        .font(.system(size: 13))
-                        .foregroundColor(AppTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 4) {
+                        Text(description)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText)
+                        if isOptional {
+                            Text("(optional)")
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.secondaryText.opacity(0.6))
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
 

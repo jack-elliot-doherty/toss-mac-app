@@ -70,6 +70,14 @@
 		DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */; };
 		DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */; };
 		DA9C43DC2EEFA00000C6D778 /* FlowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9C43DB2EEFA00000C6D778 /* FlowsView.swift */; };
+		4201474E46F645F4A8AFAF41 /* WelcomeStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4201474E46F645F4A8AFAF40 /* WelcomeStepView.swift */; };
+		D9AF9BCD93604827B65FB8A2 /* PermissionsStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9AF9BCD93604827B65FB8A1 /* PermissionsStepView.swift */; };
+		CEC4FA0D13CC46669CC19D4C /* SetupTestStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEC4FA0D13CC46669CC19D4B /* SetupTestStepView.swift */; };
+		04C5F28D210E445A81294B87 /* MeetingsStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04C5F28D210E445A81294B86 /* MeetingsStepView.swift */; };
+		2FB22D7A754E4AA3939A28D0 /* DictationStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB22D7A754E4AA3939A28CF /* DictationStepView.swift */; };
+		4DACEF0F33254F839E35FFA8 /* AgentStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DACEF0F33254F839E35FFA7 /* AgentStepView.swift */; };
+		C8D5A7DCCF624048B93ED8DA /* ConnectAppsStepView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8D5A7DCCF624048B93ED8D9 /* ConnectAppsStepView.swift */; };
+		8D75E650E1B343CE9355BF80 /* ActionItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D75E650E1B343CE9355BF7F /* ActionItemCard.swift */; };
 		DAA4FA072F0D78A7009AD75E /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA4FA062F0D78A7009AD75E /* PreferencesManager.swift */; };
 		DACC63E92F104F53006B153D /* ForceUpdateModal.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACC63E82F104F53006B153D /* ForceUpdateModal.swift */; };
 		DACC63EF2F1841B5006B153D /* CreateWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACC63EE2F1841B5006B153D /* CreateWorkspaceView.swift */; };
@@ -181,6 +189,14 @@
 		DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingProgressBar.swift; sourceTree = "<group>"; };
 		DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionCard.swift; sourceTree = "<group>"; };
 		DA9C43DB2EEFA00000C6D778 /* FlowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowsView.swift; sourceTree = "<group>"; };
+		4201474E46F645F4A8AFAF40 /* WelcomeStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeStepView.swift; sourceTree = "<group>"; };
+		D9AF9BCD93604827B65FB8A1 /* PermissionsStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsStepView.swift; sourceTree = "<group>"; };
+		CEC4FA0D13CC46669CC19D4B /* SetupTestStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupTestStepView.swift; sourceTree = "<group>"; };
+		04C5F28D210E445A81294B86 /* MeetingsStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingsStepView.swift; sourceTree = "<group>"; };
+		2FB22D7A754E4AA3939A28CF /* DictationStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationStepView.swift; sourceTree = "<group>"; };
+		4DACEF0F33254F839E35FFA7 /* AgentStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStepView.swift; sourceTree = "<group>"; };
+		C8D5A7DCCF624048B93ED8D9 /* ConnectAppsStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectAppsStepView.swift; sourceTree = "<group>"; };
+		8D75E650E1B343CE9355BF7F /* ActionItemCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionItemCard.swift; sourceTree = "<group>"; };
 		DAA0F0982EAABCD3002CA0FA /* Toss.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Toss.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0A92EAABCD6002CA0FA /* TossTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAA0F0B32EAABCD6002CA0FA /* TossUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TossUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -388,16 +404,24 @@
 		DA3623972EBB77B8000207F0 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				8D75E650E1B343CE9355BF7F /* ActionItemCard.swift */,
+				4DACEF0F33254F839E35FFA7 /* AgentStepView.swift */,
+				C8D5A7DCCF624048B93ED8D9 /* ConnectAppsStepView.swift */,
+				2FB22D7A754E4AA3939A28CF /* DictationStepView.swift */,
 				DA9C43D12EECB9D000C6D778 /* HotkeyTestView.swift */,
+				04C5F28D210E445A81294B86 /* MeetingsStepView.swift */,
 				DA9C43D22EECB9D000C6D778 /* MicTestView.swift */,
-				DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */,
-				DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */,
-				DA9C43CF2EEC4D4900C6D778 /* SignInWindowContent.swift */,
-				DA9C43CB2EEA096A00C6D778 /* SignInView.swift */,
-				DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */,
 				DA3623942EBB77B8000207F0 /* OnboardingGate.swift */,
 				DA3623952EBB77B8000207F0 /* OnboardingManager.swift */,
+				DA9C43D32EECB9D000C6D778 /* OnboardingProgressBar.swift */,
 				DA3623962EBB77B8000207F0 /* OnboardingView.swift */,
+				DAD36B7A2EE2608E0040FA21 /* PaywallView.swift */,
+				DA9C43D42EECB9D000C6D778 /* PermissionCard.swift */,
+				D9AF9BCD93604827B65FB8A1 /* PermissionsStepView.swift */,
+				CEC4FA0D13CC46669CC19D4B /* SetupTestStepView.swift */,
+				DA9C43CF2EEC4D4900C6D778 /* SignInWindowContent.swift */,
+				DA9C43CB2EEA096A00C6D778 /* SignInView.swift */,
+				4201474E46F645F4A8AFAF40 /* WelcomeStepView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -699,6 +723,14 @@
 				DA9C43D72EECB9D000C6D778 /* OnboardingProgressBar.swift in Sources */,
 				DA9C43D82EECB9D000C6D778 /* HotkeyTestView.swift in Sources */,
 				DACC63E92F104F53006B153D /* ForceUpdateModal.swift in Sources */,
+				4201474E46F645F4A8AFAF41 /* WelcomeStepView.swift in Sources */,
+				D9AF9BCD93604827B65FB8A2 /* PermissionsStepView.swift in Sources */,
+				CEC4FA0D13CC46669CC19D4C /* SetupTestStepView.swift in Sources */,
+				04C5F28D210E445A81294B87 /* MeetingsStepView.swift in Sources */,
+				2FB22D7A754E4AA3939A28D0 /* DictationStepView.swift in Sources */,
+				4DACEF0F33254F839E35FFA8 /* AgentStepView.swift in Sources */,
+				C8D5A7DCCF624048B93ED8DA /* ConnectAppsStepView.swift in Sources */,
+				8D75E650E1B343CE9355BF80 /* ActionItemCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
