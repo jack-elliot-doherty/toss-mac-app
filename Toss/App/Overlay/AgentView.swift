@@ -826,12 +826,12 @@ private struct ToolExecutionNotification: View {
         toolName.lowercased().hasPrefix("notion")
     }
 
-    // Internal app tools (meetings, contacts, memory, screenshot)
+    // Internal app tools (meetings, contacts, memory, screenshot, bash, readFile, writeFile)
     private var isAppTool: Bool {
         let name = toolName.lowercased()
         let appToolPrefixes = [
             "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
-            "search", "delete",
+            "search", "delete", "bash", "readfile", "writefile",
         ]
         // Check if it's an app tool (not an integration tool)
         if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
@@ -882,6 +882,9 @@ private struct ToolExecutionNotification: View {
                 return "Loaded memories"
             }
             if name.contains("screenshot") { return "Took screenshot" }
+            if name.contains("bash") { return "Searched context" }
+            if name.contains("readfile") { return "Read file" }
+            if name.contains("writefile") { return "Wrote file" }
         }
         // Convert snake_case to readable
         return toolName.replacingOccurrences(of: "_", with: " ").capitalized
@@ -928,6 +931,9 @@ private struct ToolExecutionNotification: View {
                 return "Loading memories..."
             }
             if name.contains("screenshot") { return "Taking screenshot..." }
+            if name.contains("bash") { return "Searching context..." }
+            if name.contains("readfile") { return "Reading file..." }
+            if name.contains("writefile") { return "Writing file..." }
         }
         return toolName.replacingOccurrences(of: "_", with: " ").capitalized + "..."
     }
@@ -1066,12 +1072,12 @@ private struct ToolApprovalWaitingNotification: View {
         toolName.lowercased() == "createflow"
     }
 
-    // Internal app tools (meetings, contacts, memory, screenshot, flows)
+    // Internal app tools (meetings, contacts, memory, screenshot, bash, readFile, writeFile, flows)
     private var isAppTool: Bool {
         let name = toolName.lowercased()
         let appToolPrefixes = [
             "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
-            "search", "delete",
+            "search", "delete", "bash", "readfile", "writefile",
         ]
         if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
             return false
