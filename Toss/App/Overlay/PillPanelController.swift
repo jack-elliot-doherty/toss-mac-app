@@ -9,6 +9,12 @@ final class PillPanelController {
     let viewModel: PillViewModel
     private var cancellables = Set<AnyCancellable>()
 
+    // Drag state
+    private var customPosition: NSPoint? = nil
+    private var globalDragMonitor: Any? = nil
+    private var localDragMonitor: Any? = nil
+    private var dragOffset: NSPoint? = nil  // Offset from mouse to panel origin at drag start
+
     // SINGLE SOURCE OF TRUTH for idle pill size
     // To change idle size: edit ONLY this value, SwiftUI content will auto-adjust
     private static let idleSize = NSSize(width: 64, height: 16)
@@ -33,7 +39,7 @@ final class PillPanelController {
         panel.hidesOnDeactivate = false
         panel.worksWhenModal = true
         panel.ignoresMouseEvents = false
-        
+
         // Apply initial screen capture visibility setting
         if PreferencesManager.shared.hideFromScreenCapture {
             panel.sharingType = .none
@@ -41,8 +47,10 @@ final class PillPanelController {
 
         let root = PillView(viewModel: viewModel)
         self.hostingView = NSHostingView(rootView: root)
+        // Make hosting view fill the window - it will resize with the panel
+        hostingView.autoresizingMask = [.width, .height]
         panel.contentView = hostingView
-        
+
         // Listen for preference changes
         NotificationCenter.default.addObserver(
             forName: .hideFromScreenCaptureChanged,
@@ -55,25 +63,26 @@ final class PillPanelController {
         }
 
         viewModel.$isMeetingRecordingHovered
-            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)  // Reduced from 150ms
+            .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
             .sink { [weak self] (isHovered: Bool) in
                 Task { @MainActor in
                     guard let self = self else { return }
-                    if case .meetingRecording(_, let isPaused) = self.viewModel.visualState {
-                        let size: NSSize
-                        if isHovered {
-                            // Paused needs more space (play + Done), playing just needs pause button
-                            size =
-                                isPaused
-                                ? NSSize(width: 200, height: 36) : NSSize(width: 140, height: 36)
-                        } else {
-                            size = NSSize(width: 90, height: 32)
-                        }
-                        self.resizeKeepingCenter(to: size, animated: true)
+                    if case .meetingRecording = self.viewModel.visualState {
+                        // Window is always the expanded size (122px) - no resizing needed
+                        // Just toggle stop button visibility, SwiftUI animates within the fixed frame
+                        self.viewModel.showMeetingRecordingStopButton = isHovered
                     }
                 }
             }
             .store(in: &cancellables)
+
+        // Handle drag events from the pill using AppKit mouse monitoring
+        viewModel.onDragStart = { [weak self] in
+            self?.startDragging()
+        }
+        viewModel.onDragEnd = { [weak self] in
+            self?.stopDragging()
+        }
     }
 
     private func intrinsicPillSize(for state: PillVisualState) -> NSSize {
@@ -85,11 +94,9 @@ final class PillPanelController {
             return NSSize(width: 32, height: 8)  // Using PillStyle.idleWidth and idleHeight directly
         }
 
-        // For meeting recording, use fixed sizes to prevent jitter
-        // The panel should stay consistent; SwiftUI handles the hover internally
+        // For meeting recording, always use expanded size (content animates within)
         if case .meetingRecording = state {
-            // Smaller size for compact - hover will slightly overflow
-            return NSSize(width: 90, height: 32)
+            return NSSize(width: 36, height: 122)
         }
 
         // For other states, compute from SwiftUI
@@ -152,8 +159,11 @@ final class PillPanelController {
     }
 
     func setState(_ state: PillVisualState) {
-        // Meeting recording has special hover-based sizing, handle separately
+        // Meeting recording: vertical pill snapped to right edge
         if case .meetingRecording = state {
+            let targetSize = knownSizeForState(state)
+            panel.setFrame(NSRect(origin: panel.frame.origin, size: targetSize), display: true)
+            positionRightEdge()  // Snap to right edge immediately
             viewModel.visualState = state
             if !panel.isVisible {
                 panel.orderFrontRegardless()
@@ -214,7 +224,8 @@ final class PillPanelController {
         case .upcomingMeeting:
             return NSSize(width: 400, height: 48)
         case .meetingRecording:
-            return NSSize(width: 90, height: 32)  // Compact, expands on hover
+            // Always use expanded size - SwiftUI content animates within fixed frame
+            return NSSize(width: 36, height: 122)
         case .agentSessionActive:
             return NSSize(width: 100, height: 28)
         }
@@ -274,6 +285,19 @@ final class PillPanelController {
         let x = frame.midX - size.width / 2
         let y = frame.minY + margin
         panel.setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    /// Position pill at the right edge of the screen, vertically centered
+    func positionRightEdge(margin: CGFloat = 8) {
+        let screen = screenUnderMouse() ?? panel.screen ?? NSScreen.main
+        guard let screen = screen else { return }
+        let frame = screen.visibleFrame
+        let size = panel.frame.size
+        let x = frame.maxX - size.width - margin
+        let y = frame.midY - size.height / 2  // Vertically centered
+        let origin = NSPoint(x: x, y: y)
+        panel.setFrameOrigin(origin)
+        customPosition = origin  // Store as custom position so resizing keeps it here
     }
 
     func recenter() {
@@ -348,12 +372,154 @@ final class PillPanelController {
             panel.setFrame(target, display: true)
         }
     }
-    
+
     private func updateScreenCaptureVisibility() {
         if PreferencesManager.shared.hideFromScreenCapture {
             panel.sharingType = .none
         } else {
             panel.sharingType = .readOnly
+        }
+    }
+
+    // MARK: - Drag handling
+
+    private func startDragging() {
+        // Calculate offset from mouse position to panel origin
+        let mouseLocation = NSEvent.mouseLocation
+        let panelOrigin = panel.frame.origin
+        dragOffset = NSPoint(
+            x: mouseLocation.x - panelOrigin.x,
+            y: mouseLocation.y - panelOrigin.y
+        )
+
+        // Global monitor - for when mouse is outside our app's windows
+        globalDragMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDragged]) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.handleMouseDragged()
+            }
+        }
+
+        // Local monitor - for when mouse is over our app's windows (including the pill panel)
+        localDragMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDragged]) { [weak self] event in
+            self?.handleMouseDragged()
+            return event
+        }
+    }
+
+    private func handleMouseDragged() {
+        guard let offset = dragOffset else { return }
+
+        let mouseLocation = NSEvent.mouseLocation
+
+        // Calculate new panel origin: mouse position minus the offset
+        let newOrigin = NSPoint(
+            x: mouseLocation.x - offset.x,
+            y: mouseLocation.y - offset.y
+        )
+
+        // Constrain to screen bounds
+        let constrainedOrigin = constrainToScreen(origin: newOrigin, size: panel.frame.size)
+
+        // Update panel position immediately
+        panel.setFrameOrigin(constrainedOrigin)
+
+        // Store as custom position
+        customPosition = constrainedOrigin
+        viewModel.customPillPosition = constrainedOrigin
+    }
+
+    private func stopDragging() {
+        if let monitor = globalDragMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalDragMonitor = nil
+        }
+        if let monitor = localDragMonitor {
+            NSEvent.removeMonitor(monitor)
+            localDragMonitor = nil
+        }
+        dragOffset = nil
+    }
+
+    /// Resets custom position and returns pill to bottom-center
+    func resetCustomPosition() {
+        stopDragging()
+        customPosition = nil
+        viewModel.customPillPosition = nil
+        positionBottomCenter()
+    }
+
+    /// Resize keeping the bottom edge fixed (expands upward from top)
+    /// In AppKit, origin is at bottom-left, so keeping origin.y fixed means bottom stays put
+    private func resizeUpwardsFromTop(to size: NSSize, animated: Bool) {
+        let currentFrame = panel.frame
+        // Keep bottom-left corner fixed, expand upward
+        // In AppKit, origin is bottom-left, so we keep the same origin
+        let newFrame = NSRect(
+            x: currentFrame.origin.x,
+            y: currentFrame.origin.y,  // Bottom stays fixed
+            width: size.width,
+            height: size.height
+        )
+
+        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            panel.setFrame(newFrame, display: true)
+        }
+
+        // Don't update customPosition here - let it stay where the user dragged it
+        // The origin stays the same since we're just changing height
+    }
+
+    private func constrainToScreen(origin: NSPoint, size: NSSize) -> NSPoint {
+        // Find the screen that contains the mouse cursor
+        let mouseLocation = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? panel.screen ?? NSScreen.main
+        guard let screen = screen else { return origin }
+
+        let visibleFrame = screen.visibleFrame
+        let margin: CGFloat = 8
+
+        var constrained = origin
+
+        // Constrain horizontally
+        constrained.x = max(visibleFrame.minX + margin, constrained.x)
+        constrained.x = min(visibleFrame.maxX - size.width - margin, constrained.x)
+
+        // Constrain vertically
+        constrained.y = max(visibleFrame.minY + margin, constrained.y)
+        constrained.y = min(visibleFrame.maxY - size.height - margin, constrained.y)
+
+        return constrained
+    }
+
+    /// Resize while keeping the current position (for user-dragged pill)
+    private func resizeKeepingPosition(to size: NSSize, animated: Bool) {
+        if let customPos = customPosition {
+            // User has dragged the pill - resize keeping origin fixed
+            var frame = panel.frame
+            frame.size = size
+            frame.origin = customPos
+
+            // Re-constrain in case size change pushes it off screen
+            frame.origin = constrainToScreen(origin: frame.origin, size: size)
+
+            if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.15
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    panel.animator().setFrame(frame, display: true)
+                }
+            } else {
+                panel.setFrame(frame, display: true)
+            }
+        } else {
+            // No custom position - use default centering behavior
+            resizeKeepingCenter(to: size, animated: animated)
         }
     }
 }
