@@ -76,9 +76,10 @@ final class SystemAudioRecorder: NSObject {
         stream?.stopCapture(completionHandler: nil)
         stream = nil
 
-        if let file = currentFile {
-            file.close()
+        if #available(macOS 15.0, *) {
+            currentFile?.close()
         }
+        // On macOS < 15, AVAudioFile closes automatically when deallocated
 
         guard let url = currentURL else { return nil }
         let idx = chunkIndex
