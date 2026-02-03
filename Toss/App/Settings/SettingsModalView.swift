@@ -2,8 +2,6 @@ import AVFoundation
 import PostHog
 import SwiftUI
 
-// MARK: - Team Models
-
 struct TeamMember: Identifiable, Codable {
     let id: String
     let userId: String
