@@ -448,33 +448,6 @@ final class PillPanelController {
         positionBottomCenter()
     }
 
-    /// Resize keeping the bottom edge fixed (expands upward from top)
-    /// In AppKit, origin is at bottom-left, so keeping origin.y fixed means bottom stays put
-    private func resizeUpwardsFromTop(to size: NSSize, animated: Bool) {
-        let currentFrame = panel.frame
-        // Keep bottom-left corner fixed, expand upward
-        // In AppKit, origin is bottom-left, so we keep the same origin
-        let newFrame = NSRect(
-            x: currentFrame.origin.x,
-            y: currentFrame.origin.y,  // Bottom stays fixed
-            width: size.width,
-            height: size.height
-        )
-
-        if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.18
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                panel.animator().setFrame(newFrame, display: true)
-            }
-        } else {
-            panel.setFrame(newFrame, display: true)
-        }
-
-        // Don't update customPosition here - let it stay where the user dragged it
-        // The origin stays the same since we're just changing height
-    }
-
     private func constrainToScreen(origin: NSPoint, size: NSSize) -> NSPoint {
         // Find the screen that contains the mouse cursor
         let mouseLocation = NSEvent.mouseLocation
@@ -495,31 +468,5 @@ final class PillPanelController {
         constrained.y = min(visibleFrame.maxY - size.height - margin, constrained.y)
 
         return constrained
-    }
-
-    /// Resize while keeping the current position (for user-dragged pill)
-    private func resizeKeepingPosition(to size: NSSize, animated: Bool) {
-        if let customPos = customPosition {
-            // User has dragged the pill - resize keeping origin fixed
-            var frame = panel.frame
-            frame.size = size
-            frame.origin = customPos
-
-            // Re-constrain in case size change pushes it off screen
-            frame.origin = constrainToScreen(origin: frame.origin, size: size)
-
-            if animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                NSAnimationContext.runAnimationGroup { ctx in
-                    ctx.duration = 0.15
-                    ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                    panel.animator().setFrame(frame, display: true)
-                }
-            } else {
-                panel.setFrame(frame, display: true)
-            }
-        } else {
-            // No custom position - use default centering behavior
-            resizeKeepingCenter(to: size, animated: animated)
-        }
     }
 }

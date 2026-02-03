@@ -30,7 +30,6 @@ struct PillView: View {
     @State private var hoverExitWorkItem: DispatchWorkItem?
     @State private var isTransitioning: Bool = false  // Lock during transitions
     @State private var isDragging: Bool = false
-    @State private var dragStartLocation: NSPoint? = nil
 
     var body: some View {
         let isMeetingRecording: Bool = {
@@ -419,6 +418,13 @@ struct PillView: View {
                                 .background(Circle().fill(Color.red))
                         }
                         .buttonStyle(.plain)
+                        .onHover { hovering in
+                            if hovering {
+                                NSCursor.arrow.push()
+                            } else {
+                                NSCursor.pop()
+                            }
+                        }
                         .padding(.top, 6)
                         .padding(.bottom, 6)
                         .transition(.move(edge: .bottom))
