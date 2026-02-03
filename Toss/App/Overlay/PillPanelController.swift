@@ -19,6 +19,16 @@ final class PillPanelController {
     // To change idle size: edit ONLY this value, SwiftUI content will auto-adjust
     private static let idleSize = NSSize(width: 64, height: 16)
 
+    deinit {
+        // Clean up event monitors (these are not MainActor-isolated)
+        if let monitor = globalDragMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = localDragMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+    }
+
     init(viewModel: PillViewModel) {
         self.viewModel = viewModel
         // Start with idle size centered

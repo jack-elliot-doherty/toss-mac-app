@@ -95,6 +95,10 @@ struct PillView: View {
             .spring(response: 0.25, dampingFraction: 0.88),
             value: viewModel.visualState
         )
+        .onChange(of: viewModel.visualState) {
+            // Reset drag state if pill state changes mid-drag
+            isDragging = false
+        }
         .onHover { hovering in
             isHovered = hovering
 
@@ -408,26 +412,10 @@ struct PillView: View {
 
                     // Stop button - slides behind the drag handle lid
                     if isHovered {
-                        Button {
-                            viewModel.onStopMeetingRecording?()
-                        } label: {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 22, height: 22)
-                                .background(Circle().fill(Color.red))
-                        }
-                        .buttonStyle(.plain)
-                        .onHover { hovering in
-                            if hovering {
-                                NSCursor.arrow.push()
-                            } else {
-                                NSCursor.pop()
-                            }
-                        }
-                        .padding(.top, 6)
-                        .padding(.bottom, 6)
-                        .transition(.move(edge: .bottom))
+                        StopRecordingButton(onStop: { viewModel.onStopMeetingRecording?() })
+                            .padding(.top, 6)
+                            .padding(.bottom, 6)
+                            .transition(.move(edge: .bottom))
                     }
 
                     // Reserve space for the drag handle overlay
@@ -577,6 +565,36 @@ private struct DotWaveformView: View {
 
     private func clamp(_ value: Double, min: Double, max: Double) -> Double {
         Swift.max(min, Swift.min(max, value))
+    }
+}
+
+/// Stop button that properly cleans up cursor state on disappear
+private struct StopRecordingButton: View {
+    var onStop: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onStop) {
+            Image(systemName: "stop.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.red))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.arrow.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .onDisappear {
+            if isHovered {
+                NSCursor.pop()
+            }
+        }
     }
 }
 
