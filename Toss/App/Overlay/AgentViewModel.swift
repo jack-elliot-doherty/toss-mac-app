@@ -53,6 +53,8 @@ final class AgentViewModel: ObservableObject {
         var toolExecutionComplete: Bool = false
         // Tool approval waiting info (for subtle approval notifications)
         var isToolApprovalWaiting: Bool = false
+        // Clipboard context was included with this message
+        var hasClipboardContext: Bool = false
 
         static func == (lhs: DisplayMessage, rhs: DisplayMessage) -> Bool {
             lhs.id == rhs.id && lhs.role == rhs.role && lhs.content == rhs.content
@@ -60,6 +62,7 @@ final class AgentViewModel: ObservableObject {
                 && lhs.isToolExecution == rhs.isToolExecution
                 && lhs.toolExecutionComplete == rhs.toolExecutionComplete
                 && lhs.isToolApprovalWaiting == rhs.isToolApprovalWaiting
+                && lhs.hasClipboardContext == rhs.hasClipboardContext
         }
     }
 
@@ -90,6 +93,7 @@ final class AgentViewModel: ObservableObject {
     private var threadId: UUID?
     private var serverConversationId: String?  // Server-assigned conversation ID for persistence
     private var currentAssistantMessage: DisplayMessage?
+    private var currentStreamTask: Task<Void, Error>?  // Track current streaming task for cancellation
 
     init(auth: AuthManager) {
         self.auth = auth
@@ -115,18 +119,32 @@ final class AgentViewModel: ObservableObject {
         }
     }
 
+    /// Cancel the current streaming request
+    func cancelCurrentRequest() {
+        NSLog("[AgentViewModel] Cancelling current request")
+        currentStreamTask?.cancel()
+        currentStreamTask = nil
+        isProcessing = false
+        isStreaming = false
+        finalizeCurrentMessage()
+    }
+
     // MARK: - Streaming Support
 
     /// Send message using new streaming endpoint
     func sendMessageStreaming(_ text: String) async {
         guard !text.isEmpty else { return }
 
+        // Check for clipboard context before creating user message
+        let hasClipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90) != nil
+
         // Add user message
         let userMsg = DisplayMessage(
             id: UUID(),
             role: .user,
             content: text,
-            timestamp: Date()
+            timestamp: Date(),
+            hasClipboardContext: hasClipboard
         )
         messages.append(userMsg)
 
@@ -203,13 +221,21 @@ final class AgentViewModel: ObservableObject {
             )
         }
 
-        do {
+        // Store task for cancellation support
+        currentStreamTask = Task {
             try await streamFromAgentWithParts(messages: apiMessages)
+        }
+
+        do {
+            try await currentStreamTask?.value
+        } catch is CancellationError {
+            NSLog("[AgentViewModel] Stream cancelled by user")
         } catch {
             errorMessage = error.localizedDescription
             NSLog("[AgentViewModel] Streaming error: \(error)")
         }
 
+        currentStreamTask = nil
         isProcessing = false
     }
 
@@ -472,13 +498,13 @@ final class AgentViewModel: ObservableObject {
 
         // Stream events and capture conversation ID from response
         let streamResult = try await streamParser.streamEvents(from: request)
-        
+
         // Store conversation ID from server if not already set
         if serverConversationId == nil, let newConversationId = streamResult.conversationId {
             serverConversationId = newConversationId
             NSLog("[AgentViewModel] Stored conversationId from continuation: %@", newConversationId)
         }
-        
+
         for try await event in streamResult.events {
             await handleStreamEvent(event)
         }
@@ -503,7 +529,7 @@ final class AgentViewModel: ObservableObject {
             payload["conversationId"] = conversationId
             NSLog("[AgentViewModel] Sending with existing conversationId: %@", conversationId)
         }
-        
+
         // Include fresh clipboard context if available (copied within last 90 seconds)
         if let clipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90) {
             payload["clipboardContext"] = [
@@ -511,8 +537,11 @@ final class AgentViewModel: ObservableObject {
                 "ageSeconds": clipboard.ageSeconds
             ]
             NSLog("[AgentViewModel] Including clipboard context (%d chars, %ds old)", clipboard.content.count, clipboard.ageSeconds)
+            // Mark clipboard as consumed so it won't be sent with subsequent messages
+            // (unless the user copies something new)
+            ClipboardMonitor.shared.markClipboardConsumed()
         }
-        
+
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
 
         // Debug log to verify payload (truncated)
@@ -528,13 +557,13 @@ final class AgentViewModel: ObservableObject {
 
         // Stream events and capture conversation ID from response
         let streamResult = try await streamParser.streamEvents(from: request)
-        
+
         // Store conversation ID from server (only on first message of conversation)
         if serverConversationId == nil, let newConversationId = streamResult.conversationId {
             serverConversationId = newConversationId
             NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
         }
-        
+
         for try await event in streamResult.events {
             await handleStreamEvent(event)
         }

@@ -141,6 +141,9 @@ struct AgentView: View {
                         }
                         viewModel.sendMessage(inputText)
                         inputText = ""
+                    },
+                    onCancel: {
+                        viewModel.cancelCurrentRequest()
                     }
                 )
             }
@@ -353,8 +356,10 @@ private struct AgentFooter: View {
     var isInputFocused: FocusState<Bool>.Binding
     let isProcessing: Bool
     let onSend: () -> Void
+    let onCancel: () -> Void
 
     @State private var isHoveringSend = false
+    @State private var isHoveringStop = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -366,7 +371,7 @@ private struct AgentFooter: View {
                 .lineLimit(1...4)
                 .focused(isInputFocused)
                 .onSubmit {
-                    if !inputText.isEmpty {
+                    if !inputText.isEmpty && !isProcessing {
                         onSend()
                     }
                 }
@@ -381,30 +386,42 @@ private struct AgentFooter: View {
                         )
                 )
 
-            // Send button
-            Button {
-                onSend()
-            } label: {
-                Group {
-                    if isProcessing {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
+            // Send or Stop button
+            if isProcessing {
+                // Stop button when processing
+                Button {
+                    onCancel()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(Color.red.opacity(isHoveringStop ? 0.8 : 0.6))
+                        )
                 }
-                .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
-                .frame(width: 32, height: 32)
-                .background(
-                    Circle()
-                        .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
-                )
+                .buttonStyle(.plain)
+                .onHover { isHoveringStop = $0 }
+                .help("Stop generating")
+            } else {
+                // Send button
+                Button {
+                    onSend()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(inputText.isEmpty ? .white.opacity(0.4) : .white)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(inputText.isEmpty ? Color.white.opacity(0.08) : Color.blue)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(inputText.isEmpty)
+                .onHover { isHoveringSend = $0 }
             }
-            .buttonStyle(.plain)
-            .disabled(inputText.isEmpty || isProcessing)
-            .onHover { isHoveringSend = $0 }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -437,15 +454,18 @@ private struct AgentFooter: View {
 }
 
 private struct ProcessingRow: View {
+    @State private var opacity: Double = 0.4
+
     var body: some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-            Text("Thinking…")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.8))
-        }
-        .padding(.vertical, 4)
+        Text("Thinking...")
+            .font(.system(size: 12))
+            .foregroundStyle(.white.opacity(opacity))
+            .padding(.vertical, 4)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                    opacity = 0.8
+                }
+            }
     }
 }
 
@@ -512,6 +532,18 @@ private struct MessageBubble: View {
                                 .foregroundColor(.white)
                                 .cornerRadius(18)
                         }
+                    }
+
+                    // Clipboard context indicator for user messages
+                    if message.role == .user && message.hasClipboardContext && !isEditing {
+                        HStack(spacing: 4) {
+                            Image(systemName: "paperclip")
+                                .font(.system(size: 9, weight: .medium))
+                            Text("Clipboard attached")
+                                .font(.system(size: 10))
+                        }
+                        .foregroundColor(.white.opacity(0.4))
+                        .padding(.top, 2)
                     }
                 }
 

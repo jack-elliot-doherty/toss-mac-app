@@ -256,6 +256,19 @@ struct ToolParams {
         return nil
     }
 
+    func getStringDictionary(_ key: String) -> [String: String]? {
+        if let dict = getValue(key) as? [String: Any] {
+            var result: [String: String] = [:]
+            for (k, v) in dict {
+                if let s = v as? String {
+                    result[k] = s
+                }
+            }
+            return result.isEmpty ? nil : result
+        }
+        return nil
+    }
+
     func getAllKeys() -> [String] {
         keys
     }
@@ -3304,6 +3317,11 @@ struct EditableNotionCreatePagePreview: View {
         initialParams.getString("databaseId") != nil
     }
 
+    /// Additional properties being set on the page (e.g., Link, Reason, etc.)
+    private var properties: [String: String] {
+        initialParams.getStringDictionary("properties") ?? [:]
+    }
+
     init(
         params: ToolParams,
         compact: Bool,
@@ -3410,6 +3428,29 @@ struct EditableNotionCreatePagePreview: View {
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(AppTheme.primaryText)
                                 .lineLimit(1)
+                        }
+                    }
+                }
+
+                // Display additional properties (Link, Reason, etc.)
+                ForEach(properties.keys.sorted(), id: \.self) { key in
+                    Divider().background(AppTheme.subtleStroke)
+
+                    FormRow(label: key, labelWidth: 70) {
+                        if let value = properties[key] {
+                            if value.hasPrefix("http://") || value.hasPrefix("https://") {
+                                // Display URLs with link styling
+                                Text(value)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.blue)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            } else {
+                                Text(value)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .lineLimit(2)
+                            }
                         }
                     }
                 }
