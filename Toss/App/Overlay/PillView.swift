@@ -29,6 +29,7 @@ struct PillView: View {
     @State private var isHovered: Bool = false
     @State private var hoverExitWorkItem: DispatchWorkItem?
     @State private var isTransitioning: Bool = false  // Lock during transitions
+    @State private var isDragging: Bool = false
 
     var body: some View {
         let isMeetingRecording: Bool = {
@@ -64,7 +65,8 @@ struct PillView: View {
                     .opacity.animation(.easeOut(duration: 0.18))
                 )
             case .meetingRecording(let meetingId, let isPaused):
-                meetingRecording(meetingId: meetingId, isPaused: isPaused, isHovered: isHovered)
+                // Background is handled inside meetingRecording() to wrap only content
+                meetingRecording(meetingId: meetingId, isPaused: isPaused, isHovered: viewModel.showMeetingRecordingStopButton)
 
             case .agentSessionActive:
                 agentSessionActive.transition(
@@ -74,28 +76,37 @@ struct PillView: View {
         }
         .padding(.horizontal, 0)
         .padding(.vertical, 0)
-        .background(
-            Capsule(style: .continuous)
-                .fill(PillStyle.fill)
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .inset(by: 0.5)  // makes a crisp 1px stroke on retina
-                .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
-        )
-        .contentShape(Capsule())
         .if(!isMeetingRecording) { view in
-            view.fixedSize(horizontal: true, vertical: true)
+            // Non-meeting states get their background here
+            view
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(PillStyle.fill)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .inset(by: 0.5)
+                        .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
+                )
+                .fixedSize(horizontal: true, vertical: true)
         }
+        .contentShape(Capsule())
         .animation(
             .spring(response: 0.25, dampingFraction: 0.88),
             value: viewModel.visualState
         )
+        .onChange(of: viewModel.visualState) {
+            // Reset drag state if pill state changes mid-drag
+            isDragging = false
+        }
         .onHover { hovering in
             isHovered = hovering
 
             // Notify view model if we're in meeting recording state
             if case .meetingRecording = viewModel.visualState {
+                // Don't change hover state while dragging
+                if isDragging { return }
+
                 if hovering {
                     hoverExitWorkItem?.cancel()
                     hoverExitWorkItem = nil
@@ -374,71 +385,78 @@ struct PillView: View {
         .padding(.vertical, PillStyle.padYActive)
     }
 
+    @ViewBuilder
     private func meetingRecording(meetingId: UUID, isPaused: Bool, isHovered: Bool) -> some View {
-        HStack(spacing: isHovered ? PillStyle.spacing : 6) {
-            // Waveform always on left
-            DotWaveformView(viewModel: viewModel)
-                .frame(
-                    width: isHovered ? PillStyle.waveformWidth : 44,
-                    height: isHovered ? PillStyle.waveformHeight : 12
-                )
-                .clipped()
+        // Window is always 122px tall (room for animation).
+        // Drag handle "lid" has higher z-index - stop button slides behind it.
+        let dragHandleHeight: CGFloat = 30  // separator + drag handle + padding
 
-            if isHovered {
-                // Expanded controls
-                if isPaused {
-                    Button {
-                        viewModel.onResumeMeetingRecording?()
-                    } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(8)
-                            .background(Circle().fill(Color.green.opacity(0.9)))
-                    }
-                    .buttonStyle(.plain)
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
 
-                    Button {
-                        viewModel.onStopMeetingRecording?()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("Done")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.red.opacity(0.9)))
+            // Use ZStack so drag handle can be layered on top
+            ZStack(alignment: .bottom) {
+                // LAYER 0: Main content (behind drag handle)
+                VStack(spacing: 0) {
+                    // Logo - fixed position
+                    Image("TossLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 18, height: 18)
+                        .padding(.top, 10)
+
+                    // Waveform - fixed position
+                    ThreeBarWaveformView(viewModel: viewModel)
+                        .frame(width: 20, height: 28)
+                        .padding(.top, 4)
+
+                    // Stop button - slides behind the drag handle lid
+                    if isHovered {
+                        StopRecordingButton(onStop: { viewModel.onStopMeetingRecording?() })
+                            .padding(.top, 6)
+                            .padding(.bottom, 6)
+                            .transition(.move(edge: .bottom))
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Button {
-                        viewModel.onPauseMeetingRecording?()
-                    } label: {
-                        Image(systemName: "pause.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(8)
-                            .background(Circle().fill(Color.white.opacity(0.2)))
-                    }
-                    .buttonStyle(.plain)
+
+                    // Reserve space for the drag handle overlay
+                    Color.clear
+                        .frame(height: dragHandleHeight)
                 }
-            } else {
-                // Compact: colored dot
-                Circle()
-                    .fill(isPaused ? Color.yellow : Color.red)
-                    .frame(width: 8, height: 8)
-                    .modifier(PulsingModifier())
-                    .frame(width: 8, height: 8)
+                .frame(width: 36)
+
+                // LAYER 1: Drag handle "lid" - always on top, clips content behind it
+                VStack(spacing: 0) {
+                    // Full-width separator line - same color as pill stroke
+                    Rectangle()
+                        .fill(PillStyle.stroke)
+                        .frame(height: 1)
+
+                    // Drag handle dots
+                    VerticalDragHandleView(
+                        isDragging: $isDragging,
+                        onDragStart: { viewModel.onDragStart?() },
+                        onDragEnd: { viewModel.onDragEnd?() }
+                    )
+                    .padding(.top, 5)
+                    .padding(.bottom, 6)
+                }
+                .frame(width: 36, height: dragHandleHeight)
+                .background(PillStyle.fill)  // Solid fill to hide content sliding behind
             }
+            .background(
+                Capsule(style: .continuous)
+                    .fill(PillStyle.fill)
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .inset(by: 0.5)
+                    .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
+            )
+            .clipShape(Capsule(style: .continuous))  // Clip everything to pill shape
         }
-        .padding(.horizontal, isHovered ? PillStyle.padXActive : 10)
-        .padding(.vertical, isHovered ? PillStyle.padYActive : 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)  // Fill the panel
-        .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isHovered)
-        .animation(nil, value: isPaused)
+        .animation(.easeInOut(duration: 0.2), value: isHovered)
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .frame(width: 36)
     }
 
 }
@@ -550,6 +568,36 @@ private struct DotWaveformView: View {
     }
 }
 
+/// Stop button that properly cleans up cursor state on disappear
+private struct StopRecordingButton: View {
+    var onStop: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onStop) {
+            Image(systemName: "stop.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.red))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.arrow.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .onDisappear {
+            if isHovered {
+                NSCursor.pop()
+            }
+        }
+    }
+}
+
 private struct PulsingModifier: ViewModifier {
     @State private var isPulsing = false
 
@@ -564,6 +612,105 @@ private struct PulsingModifier: ViewModifier {
             .onAppear {
                 isPulsing = true
             }
+    }
+}
+
+/// 3-bar horizontal waveform for meeting recording (center bar tallest)
+private struct ThreeBarWaveformView: View {
+    @ObservedObject var viewModel: PillViewModel
+    private let minHeight: CGFloat = 4
+    private let maxHeight: CGFloat = 28  // Much taller for better voice activity range
+    private let barWidth: CGFloat = 3
+    private let spacing: CGFloat = 2
+
+    var body: some View {
+        let level = Double(max(0.0, min(1.0, viewModel.levelRMS)))
+        // Use a gentler curve to show more dynamic range
+        let amplifiedLevel = pow(level, 0.5)
+
+        HStack(spacing: spacing) {
+            // Left bar (shorter)
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.white.opacity(0.9))
+                .frame(width: barWidth, height: sideBarHeight(level: amplifiedLevel))
+
+            // Center bar (tallest)
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.white.opacity(0.9))
+                .frame(width: barWidth, height: centerBarHeight(level: amplifiedLevel))
+
+            // Right bar (shorter)
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.white.opacity(0.9))
+                .frame(width: barWidth, height: sideBarHeight(level: amplifiedLevel))
+        }
+        .animation(.spring(response: 0.12, dampingFraction: 0.65), value: viewModel.levelRMS)
+    }
+
+    private func centerBarHeight(level: Double) -> CGFloat {
+        return minHeight + level * (maxHeight - minHeight)
+    }
+
+    private func sideBarHeight(level: Double) -> CGFloat {
+        // Side bars are 60-70% of center bar height
+        let centerHeight = centerBarHeight(level: level)
+        return max(minHeight, centerHeight * 0.65)
+    }
+}
+
+/// 2x3 grid drag handle for bottom of vertical pill (2 rows, 3 columns)
+private struct VerticalDragHandleView: View {
+    @Binding var isDragging: Bool
+    var onDragStart: () -> Void
+    var onDragEnd: () -> Void
+
+    @State private var isHovered: Bool = false
+
+    private let dotSize: CGFloat = 2.5
+    private let spacing: CGFloat = 3
+
+    var body: some View {
+        VStack(spacing: spacing) {
+            ForEach(0..<2, id: \.self) { _ in
+                HStack(spacing: spacing) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        Circle()
+                            .fill(Color.white.opacity(isHovered || isDragging ? 0.7 : 0.4))
+                            .frame(width: dotSize, height: dotSize)
+                    }
+                }
+            }
+        }
+        .frame(width: 24, height: 18)  // Hit area
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                NSCursor.openHand.push()
+            } else if !isDragging {
+                NSCursor.pop()
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { _ in
+                    if !isDragging {
+                        isDragging = true
+                        NSCursor.closedHand.push()
+                        onDragStart()
+                    }
+                }
+                .onEnded { _ in
+                    isDragging = false
+                    onDragEnd()
+                    NSCursor.pop()
+                    if !isHovered {
+                        NSCursor.pop()
+                    }
+                }
+        )
+        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .animation(.easeOut(duration: 0.15), value: isDragging)
     }
 }
 

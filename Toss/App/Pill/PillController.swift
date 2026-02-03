@@ -533,6 +533,9 @@ final class PillController {
         SoundFeedback.shared.playStop()
         NSLog("[PillController] Meeting recording stopped for meeting \(meetingId)")
         meetingDetector.setRecordingActive(false)
+
+        // Reset pill position to bottom-center when recording ends
+        pillPanel.resetCustomPosition()
     }
 
     private func handleUploadMeetingChunk(

@@ -24,7 +24,9 @@ final class PillViewModel: ObservableObject {
     @Published var isAlwaysOn: Bool = false
     @Published var levelRMS: Float = 0.0
     @Published var isMeetingRecordingHovered: Bool = false
+    @Published var showMeetingRecordingStopButton: Bool = false  // Set AFTER window resize
     @Published var isHoverDisabled: Bool = false  // Disable hover when agent panel is open
+    @Published var customPillPosition: NSPoint? = nil  // Custom position when user drags the pill
 
     // Callbacks the owner (AppDelegate) can observe to perform actions
     var onRequestStop: (() -> Void)?
@@ -45,6 +47,10 @@ final class PillViewModel: ObservableObject {
 
     var onJoinAndRecordUpcoming: ((UpcomingMeeting) -> Void)?
     var onDismissUpcomingMeeting: (() -> Void)?
+
+    // Drag callbacks for repositioning the pill
+    var onDragStart: (() -> Void)?
+    var onDragEnd: (() -> Void)?
 
     var agentModeEnabled: Bool {
         if case .listening(.command) = visualState { return true }
