@@ -162,7 +162,9 @@ enum ScreenshotCapture {
             config.height = Int(targetWindow.frame.height) * 2  // Retina
             config.pixelFormat = kCVPixelFormatType_32BGRA
             config.showsCursor = false
-            config.captureResolution = .best
+            if #available(macOS 14.2, *) {
+                config.captureResolution = .best
+            }
 
             // Capture the screenshot
             let image = try await SCScreenshotManager.captureImage(
