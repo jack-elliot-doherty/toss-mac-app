@@ -1,4 +1,5 @@
 import Foundation
+import Sentry
 import SwiftUI
 
 @MainActor
@@ -51,6 +52,7 @@ final class AgentViewModel: ObservableObject {
         var toolExecutionArgs: [String: Any]? = nil
         var toolExecutionResult: [String: Any]? = nil
         var toolExecutionComplete: Bool = false
+        var toolExecutionRejected: Bool = false  // True if tool was rejected (manual or auto)
         // Tool approval waiting info (for subtle approval notifications)
         var isToolApprovalWaiting: Bool = false
         // Clipboard context was included with this message
@@ -61,6 +63,7 @@ final class AgentViewModel: ObservableObject {
                 && lhs.isMemorySave == rhs.isMemorySave
                 && lhs.isToolExecution == rhs.isToolExecution
                 && lhs.toolExecutionComplete == rhs.toolExecutionComplete
+                && lhs.toolExecutionRejected == rhs.toolExecutionRejected
                 && lhs.isToolApprovalWaiting == rhs.isToolApprovalWaiting
                 && lhs.hasClipboardContext == rhs.hasClipboardContext
         }
@@ -229,6 +232,7 @@ final class AgentViewModel: ObservableObject {
                     $0.toolExecutionId == toolCall.id && $0.isToolApprovalWaiting
                 }) {
                     messages[waitingMsgIndex].toolExecutionComplete = true
+                    messages[waitingMsgIndex].toolExecutionRejected = true
                     messages[waitingMsgIndex].toolExecutionResult = ["rejected": true]
                 }
             } catch {
@@ -289,9 +293,24 @@ final class AgentViewModel: ObservableObject {
         let streamResult = try await streamParser.streamEvents(from: request)
 
         // Store conversation ID from server (only on first message of conversation)
-        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
-            serverConversationId = newConversationId
-            NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+        if let newConversationId = streamResult.conversationId {
+            if let existing = serverConversationId, existing != newConversationId {
+                NSLog("[AgentViewModel] WARNING: Server returned different conversationId! Expected %@, got %@", existing, newConversationId)
+                // Report to Sentry as this indicates a serious sync issue
+                let error = NSError(
+                    domain: "AgentViewModel",
+                    code: 409,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Conversation ID mismatch",
+                        "expectedId": existing,
+                        "receivedId": newConversationId
+                    ]
+                )
+                SentrySDK.capture(error: error)
+            } else if serverConversationId == nil {
+                serverConversationId = newConversationId
+                NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+            }
         }
 
         for try await event in streamResult.events {
@@ -539,9 +558,24 @@ final class AgentViewModel: ObservableObject {
         let streamResult = try await streamParser.streamEvents(from: request)
 
         // Store conversation ID from server (only on first message of conversation)
-        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
-            serverConversationId = newConversationId
-            NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+        if let newConversationId = streamResult.conversationId {
+            if let existing = serverConversationId, existing != newConversationId {
+                NSLog("[AgentViewModel] WARNING: Server returned different conversationId! Expected %@, got %@", existing, newConversationId)
+                // Report to Sentry as this indicates a serious sync issue
+                let error = NSError(
+                    domain: "AgentViewModel",
+                    code: 409,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Conversation ID mismatch",
+                        "expectedId": existing,
+                        "receivedId": newConversationId
+                    ]
+                )
+                SentrySDK.capture(error: error)
+            } else if serverConversationId == nil {
+                serverConversationId = newConversationId
+                NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+            }
         }
 
         for try await event in streamResult.events {
@@ -1182,6 +1216,15 @@ final class AgentViewModel: ObservableObject {
                     )
                 )
                 messages.append(toolMessage)
+
+                // Update the "waiting for approval" message to show rejection
+                if let waitingMsgIndex = messages.firstIndex(where: {
+                    $0.toolExecutionId == toolCall.id && $0.isToolApprovalWaiting
+                }) {
+                    messages[waitingMsgIndex].toolExecutionComplete = true
+                    messages[waitingMsgIndex].toolExecutionRejected = true
+                    messages[waitingMsgIndex].toolExecutionResult = ["rejected": true]
+                }
 
                 // Check if there are more tools still awaiting approval
                 let stillPendingApproval = pendingToolCalls.contains {
