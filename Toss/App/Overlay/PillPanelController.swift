@@ -247,12 +247,15 @@ final class PillPanelController {
         guard let screen = screen else { return }
 
         let vf = screen.visibleFrame
+        let sf = screen.frame  // Use full frame for Y positioning (ignore Dock)
         let margin: CGFloat = 8
 
         // Calculate new frame anchored at bottom-center
+        // Use visibleFrame for horizontal centering (respects left/right Dock or Stage Manager)
+        // Use full frame for vertical positioning (always 8px from screen bottom)
         let centerX = vf.origin.x + (vf.width / 2)
         let x = round(centerX - (size.width / 2))
-        let y = vf.minY + margin
+        let y = sf.minY + margin
 
         let target = NSRect(x: x, y: y, width: round(size.width), height: round(size.height))
 
@@ -290,10 +293,13 @@ final class PillPanelController {
     func positionBottomCenter(margin: CGFloat = 8) {
         let screen = panel.screen ?? NSScreen.main
         guard let screen = screen else { return }
-        let frame = screen.visibleFrame
+        let vf = screen.visibleFrame
+        let sf = screen.frame
         let size = panel.frame.size
-        let x = frame.midX - size.width / 2
-        let y = frame.minY + margin
+        // Horizontal: center within visible frame (respects Dock on left/right)
+        let x = vf.midX - size.width / 2
+        // Vertical: always 8px from actual screen bottom (ignore Dock)
+        let y = sf.minY + margin
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -336,11 +342,14 @@ final class PillPanelController {
         guard let screen else { return }
 
         let vf = screen.visibleFrame
+        let sf = screen.frame
 
         // Calculate center position with explicit rounding to prevent sub-pixel offsets
+        // Horizontal: use visibleFrame (respects Dock on left/right)
         let centerX = vf.origin.x + (vf.width / 2)
         let x = round(centerX - (size.width / 2))
-        let y = vf.minY + margin
+        // Vertical: use full frame (always 8px from screen bottom, ignore Dock)
+        let y = sf.minY + margin
 
         let target = NSRect(x: x, y: y, width: size.width, height: size.height)
 
@@ -366,9 +375,10 @@ final class PillPanelController {
         guard let screen = screen else { return }
 
         let vf = screen.visibleFrame
+        let sf = screen.frame
         let centerX = vf.origin.x + (vf.width / 2)
         let x = round(centerX - (size.width / 2))
-        let y = round(vf.minY + 8)  // Same margin as setSizeAndCenter
+        let y = round(sf.minY + 8)  // Always 8px from screen bottom (ignore Dock)
 
         let target = NSRect(x: x, y: y, width: round(size.width), height: round(size.height))
 

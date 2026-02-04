@@ -31,6 +31,11 @@ struct PillView: View {
     @State private var isTransitioning: Bool = false  // Lock during transitions
     @State private var isDragging: Bool = false
 
+    private var isIdle: Bool {
+        if case .idle = viewModel.visualState { return true }
+        return false
+    }
+
     var body: some View {
         let isMeetingRecording: Bool = {
             if case .meetingRecording = viewModel.visualState { return true }
@@ -81,12 +86,12 @@ struct PillView: View {
             view
                 .background(
                     Capsule(style: .continuous)
-                        .fill(PillStyle.fill)
+                        .fill(isIdle ? Color.black.opacity(0.5) : PillStyle.fill)
                 )
                 .overlay(
                     Capsule(style: .continuous)
                         .inset(by: 0.5)
-                        .stroke(PillStyle.stroke, lineWidth: PillStyle.hairline)
+                        .stroke(isIdle ? Color.white.opacity(0.15) : PillStyle.stroke, lineWidth: PillStyle.hairline)
                 )
                 .fixedSize(horizontal: true, vertical: true)
         }
