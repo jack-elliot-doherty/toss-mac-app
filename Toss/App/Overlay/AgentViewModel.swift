@@ -1,4 +1,5 @@
 import Foundation
+import Sentry
 import SwiftUI
 
 @MainActor
@@ -51,6 +52,7 @@ final class AgentViewModel: ObservableObject {
         var toolExecutionArgs: [String: Any]? = nil
         var toolExecutionResult: [String: Any]? = nil
         var toolExecutionComplete: Bool = false
+        var toolExecutionRejected: Bool = false  // True if tool was rejected (manual or auto)
         // Tool approval waiting info (for subtle approval notifications)
         var isToolApprovalWaiting: Bool = false
         // Clipboard context was included with this message
@@ -61,6 +63,7 @@ final class AgentViewModel: ObservableObject {
                 && lhs.isMemorySave == rhs.isMemorySave
                 && lhs.isToolExecution == rhs.isToolExecution
                 && lhs.toolExecutionComplete == rhs.toolExecutionComplete
+                && lhs.toolExecutionRejected == rhs.toolExecutionRejected
                 && lhs.isToolApprovalWaiting == rhs.isToolApprovalWaiting
                 && lhs.hasClipboardContext == rhs.hasClipboardContext
         }
@@ -132,13 +135,20 @@ final class AgentViewModel: ObservableObject {
     // MARK: - Streaming Support
 
     /// Send message using new streaming endpoint
+    /// Uses server-side conversation reconstruction - only sends the new message text
     func sendMessageStreaming(_ text: String) async {
         guard !text.isEmpty else { return }
 
-        // Check for clipboard context before creating user message
-        let hasClipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90) != nil
+        // Auto-reject any pending tool calls before sending a new message
+        // This is required because Claude's API requires tool_result immediately after tool_use
+        // If the user sends a follow-up message instead of approving, they're implicitly rejecting
+        await autoRejectPendingTools()
 
-        // Add user message
+        // Check for clipboard context before creating user message
+        let clipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90)
+        let hasClipboard = clipboard != nil
+
+        // Add user message to local display
         let userMsg = DisplayMessage(
             id: UUID(),
             role: .user,
@@ -151,79 +161,10 @@ final class AgentViewModel: ObservableObject {
         isProcessing = true
         errorMessage = nil
 
-        // Build messages array for API using AI SDK v6 UIMessage protocol format
-        var apiMessages: [[String: Any]] = []
-
-        for msg in messages {
-            // Skip system messages that are just for UI
-            if msg.role == .system && msg.toolCall == nil { continue }
-            if msg.role == .tool { continue }
-
-            // For messages with tool call + result (completed tool invocations)
-            if let toolCall = msg.toolCall, let toolResult = msg.toolResult {
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": "assistant",
-                    "parts": [
-                        [
-                            "type": "tool-\(toolCall.toolName)",
-                            "toolCallId": toolCall.toolCallId,
-                            "state": "output-available",
-                            "input": toolCall.arguments,
-                            "output": toolResult.result,
-                        ]
-                    ],
-                ])
-            } else if let toolCall = msg.toolCall {
-                // Tool call without result yet
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": "assistant",
-                    "parts": [
-                        [
-                            "type": "tool-\(toolCall.toolName)",
-                            "toolCallId": toolCall.toolCallId,
-                            "state": "input-available",
-                            "input": toolCall.arguments,
-                        ]
-                    ],
-                ])
-            } else if !msg.content.isEmpty {
-                // Regular text message
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": msg.role.rawValue,
-                    "parts": [
-                        ["type": "text", "text": msg.content]
-                    ],
-                ])
-            }
-        }
-
-        // Include pending tool calls that are still awaiting approval
-        // This prevents the model from re-requesting tools it already called
-        for pendingCall in pendingToolCalls where pendingCall.status == .awaitingApproval {
-            let argsDict = pendingCall.arguments.mapValues { $0.value }
-            apiMessages.append([
-                "id": UUID().uuidString,
-                "role": "assistant",
-                "parts": [
-                    [
-                        "type": "tool-\(pendingCall.name)",
-                        "toolCallId": pendingCall.id,
-                        "state": "input-available",
-                        "input": argsDict,
-                    ]
-                ],
-            ])
-            NSLog(
-                "[AgentViewModel] Including pending tool call in context: \(pendingCall.name) (\(pendingCall.id))"
-            )
-        }
-
         // Store task for cancellation support
         currentStreamTask = Task {
-            try await streamFromAgentWithParts(messages: apiMessages)
+            // Use new server format: just send message text, server reconstructs history from DB
+            try await streamMessageToServer(text, clipboard: clipboard)
         }
 
         do {
@@ -237,6 +178,144 @@ final class AgentViewModel: ObservableObject {
 
         currentStreamTask = nil
         isProcessing = false
+    }
+
+    /// Auto-reject all pending tool calls
+    /// Called when user sends a follow-up message instead of approving/rejecting tools
+    private func autoRejectPendingTools() async {
+        let toolsToReject = pendingToolCalls.filter {
+            if case .awaitingApproval = $0.status { return true }
+            return false
+        }
+
+        guard !toolsToReject.isEmpty else { return }
+
+        NSLog("[AgentViewModel] Auto-rejecting \(toolsToReject.count) pending tool(s) before new message")
+
+        for toolCall in toolsToReject {
+            // Remove from pending UI list
+            pendingToolCalls.removeAll { $0.id == toolCall.id }
+
+            // Send rejection to server (fire and forget - don't block on errors)
+            do {
+                try await sendToolApproval(
+                    toolCallId: toolCall.id,
+                    toolName: toolCall.name,
+                    arguments: [:],
+                    approved: false
+                )
+                NSLog("[AgentViewModel] Auto-rejected tool: \(toolCall.name)")
+
+                // Convert arguments to [String: Any]
+                let argsDict = toolCall.arguments.mapValues { $0.value }
+
+                // Add rejection result to messages (for history)
+                let toolMessage = DisplayMessage(
+                    id: UUID(),
+                    role: .assistant,
+                    content: "",
+                    timestamp: Date(),
+                    toolCall: ToolCallInfo(
+                        toolCallId: toolCall.id,
+                        toolName: toolCall.name,
+                        arguments: argsDict
+                    ),
+                    toolResult: ToolResultInfo(
+                        toolCallId: toolCall.id,
+                        result: ["rejected": true, "reason": "User sent follow-up message"]
+                    )
+                )
+                messages.append(toolMessage)
+
+                // Update the "waiting for approval" message if it exists
+                if let waitingMsgIndex = messages.firstIndex(where: {
+                    $0.toolExecutionId == toolCall.id && $0.isToolApprovalWaiting
+                }) {
+                    messages[waitingMsgIndex].toolExecutionComplete = true
+                    messages[waitingMsgIndex].toolExecutionRejected = true
+                    messages[waitingMsgIndex].toolExecutionResult = ["rejected": true]
+                }
+            } catch {
+                NSLog("[AgentViewModel] Failed to auto-reject tool \(toolCall.name): \(error)")
+                // Continue anyway - we don't want to block the user's message
+            }
+        }
+    }
+
+    /// Send a single message to server using new format
+    /// Server reconstructs conversation history from database
+    private func streamMessageToServer(_ messageText: String, clipboard: (content: String, ageSeconds: Int)?) async throws {
+        guard let token = auth.accessToken else {
+            throw NSError(
+                domain: "AgentViewModel", code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "No auth token"])
+        }
+
+        let url = URL(string: "\(Config.serverURL)/agent/chat")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        // Build payload with just the message text (server reconstructs history from DB)
+        var payload: [String: Any] = ["message": messageText]
+
+        if let conversationId = serverConversationId {
+            payload["conversationId"] = conversationId
+            NSLog("[AgentViewModel] Sending message with conversationId: %@", conversationId)
+        }
+
+        // Include fresh clipboard context if available
+        if let clipboard = clipboard {
+            payload["clipboardContext"] = [
+                "content": clipboard.content,
+                "ageSeconds": clipboard.ageSeconds
+            ]
+            NSLog("[AgentViewModel] Including clipboard context (%d chars, %ds old)", clipboard.content.count, clipboard.ageSeconds)
+            // Mark clipboard as consumed so it won't be sent with subsequent messages
+            ClipboardMonitor.shared.markClipboardConsumed()
+        }
+
+        let jsonData = try JSONSerialization.data(withJSONObject: payload)
+
+        // Debug log
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            let truncated =
+                jsonString.count > 500
+                ? String(jsonString.prefix(500)) + "... [truncated]"
+                : jsonString
+            NSLog("[AgentViewModel] JSON Body (new format): %@", truncated)
+        }
+
+        request.httpBody = jsonData
+
+        // Stream events and capture conversation ID from response
+        let streamResult = try await streamParser.streamEvents(from: request)
+
+        // Store conversation ID from server (only on first message of conversation)
+        if let newConversationId = streamResult.conversationId {
+            if let existing = serverConversationId, existing != newConversationId {
+                NSLog("[AgentViewModel] WARNING: Server returned different conversationId! Expected %@, got %@", existing, newConversationId)
+                // Report to Sentry as this indicates a serious sync issue
+                let error = NSError(
+                    domain: "AgentViewModel",
+                    code: 409,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Conversation ID mismatch",
+                        "expectedId": existing,
+                        "receivedId": newConversationId
+                    ]
+                )
+                SentrySDK.capture(error: error)
+            } else if serverConversationId == nil {
+                serverConversationId = newConversationId
+                NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+            }
+        }
+
+        for try await event in streamResult.events {
+            await handleStreamEvent(event)
+        }
     }
 
     func clearConversation() {
@@ -391,12 +470,18 @@ final class AgentViewModel: ObservableObject {
     }
 
     /// Continue the agent conversation after all tool executions are complete
-    /// Uses the AI SDK v6 UIMessage protocol format with proper tool parts
+    /// Uses continuation format - server reconstructs conversation from DB
     private func streamFromAgentContinuation() async throws {
         guard let token = auth.accessToken else {
             throw NSError(
                 domain: "AgentViewModel", code: 401,
                 userInfo: [NSLocalizedDescriptionKey: "No auth token"])
+        }
+
+        guard let conversationId = serverConversationId else {
+            throw NSError(
+                domain: "AgentViewModel", code: 400,
+                userInfo: [NSLocalizedDescriptionKey: "No conversation ID for continuation"])
         }
 
         let url = URL(string: "\(Config.serverURL)/agent/chat")!
@@ -405,105 +490,19 @@ final class AgentViewModel: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        // Build messages array using AI SDK v6 UIMessage protocol format
-        var apiMessages: [[String: Any]] = []
+        // Use continuation format - server loads conversation history from DB
+        let payload: [String: Any] = [
+            "continue": true,
+            "conversationId": conversationId
+        ]
 
-        for msg in messages {
-            // Skip system messages (UI only)
-            if msg.role == .system { continue }
-            if msg.role == .tool { continue }
+        NSLog("[AgentViewModel] Continuation with conversationId: %@", conversationId)
 
-            // For messages with tool call + result (completed tool invocations)
-            if let toolCall = msg.toolCall, let toolResult = msg.toolResult {
-                // AI SDK v6 format: type is "tool-{toolName}" with state "output-available"
-                // See: https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": "assistant",
-                    "parts": [
-                        [
-                            "type": "tool-\(toolCall.toolName)",
-                            "toolCallId": toolCall.toolCallId,
-                            "state": "output-available",
-                            "input": toolCall.arguments,
-                            "output": toolResult.result,
-                        ]
-                    ],
-                ])
-            } else if let toolCall = msg.toolCall {
-                // Tool call without result yet (shouldn't happen in continuation, but handle it)
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": "assistant",
-                    "parts": [
-                        [
-                            "type": "tool-\(toolCall.toolName)",
-                            "toolCallId": toolCall.toolCallId,
-                            "state": "input-available",
-                            "input": toolCall.arguments,
-                        ]
-                    ],
-                ])
-            } else {
-                // Regular text message
-                apiMessages.append([
-                    "id": msg.id.uuidString,
-                    "role": msg.role.rawValue,
-                    "parts": [
-                        ["type": "text", "text": msg.content]
-                    ],
-                ])
-            }
-        }
-
-        // CRITICAL: Include pending tool calls that are still awaiting approval
-        // This prevents the model from re-requesting tools it already called
-        for pendingCall in pendingToolCalls where pendingCall.status == .awaitingApproval {
-            let argsDict = pendingCall.arguments.mapValues { $0.value }
-            apiMessages.append([
-                "id": UUID().uuidString,
-                "role": "assistant",
-                "parts": [
-                    [
-                        "type": "tool-\(pendingCall.name)",
-                        "toolCallId": pendingCall.id,
-                        "state": "input-available",
-                        "input": argsDict,
-                    ]
-                ],
-            ])
-            NSLog(
-                "[AgentViewModel] Including pending tool call in context: \(pendingCall.name) (\(pendingCall.id))"
-            )
-        }
-
-        // Build payload with messages and conversationId
-        var payload: [String: Any] = ["messages": apiMessages]
-        if let conversationId = serverConversationId {
-            payload["conversationId"] = conversationId
-            NSLog("[AgentViewModel] Continuation with conversationId: %@", conversationId)
-        }
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
-
-        // Debug log (truncate base64 data for readability)
-        if let jsonString = String(data: jsonData, encoding: .utf8) {
-            let truncated =
-                jsonString.count > 500
-                ? String(jsonString.prefix(500)) + "... [truncated]"
-                : jsonString
-            NSLog("[AgentViewModel] JSON Body (continuation): %@", truncated)
-        }
-
         request.httpBody = jsonData
 
-        // Stream events and capture conversation ID from response
+        // Stream events
         let streamResult = try await streamParser.streamEvents(from: request)
-
-        // Store conversation ID from server if not already set
-        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
-            serverConversationId = newConversationId
-            NSLog("[AgentViewModel] Stored conversationId from continuation: %@", newConversationId)
-        }
 
         for try await event in streamResult.events {
             await handleStreamEvent(event)
@@ -559,9 +558,24 @@ final class AgentViewModel: ObservableObject {
         let streamResult = try await streamParser.streamEvents(from: request)
 
         // Store conversation ID from server (only on first message of conversation)
-        if serverConversationId == nil, let newConversationId = streamResult.conversationId {
-            serverConversationId = newConversationId
-            NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+        if let newConversationId = streamResult.conversationId {
+            if let existing = serverConversationId, existing != newConversationId {
+                NSLog("[AgentViewModel] WARNING: Server returned different conversationId! Expected %@, got %@", existing, newConversationId)
+                // Report to Sentry as this indicates a serious sync issue
+                let error = NSError(
+                    domain: "AgentViewModel",
+                    code: 409,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "Conversation ID mismatch",
+                        "expectedId": existing,
+                        "receivedId": newConversationId
+                    ]
+                )
+                SentrySDK.capture(error: error)
+            } else if serverConversationId == nil {
+                serverConversationId = newConversationId
+                NSLog("[AgentViewModel] Stored new conversationId: %@", newConversationId)
+            }
         }
 
         for try await event in streamResult.events {
@@ -1203,6 +1217,15 @@ final class AgentViewModel: ObservableObject {
                 )
                 messages.append(toolMessage)
 
+                // Update the "waiting for approval" message to show rejection
+                if let waitingMsgIndex = messages.firstIndex(where: {
+                    $0.toolExecutionId == toolCall.id && $0.isToolApprovalWaiting
+                }) {
+                    messages[waitingMsgIndex].toolExecutionComplete = true
+                    messages[waitingMsgIndex].toolExecutionRejected = true
+                    messages[waitingMsgIndex].toolExecutionResult = ["rejected": true]
+                }
+
                 // Check if there are more tools still awaiting approval
                 let stillPendingApproval = pendingToolCalls.contains {
                     if case .awaitingApproval = $0.status { return true }
@@ -1259,6 +1282,11 @@ final class AgentViewModel: ObservableObject {
             "approved": approved,
         ]
 
+        // Include conversationId for server to update parts-based messages
+        if let conversationId = serverConversationId {
+            body["conversationId"] = conversationId
+        }
+
         // Include client result for client-side tools
         if let clientResult = clientResult {
             body["clientResult"] = clientResult
@@ -1313,12 +1341,17 @@ final class AgentViewModel: ObservableObject {
         // Convert arguments to pure JSON dictionary
         let argsDict = arguments.mapValues { $0.value }
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "toolCallId": toolCallId,
             "toolName": toolName,
             "arguments": argsDict,
             "approved": approved,
         ]
+
+        // Include conversationId for server to update parts-based messages
+        if let conversationId = serverConversationId {
+            body["conversationId"] = conversationId
+        }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

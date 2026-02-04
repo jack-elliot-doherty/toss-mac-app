@@ -1164,6 +1164,38 @@ private struct ToolApprovalWaitingNotification: View {
         return "Completed"
     }
 
+    private var rejectedText: String {
+        let name = toolName.lowercased()
+        if isSlackTool && name.contains("send") {
+            return "Slack message not sent"
+        }
+        if isLinearTool && name.contains("create") {
+            return "Linear issue not created"
+        }
+        if isCalendarTool && name.contains("create") {
+            return "Calendar event not created"
+        }
+        if isNotionTool {
+            if name.contains("createdatabase") { return "Notion database not created" }
+            if name.contains("create") { return "Notion page not created" }
+            if name.contains("append") { return "Not added to Notion page" }
+        }
+        if isFlowTool {
+            return "Flow not created"
+        }
+        return "Rejected"
+    }
+
+    private var displayText: String {
+        if message.toolExecutionRejected {
+            return rejectedText
+        } else if message.toolExecutionComplete {
+            return completedText
+        } else {
+            return waitingText
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // Collapsed: subtle inline text with tool icon and chevron
@@ -1180,12 +1212,17 @@ private struct ToolApprovalWaitingNotification: View {
                     toolIcon
                         .frame(width: 14, height: 14)
 
-                    Text(message.toolExecutionComplete ? completedText : waitingText)
+                    Text(displayText)
                         .font(.system(size: 12))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(message.toolExecutionRejected ? .red.opacity(0.6) : .white.opacity(0.4))
                         .italic()
 
-                    if message.toolExecutionComplete {
+                    if message.toolExecutionRejected {
+                        // Red X when rejected
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundColor(.red.opacity(0.6))
+                    } else if message.toolExecutionComplete {
                         // Green checkmark when complete
                         Image(systemName: "checkmark")
                             .font(.system(size: 9, weight: .semibold))
