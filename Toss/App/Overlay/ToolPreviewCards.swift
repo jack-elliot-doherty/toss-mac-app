@@ -1734,7 +1734,7 @@ struct EditableCalendarEventPreview: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
-                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                        .onChange(of: title) { _ in notifyParamsChanged() }
                 }
 
                 Divider().background(AppTheme.subtleStroke)
@@ -1768,7 +1768,7 @@ struct EditableCalendarEventPreview: View {
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
                         .lineLimit(3...6)
-                        .onChange(of: description) { _, _ in notifyParamsChanged() }
+                        .onChange(of: description) { _ in notifyParamsChanged() }
                 }
                 .padding(14)
             }
@@ -2255,7 +2255,7 @@ struct EditableCalendarUpdateEventPreview: View {
                                 .textFieldStyle(.plain)
                                 .font(.system(size: 13))
                                 .foregroundColor(AppTheme.primaryText)
-                                .onChange(of: title) { _, _ in notifyParamsChanged() }
+                                .onChange(of: title) { _ in notifyParamsChanged() }
                         }
                     }
 
@@ -2340,7 +2340,7 @@ struct EditableCalendarUpdateEventPreview: View {
                                 .foregroundColor(AppTheme.primaryText)
                                 .lineLimit(3...6)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .onChange(of: description) { _, _ in notifyParamsChanged() }
+                                .onChange(of: description) { _ in notifyParamsChanged() }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
@@ -2574,7 +2574,7 @@ struct EditableLinearIssuePreview: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
-                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                        .onChange(of: title) { _ in notifyParamsChanged() }
                 }
 
                 Divider().background(AppTheme.subtleStroke)
@@ -2626,7 +2626,7 @@ struct EditableLinearIssuePreview: View {
                             .font(.system(size: 13))
                             .foregroundColor(AppTheme.primaryText)
                             .lineLimit(nil)
-                            .onChange(of: description) { _, _ in notifyParamsChanged() }
+                            .onChange(of: description) { _ in notifyParamsChanged() }
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .frame(maxHeight: 120)  // Allow scrolling if content exceeds this height
@@ -2908,7 +2908,7 @@ struct EditableSlackMessagePreview: View {
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
                         .lineLimit(3...8)
-                        .onChange(of: message) { _, _ in notifyParamsChanged() }
+                        .onChange(of: message) { _ in notifyParamsChanged() }
                 }
                 .padding(14)
             }
@@ -3100,7 +3100,7 @@ struct EditableFlowPreview: View {
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
                         .lineLimit(3...8)
-                        .onChange(of: definition) { _, _ in notifyParamsChanged() }
+                        .onChange(of: definition) { _ in notifyParamsChanged() }
                 }
                 .padding(14)
             }
@@ -3235,7 +3235,7 @@ struct EditableNotionCreateDatabasePreview: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
-                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                        .onChange(of: title) { _ in notifyParamsChanged() }
                 }
 
                 Divider().background(AppTheme.subtleStroke)
@@ -3409,7 +3409,7 @@ struct EditableNotionCreatePagePreview: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
-                        .onChange(of: title) { _, _ in notifyParamsChanged() }
+                        .onChange(of: title) { _ in notifyParamsChanged() }
                 }
 
                 Divider().background(AppTheme.subtleStroke)
@@ -3468,7 +3468,7 @@ struct EditableNotionCreatePagePreview: View {
                             .font(.system(size: 13))
                             .foregroundColor(AppTheme.primaryText)
                             .lineLimit(3...6)
-                            .onChange(of: content) { _, _ in notifyParamsChanged() }
+                            .onChange(of: content) { _ in notifyParamsChanged() }
                     }
                     .padding(14)
                 }
@@ -3638,7 +3638,7 @@ struct EditableNotionAppendBlocksPreview: View {
                         .font(.system(size: 13))
                         .foregroundColor(AppTheme.primaryText)
                         .lineLimit(3...8)
-                        .onChange(of: content) { _, _ in notifyParamsChanged() }
+                        .onChange(of: content) { _ in notifyParamsChanged() }
                 }
                 .padding(14)
             }

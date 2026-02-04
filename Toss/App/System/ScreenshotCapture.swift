@@ -21,6 +21,17 @@ enum ScreenshotCapture {
     /// - Parameter target: What to capture (fullscreen or active window)
     /// - Returns: CaptureResult with base64 image data or error
     static func capture(target: CaptureTarget) async -> CaptureResult {
+        // SCScreenshotManager requires macOS 14.0+
+        guard #available(macOS 14.0, *) else {
+            return CaptureResult(
+                success: false,
+                imageData: nil,
+                error: "Screenshot capture requires macOS 14.0 or later.",
+                windowTitle: nil,
+                appName: nil
+            )
+        }
+
         // Check screen recording permission first
         guard ScreenRecordingAuth.status() else {
             return CaptureResult(
@@ -43,6 +54,7 @@ enum ScreenshotCapture {
 
     // MARK: - Private Implementation
 
+    @available(macOS 14.0, *)
     private static func captureFullscreen() async -> CaptureResult {
         do {
             // Get available content
@@ -104,6 +116,7 @@ enum ScreenshotCapture {
         }
     }
 
+    @available(macOS 14.0, *)
     private static func captureActiveWindow() async -> CaptureResult {
         do {
             // Get the frontmost application

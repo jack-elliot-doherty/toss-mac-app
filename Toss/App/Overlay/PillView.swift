@@ -100,7 +100,7 @@ struct PillView: View {
             .spring(response: 0.25, dampingFraction: 0.88),
             value: viewModel.visualState
         )
-        .onChange(of: viewModel.visualState) {
+        .onChange(of: viewModel.visualState) { _ in
             // Reset drag state if pill state changes mid-drag
             isDragging = false
         }

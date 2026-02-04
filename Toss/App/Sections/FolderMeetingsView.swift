@@ -37,7 +37,7 @@ struct FolderMeetingsView: View {
                 )
             }
             .onAppear { Task { await loadFolder() } }
-            .onChange(of: folderId) { _, _ in
+            .onChange(of: folderId) { _ in
                 Task { await loadFolder() }
             }
         }

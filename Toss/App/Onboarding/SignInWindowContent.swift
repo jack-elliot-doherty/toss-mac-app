@@ -3,7 +3,6 @@ import SwiftUI
 struct SignInWindowContent: View {
     @ObservedObject private var auth = AuthManager.shared
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         SignInView()
@@ -18,7 +17,8 @@ struct SignInWindowContent: View {
                     NSLog("[SignInWindowContent] Token received, transitioning to main window")
                     openWindow(id: "main")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        dismissWindow(id: "signin")
+                        // Close the sign-in window by finding it by identifier
+                        NSApp.windows.first { $0.identifier?.rawValue == "signin" }?.close()
                     }
                 }
             }

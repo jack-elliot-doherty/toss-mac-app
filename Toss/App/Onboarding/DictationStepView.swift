@@ -98,7 +98,7 @@ struct DictationStepView: View {
                 isFocused = true
             }
         }
-        .onChange(of: dictatedText) { _, newValue in
+        .onChange(of: dictatedText) { newValue in
             // Mark as tested once user has dictated something
             if !newValue.isEmpty && !manager.dictationTested {
                 manager.dictationTested = true

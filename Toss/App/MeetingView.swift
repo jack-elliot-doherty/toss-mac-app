@@ -147,6 +147,7 @@ struct MeetingView: View {
     @State private var isAwaitingAutoSummary = false  // Waiting for post-call summary generation
     @State private var hasPendingSummary = false  // Summary ready but user hasn't viewed yet
     @State private var summaryDotPulse = false  // For pulsing animation
+    @State private var previousNotes: String?  // Track previous notes for onChange (macOS 13 compat)
 
     // Note images state
     @State private var uploadingImageIds: Set<String> = []  // Track which images are uploading
@@ -263,7 +264,7 @@ struct MeetingView: View {
             }
         }
         .onDisappear { pageChrome.clearOverride() }
-        .onChange(of: meeting?.title) { _, _ in configureChrome() }
+        .onChange(of: meeting?.title) { _ in configureChrome() }
     }
 
     private var header: some View {
@@ -281,7 +282,7 @@ struct MeetingView: View {
                     .onExitCommand {
                         cancelEditingTitle()
                     }
-                    .onChange(of: isTitleFocused) { _, focused in
+                    .onChange(of: isTitleFocused) { focused in
                         if !focused {
                             saveTitle()
                         }
@@ -690,12 +691,12 @@ struct MeetingView: View {
                 extractActionsIfNeeded()
             }
         }
-        .onChange(of: meeting?.userNotes) { _, newValue in
+        .onChange(of: meeting?.userNotes) { newValue in
             if editableUserNotes != newValue {
                 editableUserNotes = newValue ?? ""
             }
         }
-        .onChange(of: showingAISummary) { _, newValue in
+        .onChange(of: showingAISummary) { newValue in
             // Extract actions when switching to AI summary view
             if newValue && hasAISummary {
                 extractActionsIfNeeded()
@@ -703,14 +704,15 @@ struct MeetingView: View {
                 hasPendingSummary = false
             }
         }
-        .onChange(of: meeting?.notes) { oldValue, newValue in
+        .onChange(of: meeting?.notes) { newValue in
             // Summary just arrived - show indicator if user isn't already viewing it
-            let wasEmpty = (oldValue ?? "").isEmpty
+            let wasEmpty = (previousNotes ?? "").isEmpty
             let nowHasContent = !(newValue ?? "").isEmpty
 
             if wasEmpty && nowHasContent && !showingAISummary {
                 hasPendingSummary = true
             }
+            previousNotes = newValue
         }
         .sheet(item: $showingApprovalFor) { action in
             ActionApprovalSheet(
@@ -851,7 +853,7 @@ struct MeetingView: View {
                 loadFlowRuns()
             }
         }
-        .onChange(of: isRecording) { _, newValue in
+        .onChange(of: isRecording) { newValue in
             // When recording stops, switch to loading flow runs
             if !newValue {
                 loadFlowRuns()
@@ -1291,7 +1293,7 @@ struct MeetingView: View {
                 }
             )
             .frame(height: editorHeight)  // Fills available space, grows with content
-            .onChange(of: editableUserNotes) { _, newValue in
+            .onChange(of: editableUserNotes) { newValue in
                 saveUserNotes(newValue)
             }
 
@@ -1994,7 +1996,7 @@ struct MeetingsListView: View {
             }
         }
         .clipped()  // Prevent NavigationStack content from extending into header
-        .onChange(of: pendingMeetingId) { _, newValue in
+        .onChange(of: pendingMeetingId) { newValue in
             if let meetingId = newValue {
                 navigationPath.append(meetingId)
                 selectedMeeting = meetingId
