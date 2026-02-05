@@ -2058,6 +2058,8 @@ struct EditableCalendarUpdateEventPreview: View {
     private var eventId: String { initialParams.getString("eventId") ?? "Unknown Event" }
     private var newStartTime: String? { initialParams.getString("startTime") }
     private var newEndTime: String? { initialParams.getString("endTime") }
+    private var addAttendees: [String] { initialParams.getStringArray("addAttendees") ?? [] }
+    private var removeAttendees: [String] { initialParams.getStringArray("removeAttendees") ?? [] }
 
     /// Describes what's being updated
     private var updateSummary: String {
@@ -2067,6 +2069,7 @@ struct EditableCalendarUpdateEventPreview: View {
         if !description.isEmpty || initialParams.getString("description") != nil {
             changes.append("description")
         }
+        if !addAttendees.isEmpty || !removeAttendees.isEmpty { changes.append("guests") }
 
         if changes.isEmpty {
             return "No changes specified"
@@ -2075,6 +2078,11 @@ struct EditableCalendarUpdateEventPreview: View {
         } else {
             return "Updating \(changes.dropLast().joined(separator: ", ")) and \(changes.last!)"
         }
+    }
+
+    /// Whether there are attendee changes
+    private var hasAttendeeChanges: Bool {
+        !addAttendees.isEmpty || !removeAttendees.isEmpty
     }
 
     private func formatTime(start: String?, end: String?) -> String? {
@@ -2309,19 +2317,59 @@ struct EditableCalendarUpdateEventPreview: View {
                         }
                     }
 
-                    // Attendees - always show row to prevent layout shift
+                    // Attendees - show changes if any
                     Divider().background(AppTheme.subtleStroke)
-                    FormRow(label: "Guests") {
-                        if let attendees = event.attendees, !attendees.isEmpty {
-                            let names = attendees.compactMap { $0.displayName ?? $0.email }
-                            Text(names.joined(separator: ", "))
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.primaryText)
-                                .lineLimit(2)
-                        } else {
-                            Text("No guests")
-                                .font(.system(size: 13))
-                                .foregroundColor(AppTheme.secondaryText)
+                    if hasAttendeeChanges {
+                        // Show attendee changes with visual diff
+                        VStack(alignment: .leading, spacing: 8) {
+                            FormRow(label: "Guests") {
+                                Text("Changing attendees")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                    .italic()
+                            }
+
+                            // Show removed attendees
+                            if !removeAttendees.isEmpty {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.red.opacity(0.8))
+                                    Text(removeAttendees.joined(separator: ", "))
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                        .strikethrough(true, color: .red.opacity(0.6))
+                                }
+                                .padding(.horizontal, 14)
+                            }
+
+                            // Show added attendees
+                            if !addAttendees.isEmpty {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.green.opacity(0.8))
+                                    Text(addAttendees.joined(separator: ", "))
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.primaryText)
+                                }
+                                .padding(.horizontal, 14)
+                            }
+                        }
+                    } else {
+                        // No changes - just show current attendees
+                        FormRow(label: "Guests") {
+                            if let attendees = event.attendees, !attendees.isEmpty {
+                                let names = attendees.compactMap { $0.displayName ?? $0.email }
+                                Text(names.joined(separator: ", "))
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .lineLimit(2)
+                            } else {
+                                Text("No guests")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.secondaryText)
+                            }
                         }
                     }
 
