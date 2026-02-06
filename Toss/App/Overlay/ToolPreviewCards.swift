@@ -304,6 +304,8 @@ struct ToolPreviewFactory {
             EditableNotionCreatePagePreview(params: wrapped, compact: compact)
         case "notionAppendBlocks":
             EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "gmailSendEmail":
+            GmailSendEmailPreview(params: wrapped, compact: compact)
         case "createFlow":
             EditableFlowPreview(params: wrapped, compact: compact)
         default:
@@ -338,6 +340,8 @@ struct ToolPreviewFactory {
             EditableNotionCreatePagePreview(params: wrapped, compact: compact)
         case "notionAppendBlocks":
             EditableNotionAppendBlocksPreview(params: wrapped, compact: compact)
+        case "gmailSendEmail":
+            GmailSendEmailPreview(params: wrapped, compact: compact)
         case "createFlow":
             EditableFlowPreview(params: wrapped, compact: compact)
         case "cursorOpenPrompt":
@@ -1032,6 +1036,202 @@ struct CalendarUpdateEventPreview: View {
     }
 }
 
+// MARK: - Gmail Send Email Preview
+
+struct GmailSendEmailPreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var emailBody: String
+    @State private var subject: String
+
+    private var to: [String] {
+        initialParams.getStringArray("to") ?? []
+    }
+
+    private var cc: [String] {
+        initialParams.getStringArray("cc") ?? []
+    }
+
+    private var bcc: [String] {
+        initialParams.getStringArray("bcc") ?? []
+    }
+
+    private var isReply: Bool {
+        initialParams.getString("replyToMessageId") != nil
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+
+        _emailBody = State(initialValue: params.getString("body") ?? "")
+        _subject = State(initialValue: params.getString("subject") ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Image("GmailLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isReply ? "Reply via Gmail" : "Send Email")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    Text(isReply ? "Toss will reply to this email thread" : "Toss will send this email via Gmail")
+                        .font(.system(size: 11))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+
+                Spacer()
+
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Sending...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "1A73E8").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 10))
+                                Text(isReply ? "Send Reply" : "Send Email")
+                                    .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "1A73E8")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Fields
+            VStack(spacing: 0) {
+                // To
+                FormRow(label: "To") {
+                    Text(to.joined(separator: ", "))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(2)
+                }
+
+                if !cc.isEmpty {
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "Cc") {
+                        Text(cc.joined(separator: ", "))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(1)
+                    }
+                }
+
+                if !bcc.isEmpty {
+                    Divider().background(AppTheme.subtleStroke)
+                    FormRow(label: "Bcc") {
+                        Text(bcc.joined(separator: ", "))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(1)
+                    }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Subject - editable
+                FormRow(label: "Subject") {
+                    TextField("Subject", text: $subject, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(1...2)
+                        .onChange(of: subject) { _ in notifyParamsChanged() }
+                }
+
+                Divider().background(AppTheme.subtleStroke)
+
+                // Body - editable text area
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Message")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(AppTheme.secondaryText)
+
+                    TextField("Write your email...", text: $emailBody, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(3...12)
+                        .onChange(of: emailBody) { _ in notifyParamsChanged() }
+                }
+                .padding(14)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+    }
+
+    private func notifyParamsChanged() {
+        var updatedParams: [String: AnyCodableValue] = [:]
+        updatedParams["to"] = .array(to.map { .string($0) })
+        updatedParams["subject"] = .string(subject)
+        updatedParams["body"] = .string(emailBody)
+        if !cc.isEmpty {
+            updatedParams["cc"] = .array(cc.map { .string($0) })
+        }
+        if !bcc.isEmpty {
+            updatedParams["bcc"] = .array(bcc.map { .string($0) })
+        }
+        if let replyTo = initialParams.getString("replyToMessageId") {
+            updatedParams["replyToMessageId"] = .string(replyTo)
+        }
+        onParamsChanged?(updatedParams)
+    }
+}
+
 // MARK: - Generic Tool Preview (fallback)
 
 struct GenericToolPreview: View {
@@ -1061,6 +1261,10 @@ struct GenericToolPreview: View {
         toolName.lowercased().hasPrefix("calendar")
     }
 
+    private var isGmailTool: Bool {
+        toolName.lowercased().hasPrefix("gmail")
+    }
+
     // Internal app tools (meetings, contacts, memory, screenshot)
     private var isAppTool: Bool {
         let name = toolName.lowercased()
@@ -1068,7 +1272,7 @@ struct GenericToolPreview: View {
             "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
             "search", "delete",
         ]
-        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool || isGmailTool {
             return false
         }
         return appToolPrefixes.contains { name.hasPrefix($0) || name.contains($0) }
@@ -1079,6 +1283,7 @@ struct GenericToolPreview: View {
         if isSlackTool { return Color(hex: "4A154B") }
         if isLinearTool { return Color(hex: "5E6AD2") }
         if isCalendarTool { return Color(hex: "4285F4") }
+        if isGmailTool { return Color(hex: "EA4335") }
         if isAppTool { return Color.clear }  // TossLogo has its own background
         return .orange
     }
@@ -1102,6 +1307,11 @@ struct GenericToolPreview: View {
                 .frame(width: 16, height: 16)
         } else if isCalendarTool {
             Image("GoogleCalendarLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 16, height: 16)
+        } else if isGmailTool {
+            Image("GmailLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 16, height: 16)

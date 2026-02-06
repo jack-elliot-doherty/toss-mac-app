@@ -26,6 +26,13 @@ struct NotionConnectionStatus: Codable {
     let workspaceIcon: String?
 }
 
+struct GmailConnectionStatus: Codable {
+    let connected: Bool
+    let email: String?
+    let requiresReauth: Bool?
+    let lastErrorAt: String?
+}
+
 struct SlackBotConnectionStatus: Codable {
     let installed: Bool
     let teamName: String?
@@ -41,6 +48,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var linearStatus: LinearConnectionStatus?
     @Published var googleStatus: GoogleConnectionStatus?
     @Published var notionStatus: NotionConnectionStatus?
+    @Published var gmailStatus: GmailConnectionStatus?
 
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
@@ -161,6 +169,61 @@ final class IntegrationsManager: ObservableObject {
         }
     }
 
+    // MARK: - Gmail
+
+    func fetchGmailStatus() async {
+        guard let url = URL(string: "\(Config.serverURL)/gmail/status") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                gmailStatus = try JSONDecoder().decode(GmailConnectionStatus.self, from: data)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to fetch Gmail status: %@", error.localizedDescription)
+        }
+    }
+
+    func connectGmail() async {
+        guard let url = URL(string: "\(Config.serverURL)/gmail/connect") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let urlString = json["url"] as? String,
+                let authURL = URL(string: urlString)
+            {
+                NSWorkspace.shared.open(authURL)
+            }
+        } catch {
+            self.error = "Failed to start Gmail connection"
+            NSLog("[Integrations] Failed to connect Gmail: %@", error.localizedDescription)
+        }
+    }
+
+    func disconnectGmail() async {
+        guard let url = URL(string: "\(Config.serverURL)/gmail/disconnect") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        do {
+            let (_, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                gmailStatus = GmailConnectionStatus(
+                    connected: false, email: nil, requiresReauth: nil, lastErrorAt: nil)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to disconnect Gmail: %@", error.localizedDescription)
+        }
+    }
+
     func handleDeepLink(url: URL) -> Bool {
         // toss://integrations/slack?connected=1 or toss-dev://integrations/slack?connected=1
         guard url.scheme == "toss" || url.scheme == "toss-dev", url.host == "integrations" else {
@@ -202,6 +265,12 @@ final class IntegrationsManager: ObservableObject {
         } else if url.path == "/slack-bot" {
             if connected {
                 Task { await fetchSlackBotStatus() }
+            }
+            triggerViewRefresh()
+            return true
+        } else if url.path == "/gmail" {
+            if connected {
+                Task { await fetchGmailStatus() }
             }
             triggerViewRefresh()
             return true
@@ -454,6 +523,17 @@ struct IntegrationsView: View {
                             onConnect: { Task { await manager.connectGoogle() } },
                             onDisconnect: { Task { await manager.disconnectGoogle() } }
                         )
+                        IntegrationTile(
+                            name: "Gmail",
+                            imageName: "GmailLogo",
+                            backgroundColor: .white,
+                            detail: "Send, search, and read emails right from Toss. Draft follow-ups after meetings, check your inbox, and reply to threads—all by voice.",
+                            isConnected: manager.gmailStatus?.connected == true,
+                            connectedDetail: manager.gmailStatus?.email,
+                            isLoading: manager.isLoading,
+                            onConnect: { Task { await manager.connectGmail() } },
+                            onDisconnect: { Task { await manager.disconnectGmail() } }
+                        )
                     }
                 }
 
@@ -547,6 +627,7 @@ struct IntegrationsView: View {
             Task { await manager.fetchLinearStatus() }
             Task { await manager.fetchGoogleStatus() }
             Task { await manager.fetchNotionStatus() }
+            Task { await manager.fetchGmailStatus() }
         }
         // Force full view recreation when returning from OAuth deep link
         // This works around a SwiftUI text rendering bug that can cause upside-down text

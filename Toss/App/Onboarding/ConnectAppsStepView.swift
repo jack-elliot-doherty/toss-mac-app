@@ -57,6 +57,16 @@ struct ConnectAppsStepView: View {
                     connectedDetail: integrations.notionStatus?.workspaceName,
                     onConnect: { Task { await integrations.connectNotion() } }
                 )
+
+                OnboardingIntegrationRow(
+                    iconName: "GmailLogo",
+                    iconBackground: .white,
+                    name: "Gmail",
+                    description: "Send and search emails by voice",
+                    isConnected: integrations.gmailStatus?.connected == true,
+                    connectedDetail: integrations.gmailStatus?.email,
+                    onConnect: { Task { await integrations.connectGmail() } }
+                )
             }
 
             // Note
@@ -70,6 +80,7 @@ struct ConnectAppsStepView: View {
                 await integrations.fetchGoogleStatus()
                 await integrations.fetchLinearStatus()
                 await integrations.fetchNotionStatus()
+                await integrations.fetchGmailStatus()
             }
         }
     }

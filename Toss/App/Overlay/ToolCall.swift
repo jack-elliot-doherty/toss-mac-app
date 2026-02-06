@@ -33,6 +33,10 @@ struct ToolCall: Identifiable, Equatable {
         name.lowercased().hasPrefix("notion")
     }
 
+    private var isGmailTool: Bool {
+        name.lowercased().hasPrefix("gmail")
+    }
+
     // Check if this is a connect tool
     var isConnectTool: Bool {
         name.lowercased().hasPrefix("connect")
@@ -65,6 +69,14 @@ struct ToolCall: Identifiable, Equatable {
             return "Connect Google Calendar"
         case "connectNotion":
             return "Connect Notion"
+        case "connectGmail":
+            return "Connect Gmail"
+        case "gmailSendEmail":
+            return "Send Email"
+        case "gmailSearchEmails":
+            return "Search Emails"
+        case "gmailReadThread":
+            return "Read Email Thread"
         case "notionSearch":
             return "Search Notion"
         case "notionListDatabases":
@@ -111,6 +123,11 @@ struct ToolCall: Identifiable, Equatable {
 
         // Notion create/append requires approval
         if (lowerName.contains("create") || lowerName.contains("append")) && isNotionTool {
+            return true
+        }
+
+        // Gmail send requires approval
+        if lowerName.contains("send") && isGmailTool {
             return true
         }
 

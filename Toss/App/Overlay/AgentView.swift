@@ -858,6 +858,10 @@ private struct ToolExecutionNotification: View {
         toolName.lowercased().hasPrefix("notion")
     }
 
+    private var isGmailTool: Bool {
+        toolName.lowercased().hasPrefix("gmail")
+    }
+
     // Internal app tools (meetings, contacts, memory, screenshot, bash, readFile, writeFile)
     private var isAppTool: Bool {
         let name = toolName.lowercased()
@@ -866,7 +870,7 @@ private struct ToolExecutionNotification: View {
             "search", "delete", "bash", "readfile", "writefile",
         ]
         // Check if it's an app tool (not an integration tool)
-        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool || isGmailTool {
             return false
         }
         // Check common app tool patterns
@@ -896,6 +900,12 @@ private struct ToolExecutionNotification: View {
             if name.contains("search") { return "Searched Notion" }
             if name.contains("list") { return "Listed Notion databases" }
             return "Read from Notion"
+        }
+        if isGmailTool {
+            if name.contains("send") { return "Sent email" }
+            if name.contains("search") { return "Searched emails" }
+            if name.contains("read") { return "Read email thread" }
+            return "Read from Gmail"
         }
         if isAppTool {
             if name.contains("meeting") {
@@ -945,6 +955,12 @@ private struct ToolExecutionNotification: View {
             if name.contains("search") { return "Searching Notion..." }
             if name.contains("list") { return "Listing Notion databases..." }
             return "Reading from Notion..."
+        }
+        if isGmailTool {
+            if name.contains("send") { return "Sending email..." }
+            if name.contains("search") { return "Searching emails..." }
+            if name.contains("read") { return "Reading email thread..." }
+            return "Reading from Gmail..."
         }
         if isAppTool {
             if name.contains("meeting") {
@@ -1051,6 +1067,11 @@ private struct ToolExecutionNotification: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 14, height: 14)
+        } else if isGmailTool {
+            Image("GmailLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
         } else if isAppTool {
             Image("TossLogo")
                 .resizable()
@@ -1100,6 +1121,10 @@ private struct ToolApprovalWaitingNotification: View {
         toolName.lowercased().hasPrefix("notion")
     }
 
+    private var isGmailTool: Bool {
+        toolName.lowercased().hasPrefix("gmail")
+    }
+
     private var isFlowTool: Bool {
         toolName.lowercased() == "createflow"
     }
@@ -1111,7 +1136,7 @@ private struct ToolApprovalWaitingNotification: View {
             "meeting", "contact", "company", "memory", "screenshot", "save", "list", "get",
             "search", "delete", "bash", "readfile", "writefile",
         ]
-        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool {
+        if isSlackTool || isLinearTool || isCalendarTool || isNotionTool || isGmailTool {
             return false
         }
         if isFlowTool {
@@ -1136,6 +1161,9 @@ private struct ToolApprovalWaitingNotification: View {
             if name.contains("create") { return "Waiting to create Notion page" }
             if name.contains("append") { return "Waiting to add to Notion page" }
         }
+        if isGmailTool && name.contains("send") {
+            return "Waiting to send email"
+        }
         if isFlowTool {
             return "Waiting to create flow"
         }
@@ -1158,6 +1186,9 @@ private struct ToolApprovalWaitingNotification: View {
             if name.contains("create") { return "Created Notion page" }
             if name.contains("append") { return "Added to Notion page" }
         }
+        if isGmailTool && name.contains("send") {
+            return "Sent email"
+        }
         if isFlowTool {
             return "Created flow"
         }
@@ -1179,6 +1210,9 @@ private struct ToolApprovalWaitingNotification: View {
             if name.contains("createdatabase") { return "Notion database not created" }
             if name.contains("create") { return "Notion page not created" }
             if name.contains("append") { return "Not added to Notion page" }
+        }
+        if isGmailTool && name.contains("send") {
+            return "Email not sent"
         }
         if isFlowTool {
             return "Flow not created"
@@ -1285,6 +1319,11 @@ private struct ToolApprovalWaitingNotification: View {
                 .frame(width: 14, height: 14)
         } else if isNotionTool {
             Image("NotionLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 14, height: 14)
+        } else if isGmailTool {
+            Image("GmailLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 14, height: 14)
@@ -1487,6 +1526,32 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "connectGmail":
+            ConnectIntegrationCard(
+                provider: "Gmail",
+                icon: "GmailLogo",
+                color: Color(hex: "EA4335"),
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "gmailSendEmail":
+            GmailSendEmailPreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         case "notionCreateDatabase":
             EditableNotionCreateDatabasePreview(
                 params: params,
@@ -1648,6 +1713,7 @@ private struct ConnectToolCard: View {
         case "connectLinear": return "Linear"
         case "connectGoogleCalendar": return "Google Calendar"
         case "connectNotion": return "Notion"
+        case "connectGmail": return "Gmail"
         default: return "Integration"
         }
     }
@@ -1658,6 +1724,7 @@ private struct ConnectToolCard: View {
         case "connectLinear": return "LinearLogo"
         case "connectGoogleCalendar": return "GoogleCalendarLogo"
         case "connectNotion": return "NotionLogo"
+        case "connectGmail": return "GmailLogo"
         default: return "gearshape"
         }
     }
@@ -1668,6 +1735,7 @@ private struct ConnectToolCard: View {
         case "connectLinear": return Color(hex: "5E6AD2")
         case "connectGoogleCalendar": return Color(hex: "4285F4")
         case "connectNotion": return Color.black
+        case "connectGmail": return Color(hex: "EA4335")
         default: return .blue
         }
     }
@@ -1682,6 +1750,8 @@ private struct ConnectToolCard: View {
             return integrationsManager.googleStatus?.connected == true
         case "connectNotion":
             return integrationsManager.notionStatus?.connected == true
+        case "connectGmail":
+            return integrationsManager.gmailStatus?.connected == true
         default:
             return false
         }
@@ -1697,6 +1767,8 @@ private struct ConnectToolCard: View {
             return integrationsManager.googleStatus?.email
         case "connectNotion":
             return integrationsManager.notionStatus?.workspaceName
+        case "connectGmail":
+            return integrationsManager.gmailStatus?.email
         default:
             return nil
         }
