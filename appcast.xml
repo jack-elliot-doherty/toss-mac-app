@@ -2,6 +2,20 @@
 <rss xmlns:ns0="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <item>
+      <title>Version 1.8.1</title>
+      <description>&lt;![CDATA[
+                &lt;h2&gt;What's New in 1.8.1&lt;/h2&gt;
+                &lt;ul&gt;
+                    &lt;li&gt;See release notes on GitHub&lt;/li&gt;
+                &lt;/ul&gt;
+            ]]&gt;</description>
+      <pubDate>Fri, 06 Feb 2026 20:22:19 +0000</pubDate>
+      <ns0:version>1.8.1</ns0:version>
+      <ns0:shortVersionString>1.8.1</ns0:shortVersionString>
+      <ns0:minimumSystemVersion>14.0</ns0:minimumSystemVersion>
+      <enclosure url="https://pub-f7c7841703f74a6fa6c606aa61cdd1fd.r2.dev/releases/Toss-1.8.1.dmg" ns0:edSignature="f38I/Db3dpOoCJPNOFultAq0MTG1GTex3Lx+DRzxGZPLUEvN2Lar/LOOMZANFkEVDysh7237XzgYbldRWUUkCQ==" length="7125720" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>Version 1.8.0</title>
       <description>&lt;![CDATA[
                 &lt;h2&gt;What's New in 1.8.0&lt;/h2&gt;
