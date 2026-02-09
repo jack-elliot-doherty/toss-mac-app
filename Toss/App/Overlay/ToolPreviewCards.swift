@@ -48,6 +48,16 @@ struct LinearUserInfo: Codable {
     let avatarUrl: String?
 }
 
+struct LinearIssueInfo: Codable {
+    let id: String
+    let identifier: String
+    let title: String
+    let state: String?
+    let team: String?
+    let assignee: String?
+    let targetState: String?
+}
+
 // MARK: - Linear API
 
 final class LinearAPI {
@@ -56,6 +66,27 @@ final class LinearAPI {
 
     init(baseURL: URL = Config.serverBaseURL) {
         self.baseURL = baseURL
+    }
+
+    func getIssueInfo(issueId: String, stateId: String? = nil) async throws -> LinearIssueInfo {
+        var url = baseURL.appendingPathComponent("linear/issues/\(issueId)")
+        if let stateId = stateId, !stateId.isEmpty {
+            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            components.queryItems = [URLQueryItem(name: "stateId", value: stateId)]
+            url = components.url!
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await APIClient.shared.perform(request)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw NSError(
+                domain: "LinearAPI", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to fetch issue info"])
+        }
+
+        return try JSONDecoder().decode(LinearIssueInfo.self, from: data)
     }
 
     func getUserInfo(userId: String) async throws -> LinearUserInfo {
@@ -525,8 +556,9 @@ struct LinearUpdateIssuePreview: View {
     let params: ToolParams
     let compact: Bool
 
+    @State private var issueInfo: LinearIssueInfo?
     @State private var assigneeInfo: LinearUserInfo?
-    @State private var isLoadingAssignee = true
+    @State private var isLoading = true
 
     private var issueId: String { params.getString("issueId") ?? "Unknown Issue" }
     private var title: String? { params.getString("title") }
@@ -534,6 +566,15 @@ struct LinearUpdateIssuePreview: View {
     private var priority: Int? { params.getInt("priority") }
     private var assigneeId: String? { params.getString("assigneeId") }
     private var stateId: String? { params.getString("stateId") }
+
+    private var displayIdentifier: String {
+        issueInfo?.identifier ?? issueId
+    }
+
+    private var displayTitle: String {
+        // Show the new title if being updated, otherwise show the current title from the issue
+        title ?? issueInfo?.title ?? ""
+    }
 
     private var assigneeDisplay: String {
         if let info = assigneeInfo {
@@ -566,11 +607,17 @@ struct LinearUpdateIssuePreview: View {
     /// Describes what's being updated
     private var updateSummary: String {
         var changes: [String] = []
-        if assigneeId != nil { changes.append("assignee") }
         if title != nil { changes.append("title") }
         if description != nil { changes.append("description") }
+        if assigneeId != nil { changes.append("assignee") }
         if priority != nil { changes.append("priority") }
-        if stateId != nil { changes.append("status") }
+        if stateId != nil {
+            if let targetName = issueInfo?.targetState {
+                changes.append("status to \(targetName)")
+            } else {
+                changes.append("status")
+            }
+        }
 
         if changes.isEmpty {
             return "No changes"
@@ -625,18 +672,47 @@ struct LinearUpdateIssuePreview: View {
 
             // Issue details
             VStack(alignment: .leading, spacing: compact ? 6 : 10) {
-                // Issue ID (always shown)
-                PreviewField(label: "Issue", value: issueId, compact: compact)
+                // Issue identifier + title
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(displayIdentifier)
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
 
-                // Update summary
-                Text(updateSummary)
-                    .font(.system(size: compact ? 10 : 11, weight: .medium))
-                    .foregroundColor(AppTheme.secondaryText)
-                    .italic()
+                        if isLoading {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 10, height: 10)
+                        }
+                    }
 
-                // Title (if being updated)
-                if let title = title {
-                    PreviewField(label: "New Title", value: title, compact: compact)
+                    if !displayTitle.isEmpty {
+                        Text(displayTitle)
+                            .font(.system(size: compact ? 12 : 14, weight: .medium))
+                            .foregroundColor(AppTheme.primaryText)
+                            .lineLimit(2)
+                    }
+                }
+
+                // Update summary / status transition
+                if stateId != nil, let currentState = issueInfo?.state, let targetState = issueInfo?.targetState {
+                    HStack(spacing: 4) {
+                        Text(currentState)
+                            .font(.system(size: compact ? 10 : 11, weight: .medium))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .strikethrough(true, color: AppTheme.secondaryText)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: compact ? 8 : 9))
+                            .foregroundColor(AppTheme.secondaryText)
+                        Text(targetState)
+                            .font(.system(size: compact ? 10 : 11, weight: .semibold))
+                            .foregroundColor(Color(hex: "5E6AD2"))
+                    }
+                } else {
+                    Text(updateSummary)
+                        .font(.system(size: compact ? 10 : 11, weight: .medium))
+                        .foregroundColor(Color(hex: "5E6AD2"))
+                        .italic()
                 }
 
                 // Description (if being updated)
@@ -656,22 +732,23 @@ struct LinearUpdateIssuePreview: View {
                     }
                 }
 
-                // Assignee (if being updated)
-                if assigneeId != nil {
-                    HStack(spacing: 6) {
-                        Text("New Assignee")
-                            .font(.system(size: compact ? 10 : 11, weight: .medium))
-                            .foregroundColor(AppTheme.secondaryText)
-
-                        if isLoadingAssignee {
-                            ProgressView()
-                                .scaleEffect(0.5)
-                                .frame(width: 10, height: 10)
+                // Assignee & other details row
+                if assigneeId != nil || (issueInfo?.team != nil && title == nil) {
+                    HStack(spacing: 16) {
+                        if let team = issueInfo?.team, title == nil {
+                            PreviewField(label: "Team", value: team, compact: compact, inline: true)
                         }
+                        if assigneeId != nil {
+                            HStack(spacing: 6) {
+                                Text("Assignee")
+                                    .font(.system(size: compact ? 10 : 11, weight: .medium))
+                                    .foregroundColor(AppTheme.secondaryText)
 
-                        Text(assigneeDisplay)
-                            .font(.system(size: compact ? 11 : 12))
-                            .foregroundColor(AppTheme.primaryText)
+                                Text(assigneeDisplay)
+                                    .font(.system(size: compact ? 11 : 12))
+                                    .foregroundColor(AppTheme.primaryText)
+                            }
+                        }
                     }
                 }
             }
@@ -686,13 +763,27 @@ struct LinearUpdateIssuePreview: View {
                 )
         )
         .task {
-            await fetchAssigneeInfo()
+            await fetchData()
+        }
+    }
+
+    private func fetchData() async {
+        async let issueTask: Void = fetchIssueInfo()
+        async let assigneeTask: Void = fetchAssigneeInfo()
+        _ = await (issueTask, assigneeTask)
+        isLoading = false
+    }
+
+    private func fetchIssueInfo() async {
+        do {
+            issueInfo = try await LinearAPI.shared.getIssueInfo(issueId: issueId, stateId: stateId)
+        } catch {
+            NSLog("[LinearUpdateIssuePreview] Failed to fetch issue info: \(error)")
         }
     }
 
     private func fetchAssigneeInfo() async {
         guard let assigneeId = assigneeId, !assigneeId.isEmpty else {
-            isLoadingAssignee = false
             return
         }
 
@@ -701,7 +792,6 @@ struct LinearUpdateIssuePreview: View {
         } catch {
             NSLog("[LinearUpdateIssuePreview] Failed to fetch assignee info: \(error)")
         }
-        isLoadingAssignee = false
     }
 }
 
@@ -2927,6 +3017,355 @@ struct EditableLinearIssuePreview: View {
             NSLog("[EditableLinearIssuePreview] Failed to fetch assignee info: \(error)")
         }
         isLoadingAssignee = false
+    }
+}
+
+// MARK: - Editable Linear Update Issue Preview
+
+struct EditableLinearUpdateIssuePreview: View {
+    let initialParams: ToolParams
+    let compact: Bool
+    var onParamsChanged: (([String: AnyCodableValue]) -> Void)?
+    var isExecuting: Bool = false
+    var onExecute: (() -> Void)? = nil
+
+    @State private var issueInfo: LinearIssueInfo?
+    @State private var assigneeInfo: LinearUserInfo?
+    @State private var isLoading = true
+    @State private var loadError: String?
+
+    private var issueId: String { initialParams.getString("issueId") ?? "Unknown Issue" }
+    private var title: String? { initialParams.getString("title") }
+    private var description: String? { initialParams.getString("description") }
+    private var priority: Int? { initialParams.getInt("priority") }
+    private var assigneeId: String? { initialParams.getString("assigneeId") }
+    private var stateId: String? { initialParams.getString("stateId") }
+
+    private var displayIdentifier: String {
+        issueInfo?.identifier ?? issueId
+    }
+
+    private var displayTitle: String {
+        issueInfo?.title ?? title ?? ""
+    }
+
+    private var assigneeDisplay: String {
+        if let info = assigneeInfo {
+            return info.displayName.isEmpty ? info.name : info.displayName
+        }
+        return assigneeId ?? ""
+    }
+
+    private var priorityLabel: String {
+        switch priority {
+        case 1: return "Urgent"
+        case 2: return "High"
+        case 3: return "Medium"
+        case 4: return "Low"
+        default: return "No Priority"
+        }
+    }
+
+    private var priorityColor: Color {
+        switch priority {
+        case 1: return .red
+        case 2: return .orange
+        case 3: return .yellow
+        case 4: return .blue
+        default: return .gray
+        }
+    }
+
+    /// Describes what's being updated
+    private var updateSummary: String {
+        var changes: [String] = []
+        if title != nil { changes.append("title") }
+        if description != nil { changes.append("description") }
+        if assigneeId != nil { changes.append("assignee") }
+        if priority != nil { changes.append("priority") }
+        if stateId != nil {
+            if let targetName = issueInfo?.targetState {
+                changes.append("status to \(targetName)")
+            } else {
+                changes.append("status")
+            }
+        }
+
+        if changes.isEmpty {
+            return "No changes specified"
+        } else if changes.count == 1 {
+            return "Updating \(changes[0])"
+        } else {
+            return "Updating \(changes.dropLast().joined(separator: ", ")) and \(changes.last!)"
+        }
+    }
+
+    init(
+        params: ToolParams,
+        compact: Bool,
+        onParamsChanged: (([String: AnyCodableValue]) -> Void)? = nil,
+        isExecuting: Bool = false,
+        onExecute: (() -> Void)? = nil
+    ) {
+        self.initialParams = params
+        self.compact = compact
+        self.onParamsChanged = onParamsChanged
+        self.isExecuting = isExecuting
+        self.onExecute = onExecute
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header with logo, title, and action button
+            HStack(spacing: 10) {
+                Image("LinearLogo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 24, height: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Update Linear Issue")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+
+                    if isLoading {
+                        Text("Loading issue details...")
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                    } else {
+                        Text(updateSummary)
+                            .font(.system(size: 11))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                }
+
+                Spacer()
+
+                // Action button in header
+                if let onExecute = onExecute {
+                    Button {
+                        onExecute()
+                    } label: {
+                        if isExecuting {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                Text("Updating...")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(
+                                    Color(hex: "5E6AD2").opacity(0.7)))
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 10))
+                                Text("Update Issue")
+                                    .font(.system(size: 12, weight: .semibold))
+                                ButtonShortcutHint()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6).fill(Color(hex: "5E6AD2")))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isExecuting || isLoading)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+
+            Divider()
+                .background(AppTheme.subtleStroke)
+
+            // Issue details
+            VStack(spacing: 0) {
+                if isLoading {
+                    // Loading skeleton
+                    VStack(spacing: 0) {
+                        FormRow(label: "Issue") {
+                            HStack(spacing: 6) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(AppTheme.secondaryText.opacity(0.2))
+                                    .frame(width: 180, height: 16)
+                                Spacer()
+                            }
+                        }
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "Status") {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(AppTheme.secondaryText.opacity(0.15))
+                                .frame(width: 100, height: 14)
+                        }
+                    }
+                } else if let error = loadError {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .font(.system(size: 13))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                    .padding(14)
+                } else {
+                    // Issue identifier + title
+                    FormRow(label: "Issue") {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color(hex: "5E6AD2"))
+                                .frame(width: 8, height: 8)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(displayIdentifier)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(AppTheme.secondaryText)
+                                if !displayTitle.isEmpty {
+                                    Text(displayTitle)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.primaryText)
+                                        .lineLimit(2)
+                                }
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    // New title (if being updated)
+                    if let newTitle = title {
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "New Title") {
+                            Text(newTitle)
+                                .font(.system(size: 13))
+                                .foregroundColor(AppTheme.primaryText)
+                        }
+                    }
+
+                    // Priority (if being updated)
+                    if priority != nil {
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "Priority") {
+                            Text(priorityLabel)
+                                .font(.system(size: 13))
+                                .foregroundColor(priorityColor)
+                        }
+                    }
+
+                    // Status (if being updated)
+                    if stateId != nil {
+                        Divider().background(AppTheme.subtleStroke)
+                        FormRow(label: "Status") {
+                            if let currentState = issueInfo?.state, let targetState = issueInfo?.targetState {
+                                HStack(spacing: 6) {
+                                    Text(currentState)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                        .strikethrough(true, color: AppTheme.secondaryText)
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(AppTheme.secondaryText)
+                                    Text(targetState)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(AppTheme.primaryText)
+                                }
+                            } else if let targetState = issueInfo?.targetState {
+                                Text(targetState)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(AppTheme.primaryText)
+                            } else {
+                                Text("Updating status")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.secondaryText)
+                            }
+                        }
+                    }
+
+                    // Team & Assignee row
+                    if assigneeId != nil || issueInfo?.team != nil {
+                        Divider().background(AppTheme.subtleStroke)
+                        HStack(spacing: 0) {
+                            if let team = issueInfo?.team {
+                                FormRow(label: "Team") {
+                                    Text(team)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(AppTheme.primaryText)
+                                }
+                            }
+                            if assigneeId != nil {
+                                FormRow(label: "Assignee") {
+                                    HStack(spacing: 6) {
+                                        Text(assigneeDisplay)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(AppTheme.primaryText)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Description (if being updated)
+                    if let desc = description, !desc.isEmpty {
+                        Divider().background(AppTheme.subtleStroke)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("New Description")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(AppTheme.secondaryText)
+
+                            ScrollView {
+                                Text(desc)
+                                    .font(.system(size: 13))
+                                    .foregroundColor(AppTheme.primaryText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .frame(maxHeight: 120)
+                        }
+                        .padding(14)
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppTheme.cardBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(AppTheme.subtleStroke, lineWidth: 1)
+                )
+        )
+        .task {
+            await fetchData()
+        }
+    }
+
+    private func fetchData() async {
+        async let issueTask: Void = fetchIssueInfo()
+        async let assigneeTask: Void = fetchAssigneeInfo()
+        _ = await (issueTask, assigneeTask)
+        isLoading = false
+    }
+
+    private func fetchIssueInfo() async {
+        do {
+            issueInfo = try await LinearAPI.shared.getIssueInfo(issueId: issueId, stateId: stateId)
+        } catch {
+            NSLog("[EditableLinearUpdateIssuePreview] Failed to fetch issue info: \(error)")
+            loadError = "Could not load issue details"
+        }
+    }
+
+    private func fetchAssigneeInfo() async {
+        guard let assigneeId = assigneeId, !assigneeId.isEmpty else { return }
+
+        do {
+            assigneeInfo = try await LinearAPI.shared.getUserInfo(userId: assigneeId)
+        } catch {
+            NSLog("[EditableLinearUpdateIssuePreview] Failed to fetch assignee info: \(error)")
+        }
     }
 }
 

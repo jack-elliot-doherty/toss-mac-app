@@ -1435,6 +1435,19 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "linearUpdateIssue":
+            EditableLinearUpdateIssuePreview(
+                params: params,
+                compact: false,
+                onParamsChanged: nil,
+                isExecuting: executing,
+                onExecute: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         case "calendarCreateEvent":
             EditableCalendarEventPreview(
                 params: params,
