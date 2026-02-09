@@ -39,12 +39,19 @@ struct SlackBotConnectionStatus: Codable {
     let installedBy: String?
 }
 
+struct DiscordBotConnectionStatus: Codable {
+    let installed: Bool
+    let guildName: String?
+    let installedBy: String?
+}
+
 @MainActor
 final class IntegrationsManager: ObservableObject {
     static let shared = IntegrationsManager()
 
     @Published var slackStatus: SlackConnectionStatus?
     @Published var slackBotStatus: SlackBotConnectionStatus?
+    @Published var discordBotStatus: DiscordBotConnectionStatus?
     @Published var linearStatus: LinearConnectionStatus?
     @Published var googleStatus: GoogleConnectionStatus?
     @Published var notionStatus: NotionConnectionStatus?
@@ -274,6 +281,12 @@ final class IntegrationsManager: ObservableObject {
             }
             triggerViewRefresh()
             return true
+        } else if url.path == "/discord" {
+            if connected {
+                Task { await fetchDiscordBotStatus() }
+            }
+            triggerViewRefresh()
+            return true
         }
         return false
     }
@@ -468,6 +481,59 @@ final class IntegrationsManager: ObservableObject {
             NSLog("[Integrations] Failed to uninstall Slack Bot: %@", error.localizedDescription)
         }
     }
+
+    func fetchDiscordBotStatus() async {
+        guard let url = URL(string: "\(Config.serverURL)/discord/bot/status") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                discordBotStatus = try JSONDecoder().decode(DiscordBotConnectionStatus.self, from: data)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to fetch Discord Bot status: %@", error.localizedDescription)
+        }
+    }
+
+    func connectDiscordBot() async {
+        guard let url = URL(string: "\(Config.serverURL)/discord/bot/install") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let urlString = json["url"] as? String,
+                let authURL = URL(string: urlString)
+            {
+                NSWorkspace.shared.open(authURL)
+            }
+        } catch {
+            self.error = "Failed to start Discord Bot installation"
+            NSLog("[Integrations] Failed to install Discord Bot: %@", error.localizedDescription)
+        }
+    }
+
+    func disconnectDiscordBot() async {
+        guard let url = URL(string: "\(Config.serverURL)/discord/bot/uninstall") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        do {
+            let (_, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                discordBotStatus = DiscordBotConnectionStatus(
+                    installed: false, guildName: nil, installedBy: nil)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to uninstall Discord Bot: %@", error.localizedDescription)
+        }
+    }
 }
 
 @MainActor
@@ -568,6 +634,18 @@ struct IntegrationsView: View {
                             badge: "Bot"
                         )
                         IntegrationTile(
+                            name: "Discord Bot",
+                            imageName: "DiscordLogo",
+                            backgroundColor: Color(red: 0.35, green: 0.40, blue: 0.95),
+                            detail: "Use /toss in Discord to create issues, look up meetings, and run actions—responses are private so your customers never see them.",
+                            isConnected: manager.discordBotStatus?.installed == true,
+                            connectedDetail: manager.discordBotStatus?.guildName,
+                            isLoading: manager.isLoading,
+                            onConnect: { Task { await manager.connectDiscordBot() } },
+                            onDisconnect: { Task { await manager.disconnectDiscordBot() } },
+                            badge: "Bot"
+                        )
+                        IntegrationTile(
                             name: "Linear",
                             imageName: "LinearLogo",
                             backgroundColor: Color(red: 0.36, green: 0.38, blue: 0.96),
@@ -624,6 +702,7 @@ struct IntegrationsView: View {
         .onAppear {
             Task { await manager.fetchSlackStatus() }
             Task { await manager.fetchSlackBotStatus() }
+            Task { await manager.fetchDiscordBotStatus() }
             Task { await manager.fetchLinearStatus() }
             Task { await manager.fetchGoogleStatus() }
             Task { await manager.fetchNotionStatus() }
