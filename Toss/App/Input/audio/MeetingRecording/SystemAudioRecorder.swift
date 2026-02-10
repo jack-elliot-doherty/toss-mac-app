@@ -291,20 +291,15 @@ extension SystemAudioRecorder: SCStreamOutput {
 
         inputBuffer.frameLength = frames
 
-        // Calculate RMS for this buffer (existing logic, slightly adapted to feed accumulator)
+        // Calculate chunk energy for silence detection.
         let channel = inputBuffer.floatChannelData![0]
         var sum: Float = 0
         for i in 0..<Int(frames) {
             let sample = channel[i]
             sum += sample * sample
         }
-        // Feed chunk stats
         recordChunkEnergy(sumSquares: sum, frames: Int(frames))
 
-        let remoteLevel = sqrtf(sum / max(1, Float(frames)))
-        DispatchQueue.main.async { [weak self] in
-            self?.onRemoteLevel?(remoteLevel)
-        }
         // Reuse converter if input format hasn't changed
         let currentRate = asbd.pointee.mSampleRate
         let currentChannels = asbd.pointee.mChannelsPerFrame
@@ -341,10 +336,16 @@ extension SystemAudioRecorder: SCStreamOutput {
             return
         }
 
+        // Use converted mono signal level so gating sees the same far-end energy fed to AEC.
+        let remoteLevel = outputBuffer.rmsLevel()
+        onRemoteLevel?(remoteLevel)
+
         // Emit 16kHz mono buffer for echo cancellation
         // Called synchronously on streamQueue to preserve frame ordering
         if let copy = outputBuffer.deepCopy() {
             self.onRemoteAudioFrame?(copy)
+        } else {
+            NSLog("[SystemAudioRecorder] Failed to copy buffer for AEC")
         }
 
         do {

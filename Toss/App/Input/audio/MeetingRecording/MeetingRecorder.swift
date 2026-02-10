@@ -38,6 +38,7 @@ final class MeetingRecorder {
     private var currentChunkURL: URL?
     private var currentChunkStartedAt: Date?
     private var chunkUserSpeechSamples = 0
+    private var chunkRemoteActiveSamples = 0
 
     private var chunkTimer: Timer?
     private var chunkIndex: Int = 0
@@ -114,8 +115,24 @@ final class MeetingRecorder {
         "TOSS_AEC_SPEECH_REJECT_CORR_THRESHOLD", defaultValue: 0.45)
     private let minUserSpeechMsPerChunk = MeetingRecorder.envInt(
         "TOSS_AEC_MIN_USER_SPEECH_MS", defaultValue: 450)
+    private let minUserSpeechMsPerChunkWhenRemote = MeetingRecorder.envInt(
+        "TOSS_AEC_MIN_USER_SPEECH_MS_WHEN_REMOTE", defaultValue: 1100)
+    private let remoteActiveMsThresholdForStrictSpeech = MeetingRecorder.envInt(
+        "TOSS_AEC_REMOTE_ACTIVE_MS_THRESHOLD", defaultValue: 3000)
     private var minUserSpeechSamplesPerChunk: Int {
         max(0, Int((Double(minUserSpeechMsPerChunk) * targetFormat.sampleRate) / 1000.0))
+    }
+    private var minUserSpeechSamplesPerChunkWhenRemote: Int {
+        max(
+            minUserSpeechSamplesPerChunk,
+            Int((Double(minUserSpeechMsPerChunkWhenRemote) * targetFormat.sampleRate) / 1000.0)
+        )
+    }
+    private var remoteActiveSamplesThresholdForStrictSpeech: Int {
+        max(
+            0,
+            Int((Double(remoteActiveMsThresholdForStrictSpeech) * targetFormat.sampleRate) / 1000.0)
+        )
     }
 
     // Target format: 16kHz Mono Float32
@@ -509,6 +526,9 @@ final class MeetingRecorder {
             // Speech gating: use POST-AEC energy
             if outBuffer.frameLength > 0 {
                 let remoteLevel = currentRemoteLevel()
+                if remoteLevel > echoRemoteLevelThreshold {
+                    chunkRemoteActiveSamples += Int(outBuffer.frameLength)
+                }
                 let gateStats = applyPostAecFrameGate(outBuffer, remoteLevel: remoteLevel)
                 chunkUserSpeechSamples += gateStats.speechSamples
                 aecNearDropped += gateStats.droppedFrames
@@ -572,6 +592,7 @@ final class MeetingRecorder {
 
     private func startNewChunk() {
         chunkUserSpeechSamples = 0
+        chunkRemoteActiveSamples = 0
 
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("meeting_chunk_\(chunkIndex)_\(UUID().uuidString).wav")
@@ -596,8 +617,18 @@ final class MeetingRecorder {
         guard let url = currentChunkURL else { return }
         let idx = chunkIndex
         let start = currentChunkStartedAt ?? Date()
-        let hasUserSpeech = chunkUserSpeechSamples >= minUserSpeechSamplesPerChunk
         let speechMs = Int((Double(chunkUserSpeechSamples) * 1000.0) / targetFormat.sampleRate)
+        let remoteActiveMs = Int(
+            (Double(chunkRemoteActiveSamples) * 1000.0) / targetFormat.sampleRate
+        )
+        let remoteHeavyChunk =
+            chunkRemoteActiveSamples >= remoteActiveSamplesThresholdForStrictSpeech
+        let requiredSpeechSamples =
+            remoteHeavyChunk
+            ? minUserSpeechSamplesPerChunkWhenRemote
+            : minUserSpeechSamplesPerChunk
+        let requiredSpeechMs = Int((Double(requiredSpeechSamples) * 1000.0) / targetFormat.sampleRate)
+        let hasUserSpeech = chunkUserSpeechSamples >= requiredSpeechSamples
 
         currentChunkFile = nil  // flush file
         if hasUserSpeech {
@@ -611,7 +642,7 @@ final class MeetingRecorder {
             // Remote-only or silence: delete & skip upload
             try? FileManager.default.removeItem(at: url)
             NSLog(
-                "[MeetingRecorder] Dropping mic chunk #\(idx) (speechMs=\(speechMs), min=\(minUserSpeechMsPerChunk)ms)"
+                "[MeetingRecorder] Dropping mic chunk #\(idx) (speechMs=\(speechMs), required=\(requiredSpeechMs)ms, remoteActiveMs=\(remoteActiveMs), remoteHeavy=\(remoteHeavyChunk))"
             )
         }
 
