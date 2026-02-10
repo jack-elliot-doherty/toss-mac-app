@@ -421,6 +421,7 @@ final class PillController {
             NSLog("[PillController] Meeting recorder error: \(error)")
         }
 
+        recorder.enableAEC()
         recorder.start()
         meetingRecorder = recorder
 
@@ -429,8 +430,8 @@ final class PillController {
             recorder?.updateRemoteLevel(level)
         }
 
-        systemRecorder.onRemoteAudioFrame = { [weak meetingRecorder] buffer in
-            meetingRecorder?.ingestRemoteBuffer(buffer)
+        systemRecorder.onRemoteAudioFrame = { [weak recorder] buffer in
+            recorder?.ingestRemoteBuffer(buffer)
         }
 
         systemRecorder.onChunkReady = { [weak self] url, index, startedAt in
