@@ -177,6 +177,18 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     private var chunks: [UUID: [MeetingChunkModel]] = [:]
     private let queue = DispatchQueue(label: "meeting.repo.queue", qos: .userInitiated)
     private let fileURL: URL
+    // Default off while preserving raw transcript behavior. Set TOSS_ENABLE_MEETING_DEDUPE=1 to enable.
+    private let enableBleedDedupe: Bool = {
+        guard
+            let raw = ProcessInfo.processInfo.environment["TOSS_ENABLE_MEETING_DEDUPE"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+        else { return false }
+
+        if raw == "0" || raw == "false" || raw == "no" || raw == "off" { return false }
+        if raw == "1" || raw == "true" || raw == "yes" || raw == "on" { return true }
+        return false
+    }()
 
     init() {
         let appSupport = FileManager.default.urls(
@@ -186,6 +198,7 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         try? FileManager.default.createDirectory(at: tossDir, withIntermediateDirectories: true)
         self.fileURL = tossDir.appendingPathComponent("meetings.json")
         load()
+        NSLog("[MeetingRepo] Bleed dedupe %@", enableBleedDedupe ? "enabled" : "disabled")
     }
 
     private struct StorageFormat: Codable {
@@ -307,8 +320,8 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     ) -> MeetingChunkModel? {
         let result = queue.sync { () -> MeetingChunkModel? in
 
-            // Deduplication Logic
-            if speaker == .user {
+            // Deduplication logic (optional while AEC is being tuned)
+            if enableBleedDedupe && speaker == .user {
                 if isDuplicate(transcript: transcript, startedAt: startedAt, meetingId: meetingId) {
                     return nil  // Drop this chunk
                 }
@@ -330,7 +343,7 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
             chunks[meetingId] = arr
 
             // Backward check: New REMOTE chunk vs existing USER chunks
-            if speaker == .remote {
+            if enableBleedDedupe && speaker == .remote {
                 retroactiveDedupe(newRemoteChunk: chunk, meetingId: meetingId)
             }
 
@@ -469,11 +482,80 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     }
 
     // text cleaning for fuzzy match
-    private func normalize(_ text: String) -> Set<String> {
-        let cleaned = text.lowercased()
+    private func normalizeWords(_ text: String) -> [String] {
+        text.lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
-        return Set(cleaned)
+    }
+
+    private func normalizeSet(_ text: String) -> Set<String> {
+        Set(normalizeWords(text))
+    }
+
+    private func normalizedSentence(_ text: String) -> String {
+        normalizeWords(text).joined(separator: " ")
+    }
+
+    private func diceSimilarity(_ lhs: String, _ rhs: String) -> Double {
+        if lhs == rhs { return 1.0 }
+        if lhs.count < 2 || rhs.count < 2 { return 0.0 }
+
+        func bigrams(_ s: String) -> [Substring: Int] {
+            var map: [Substring: Int] = [:]
+            for i in 0..<(s.count - 1) {
+                let start = s.index(s.startIndex, offsetBy: i)
+                let end = s.index(start, offsetBy: 2)
+                let gram = s[start..<end]
+                map[gram, default: 0] += 1
+            }
+            return map
+        }
+
+        let a = bigrams(lhs)
+        let b = bigrams(rhs)
+        if a.isEmpty || b.isEmpty { return 0.0 }
+
+        var overlap = 0
+        for (gram, countA) in a {
+            if let countB = b[gram] {
+                overlap += min(countA, countB)
+            }
+        }
+
+        let denom = Double(a.values.reduce(0, +) + b.values.reduce(0, +))
+        return denom > 0 ? (2.0 * Double(overlap) / denom) : 0.0
+    }
+
+    private func isLikelyBleedDuplicate(userTranscript: String, remoteTranscript: String) -> Bool {
+        let userWords = normalizeSet(userTranscript)
+        let remoteWords = normalizeSet(remoteTranscript)
+        if userWords.isEmpty || remoteWords.isEmpty { return false }
+
+        let common = userWords.intersection(remoteWords)
+        let overlapRatio = Double(common.count) / Double(userWords.count)
+
+        let userNorm = normalizedSentence(userTranscript)
+        let remoteNorm = normalizedSentence(remoteTranscript)
+        let minLen = min(userNorm.count, remoteNorm.count)
+
+        if minLen >= 18 && (userNorm.contains(remoteNorm) || remoteNorm.contains(userNorm)) {
+            return true
+        }
+
+        let dice = diceSimilarity(userNorm, remoteNorm)
+        if minLen >= 24 && dice >= 0.72 {
+            return true
+        }
+
+        if overlapRatio >= 0.55 && common.count >= 4 {
+            return true
+        }
+
+        if overlapRatio >= 0.45 && dice >= 0.65 {
+            return true
+        }
+
+        return false
     }
 
     private func retroactiveDedupe(newRemoteChunk: MeetingChunkModel, meetingId: UUID) {
@@ -487,12 +569,10 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
                 && abs(existing.startedAt.timeIntervalSince(newRemoteChunk.startedAt)) < 5.0
             {
 
-                // Check overlap
-                let userWords = normalize(existing.transcript)
-                let remoteWords = normalize(newRemoteChunk.transcript)
-                let common = userWords.intersection(remoteWords)
-
-                if Double(common.count) / Double(userWords.count) > 0.6 {
+                if isLikelyBleedDuplicate(
+                    userTranscript: existing.transcript,
+                    remoteTranscript: newRemoteChunk.transcript
+                ) {
                     NSLog(
                         "[MeetingRepo] Retro-dropped user chunk #\(existing.chunkIndex): matches new remote chunk"
                     )
@@ -515,18 +595,14 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
         // Look for remote chunks within ±5 seconds
         let candidates = chunks.filter { existing in
             existing.speaker == .remote
-                && abs(existing.startedAt.timeIntervalSince(startedAt)) < 5.0
+                && abs(existing.startedAt.timeIntervalSince(startedAt)) < 8.0
         }
 
-        let userWords = normalize(transcript)
-        if userWords.isEmpty { return false }  // Keep silence/noise? Or drop?
-
         for candidate in candidates {
-            let remoteWords = normalize(candidate.transcript)
-            let common = userWords.intersection(remoteWords)
-
-            // If > 60% of user words are in the remote chunk → it's bleed
-            if Double(common.count) / Double(userWords.count) > 0.6 {
+            if isLikelyBleedDuplicate(
+                userTranscript: transcript,
+                remoteTranscript: candidate.transcript
+            ) {
                 NSLog(
                     "[MeetingRepo] Dropped duplicate user chunk: '\(transcript)' matches remote: '\(candidate.transcript)'"
                 )

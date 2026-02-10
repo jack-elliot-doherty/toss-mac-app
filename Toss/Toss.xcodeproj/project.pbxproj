@@ -105,6 +105,7 @@
 		DAF7DFFF2EFACB670052182B /* DictationContextDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */; };
 		DAF7E0012F082D330052182B /* FlowNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7E0002F082D330052182B /* FlowNotificationManager.swift */; };
 		DAF7E0032F0836810052182B /* FlowToastOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF7E0022F0836810052182B /* FlowToastOverlay.swift */; };
+		AEC00001300000000000AEC3 /* AECProcessor.mm in Sources */ = {isa = PBXBuildFile; fileRef = AEC00003300000000000AEC3 /* AECProcessor.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -222,6 +223,9 @@
 		DAF7DFFE2EFACB670052182B /* DictationContextDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationContextDetector.swift; sourceTree = "<group>"; };
 		DAF7E0002F082D330052182B /* FlowNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowNotificationManager.swift; sourceTree = "<group>"; };
 		DAF7E0022F0836810052182B /* FlowToastOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowToastOverlay.swift; sourceTree = "<group>"; };
+		AEC00002300000000000AEC3 /* AECProcessor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AECProcessor.h; sourceTree = "<group>"; };
+		AEC00003300000000000AEC3 /* AECProcessor.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AECProcessor.mm; sourceTree = "<group>"; };
+		AEC00004300000000000AEC3 /* Toss-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Toss-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -444,9 +448,20 @@
 			path = MeetingRecording;
 			sourceTree = "<group>";
 		};
+		AEC00005300000000000AEC3 /* AEC */ = {
+			isa = PBXGroup;
+			children = (
+				AEC00002300000000000AEC3 /* AECProcessor.h */,
+				AEC00003300000000000AEC3 /* AECProcessor.mm */,
+				AEC00004300000000000AEC3 /* Toss-Bridging-Header.h */,
+			);
+			path = AEC;
+			sourceTree = "<group>";
+		};
 		DA7827A12EBE94CC0040ED92 /* audio */ = {
 			isa = PBXGroup;
 			children = (
+				AEC00005300000000000AEC3 /* AEC */,
 				DA7827A02EBE94CC0040ED92 /* MeetingRecording */,
 			);
 			path = audio;
@@ -731,6 +746,7 @@
 				4DACEF0F33254F839E35FFA8 /* AgentStepView.swift in Sources */,
 				C8D5A7DCCF624048B93ED8DA /* ConnectAppsStepView.swift in Sources */,
 				8D75E650E1B343CE9355BF80 /* ActionItemCard.swift in Sources */,
+				AEC00001300000000000AEC3 /* AECProcessor.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -906,6 +922,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../Frameworks/WebRTCAudioProcessing.xcframework/macos-arm64_x86_64/Headers",
+				);
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Toss;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -917,10 +937,16 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+					"$(SRCROOT)/../Frameworks/WebRTCAudioProcessing.xcframework/macos-arm64_x86_64/libwebrtc-apm.a",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.Toss.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "App/Input/audio/AEC/Toss-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -943,6 +969,10 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/../Frameworks/WebRTCAudioProcessing.xcframework/macos-arm64_x86_64/Headers",
+				);
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Toss;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
@@ -954,10 +984,16 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+					"$(SRCROOT)/../Frameworks/WebRTCAudioProcessing.xcframework/macos-arm64_x86_64/libwebrtc-apm.a",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = ai.jack.Toss;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "App/Input/audio/AEC/Toss-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

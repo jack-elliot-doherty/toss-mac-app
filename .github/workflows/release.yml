@@ -34,6 +34,12 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+      - name: Install WebRTC APM build dependencies
+        run: brew install meson ninja pkg-config abseil
+
+      - name: Build WebRTC AudioProcessing XCFramework
+        run: ./scripts/build-webrtc-apm.sh
+
       - name: Update version in Xcode project
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
