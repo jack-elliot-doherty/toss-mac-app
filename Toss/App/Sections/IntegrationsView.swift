@@ -45,6 +45,12 @@ struct DiscordBotConnectionStatus: Codable {
     let installedBy: String?
 }
 
+struct GitHubConnectionStatus: Codable {
+    let installed: Bool
+    let accountLogin: String?
+    let accountType: String?
+}
+
 @MainActor
 final class IntegrationsManager: ObservableObject {
     static let shared = IntegrationsManager()
@@ -56,6 +62,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var googleStatus: GoogleConnectionStatus?
     @Published var notionStatus: NotionConnectionStatus?
     @Published var gmailStatus: GmailConnectionStatus?
+    @Published var githubStatus: GitHubConnectionStatus?
 
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
@@ -284,6 +291,12 @@ final class IntegrationsManager: ObservableObject {
         } else if url.path == "/discord" {
             if connected {
                 Task { await fetchDiscordBotStatus() }
+            }
+            triggerViewRefresh()
+            return true
+        } else if url.path == "/github" {
+            if connected {
+                Task { await fetchGitHubStatus() }
             }
             triggerViewRefresh()
             return true
@@ -534,6 +547,61 @@ final class IntegrationsManager: ObservableObject {
             NSLog("[Integrations] Failed to uninstall Discord Bot: %@", error.localizedDescription)
         }
     }
+
+    // MARK: - GitHub App
+
+    func fetchGitHubStatus() async {
+        guard let url = URL(string: "\(Config.serverURL)/github/status") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                githubStatus = try JSONDecoder().decode(GitHubConnectionStatus.self, from: data)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to fetch GitHub status: %@", error.localizedDescription)
+        }
+    }
+
+    func connectGitHub() async {
+        guard let url = URL(string: "\(Config.serverURL)/github/install") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+
+            if let http = response as? HTTPURLResponse, http.statusCode == 200,
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let urlString = json["url"] as? String,
+                let authURL = URL(string: urlString)
+            {
+                NSWorkspace.shared.open(authURL)
+            }
+        } catch {
+            self.error = "Failed to start GitHub installation"
+            NSLog("[Integrations] Failed to install GitHub: %@", error.localizedDescription)
+        }
+    }
+
+    func disconnectGitHub() async {
+        guard let url = URL(string: "\(Config.serverURL)/github/uninstall") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        do {
+            let (_, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                githubStatus = GitHubConnectionStatus(
+                    installed: false, accountLogin: nil, accountType: nil)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to uninstall GitHub: %@", error.localizedDescription)
+        }
+    }
 }
 
 @MainActor
@@ -667,6 +735,18 @@ struct IntegrationsView: View {
                             onConnect: { Task { await manager.connectNotion() } },
                             onDisconnect: { Task { await manager.disconnectNotion() } }
                         )
+                        IntegrationTile(
+                            name: "GitHub",
+                            imageName: "GitHubLogo",
+                            backgroundColor: Color(red: 0.15, green: 0.15, blue: 0.15),
+                            detail: "Check CI/CD status, review PRs, manage issues, and search code. Mention @toss in comments to take actions across your connected tools.",
+                            isConnected: manager.githubStatus?.installed == true,
+                            connectedDetail: manager.githubStatus?.accountLogin,
+                            isLoading: manager.isLoading,
+                            onConnect: { Task { await manager.connectGitHub() } },
+                            onDisconnect: { Task { await manager.disconnectGitHub() } },
+                            badge: "Bot"
+                        )
                     }
                 }
 
@@ -686,12 +766,6 @@ struct IntegrationsView: View {
                             statusText: "Always available",
                             statusColor: .green
                         )
-                        IntegrationTileComingSoon(
-                            name: "GitHub",
-                            imageName: "GitHubLogo",
-                            fallbackIcon: "chevron.left.forwardslash.chevron.right",
-                            detail: "Create issues and pull requests directly from meetings. Link commits to discussions and keep your code connected to context."
-                        )
                     }
                 }
             }
@@ -707,6 +781,7 @@ struct IntegrationsView: View {
             Task { await manager.fetchGoogleStatus() }
             Task { await manager.fetchNotionStatus() }
             Task { await manager.fetchGmailStatus() }
+            Task { await manager.fetchGitHubStatus() }
         }
         // Force full view recreation when returning from OAuth deep link
         // This works around a SwiftUI text rendering bug that can cause upside-down text
