@@ -30,11 +30,8 @@ final class SystemAudioRecorder: NSObject {
     private var chunkIndex = 0
     private var timer: DispatchSourceTimer?
     private let debugChunkDumpEnabled: Bool = {
-        #if DEBUG
-            let defaultEnabled = true
-        #else
-            let defaultEnabled = false
-        #endif
+        // Opt-in only via TOSS_DUMP_AUDIO_CHUNKS.
+        let defaultEnabled = false
         guard
             let raw = ProcessInfo.processInfo.environment["TOSS_DUMP_AUDIO_CHUNKS"]?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
