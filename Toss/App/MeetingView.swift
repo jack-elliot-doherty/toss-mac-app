@@ -2319,7 +2319,7 @@ struct MeetingsListView: View {
         Task { await MeetingSyncManager.shared.deleteMeetingFromServer(meeting.id) }
     }
 
-    private static let lastServerSyncKey = "lastMeetingsServerSync"
+    private static let lastServerSyncKey = Config.scopedDefaultsKey("lastMeetingsServerSync")
 
     private func fetchRecordedMeetingsFromServer() async {
         // Fetch only meetings created after our last sync to avoid fetching everything

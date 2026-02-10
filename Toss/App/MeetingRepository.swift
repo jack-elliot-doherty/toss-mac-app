@@ -191,13 +191,9 @@ final class PersistentMeetingRepository: MeetingRepositoryProtocol, ObservableOb
     }()
 
     init() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let tossDir = appSupport.appendingPathComponent("ai.toss.mac", isDirectory: true)
-        try? FileManager.default.createDirectory(at: tossDir, withIntermediateDirectories: true)
-        self.fileURL = tossDir.appendingPathComponent("meetings.json")
+        self.fileURL = Config.appSupportFileURL("meetings.json")
         load()
+        NSLog("[MeetingRepo] Using storage %@", fileURL.path)
         NSLog("[MeetingRepo] Bleed dedupe %@", enableBleedDedupe ? "enabled" : "disabled")
     }
 

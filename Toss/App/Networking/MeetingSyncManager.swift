@@ -8,6 +8,7 @@ struct PendingSync: Codable, Equatable {
     var retryCount: Int
     var lastAttempt: Date?
     var operation: SyncOperation
+    var serverBaseURL: String?
 
     enum SyncOperation: String, Codable {
         case sync  // Create or update meeting
@@ -32,16 +33,13 @@ final class MeetingSyncManager: ObservableObject {
 
     private let maxRetries = 10
     private let retryInterval: TimeInterval = 5 * 60  // 5 minutes
+    private var currentServerScope: String { Config.serverBaseURL.absoluteString }
 
     private init() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let tossDir = appSupport.appendingPathComponent("ai.toss.mac", isDirectory: true)
-        try? FileManager.default.createDirectory(at: tossDir, withIntermediateDirectories: true)
-        self.queueFileURL = tossDir.appendingPathComponent("sync_queue.json")
+        self.queueFileURL = Config.appSupportFileURL("sync_queue.json")
 
         loadQueue()
+        NSLog("[MeetingSyncManager] Using queue storage %@", queueFileURL.path)
     }
 
     // MARK: - Public API
@@ -161,6 +159,16 @@ final class MeetingSyncManager: ObservableObject {
         let syncsToProcess = pendingSyncs
 
         for pending in syncsToProcess {
+            guard pending.serverBaseURL == currentServerScope else {
+                NSLog(
+                    "[MeetingSyncManager] Dropping queue item from mismatched or unscoped server: %@ (%@)",
+                    pending.meetingId.uuidString,
+                    pending.operation.rawValue
+                )
+                removePending(meetingId: pending.meetingId, operation: pending.operation)
+                continue
+            }
+
             // Check if enough time has passed (exponential backoff)
             let backoffSeconds = min(pow(2.0, Double(pending.retryCount)) * 30, 3600)
             if let lastAttempt = pending.lastAttempt {
@@ -212,13 +220,18 @@ final class MeetingSyncManager: ObservableObject {
     // MARK: - Queue Management
 
     private func queueForRetry(meetingId: UUID, operation: PendingSync.SyncOperation) {
+        let serverScope = currentServerScope
+
         // Check if already in queue
         if let index = pendingSyncs.firstIndex(where: {
-            $0.meetingId == meetingId && $0.operation == operation
+            $0.meetingId == meetingId
+                && $0.operation == operation
+                && $0.serverBaseURL == serverScope
         }) {
             // Update existing entry
             pendingSyncs[index].retryCount += 1
             pendingSyncs[index].lastAttempt = Date()
+            pendingSyncs[index].serverBaseURL = serverScope
         } else {
             // Add new entry
             let pending = PendingSync(
@@ -226,7 +239,8 @@ final class MeetingSyncManager: ObservableObject {
                 queuedAt: Date(),
                 retryCount: 0,
                 lastAttempt: Date(),
-                operation: operation
+                operation: operation,
+                serverBaseURL: serverScope
             )
             pendingSyncs.append(pending)
         }
@@ -249,9 +263,36 @@ final class MeetingSyncManager: ObservableObject {
 
         do {
             let data = try Data(contentsOf: queueFileURL)
-            pendingSyncs = try JSONDecoder().decode([PendingSync].self, from: data)
+            let loaded = try JSONDecoder().decode([PendingSync].self, from: data)
+            pendingSyncs = loaded.filter { pending in
+                guard let queuedScope = pending.serverBaseURL else {
+                    NSLog(
+                        "[MeetingSyncManager] Discarding legacy unscoped queue item for safety: %@ (%@)",
+                        pending.meetingId.uuidString,
+                        pending.operation.rawValue
+                    )
+                    return false
+                }
+
+                if queuedScope != currentServerScope {
+                    NSLog(
+                        "[MeetingSyncManager] Discarding queue item from different server (%@ != %@): %@ (%@)",
+                        queuedScope,
+                        currentServerScope,
+                        pending.meetingId.uuidString,
+                        pending.operation.rawValue
+                    )
+                    return false
+                }
+
+                return true
+            }
             pendingSyncCount = pendingSyncs.count
             NSLog("[MeetingSyncManager] Loaded \(pendingSyncs.count) pending syncs from disk")
+
+            if pendingSyncs.count != loaded.count {
+                saveQueue()
+            }
         } catch {
             NSLog("[MeetingSyncManager] Failed to load queue: \(error)")
         }

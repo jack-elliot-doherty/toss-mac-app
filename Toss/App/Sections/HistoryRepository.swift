@@ -47,12 +47,7 @@ final class PersistentHistoryRepository: HistoryRepositoryProtocol {
     private let fileURL: URL
 
     init() {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
-        let tossDir = appSupport.appendingPathComponent("ai.toss.mac", isDirectory: true)
-        try? FileManager.default.createDirectory(at: tossDir, withIntermediateDirectories: true)
-        self.fileURL = tossDir.appendingPathComponent("history.json")
+        self.fileURL = Config.appSupportFileURL("history.json")
         load()
     }
 
