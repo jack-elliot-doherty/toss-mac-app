@@ -44,11 +44,8 @@ final class MeetingRecorder {
     private let ioQueue = DispatchQueue(label: "ai.toss.meeting.io")
     private let aecQueue = DispatchQueue(label: "ai.toss.meeting.aec")
     private let debugChunkDumpEnabled: Bool = {
-        #if DEBUG
-            let defaultEnabled = true
-        #else
-            let defaultEnabled = false
-        #endif
+        // Opt-in only via TOSS_DUMP_AUDIO_CHUNKS.
+        let defaultEnabled = false
         guard
             let raw = ProcessInfo.processInfo.environment["TOSS_DUMP_AUDIO_CHUNKS"]?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -203,7 +200,10 @@ final class MeetingRecorder {
 
         // Reset AEC state for new device
         aecQueue.sync {
-            aecProcessor?.reset()
+            if let aec = aecProcessor {
+                aec.reset()
+                aec.setBufferDelayMs(defaultAecDelayMs)
+            }
         }
 
         // Stop the engine and remove the old tap
@@ -280,6 +280,7 @@ final class MeetingRecorder {
 
             aecQueue.sync {
                 aec.reset()
+                aec.setBufferDelayMs(defaultAecDelayMs)
             }
         }
 

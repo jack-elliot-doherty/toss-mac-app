@@ -83,18 +83,6 @@
             ReferencedContainer = "container:Toss.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "TOSS_DUMP_AUDIO_CHUNKS"
-            value = "1"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "TOSS_CHUNK_DUMP_DIR"
-            value = "/tmp/toss-aec-debug"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

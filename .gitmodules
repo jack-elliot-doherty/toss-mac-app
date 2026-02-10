@@ -1,0 +1,4 @@
+[submodule "Vendors/webrtc-audio-processing"]
+	path = Vendors/webrtc-audio-processing
+	url = https://github.com/helloooideeeeea/webrtc-audio-processing.git
+	ignore = dirty

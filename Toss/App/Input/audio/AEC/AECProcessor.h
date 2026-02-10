@@ -3,7 +3,8 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /// Wraps WebRTC AudioProcessing Module (AEC3) for echo cancellation.
-/// Thread-safe: feedFarEnd and processNearEnd can be called from different threads.
+/// Not internally synchronized: callers must serialize all method calls.
+/// MeetingRecorder enforces this via a dedicated serial queue.
 /// Handles frame chunking internally — callers can pass arbitrary sample counts.
 @interface AECProcessor : NSObject
 
@@ -11,7 +12,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Feed far-end (speaker) audio. Accepts arbitrary sample count.
 /// Internally chunks into 10ms frames and calls ProcessReverseStream.
-/// Thread-safe: can be called concurrently with processNearEnd.
 - (void)feedFarEnd:(const float *)samples count:(int)count;
 
 /// Process near-end (mic) audio, removing echo in-place. Accepts arbitrary sample count.
