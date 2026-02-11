@@ -51,6 +51,24 @@ struct GitHubConnectionStatus: Codable {
     let accountType: String?
 }
 
+struct VercelMCPMetadata: Codable {
+    let teamName: String?
+    let teamSlug: String?
+    let userEmail: String?
+}
+
+struct VercelMCPConnectionStatus: Codable {
+    let connected: Bool
+    let status: String?
+    let installedBy: String?
+    let expiresAt: Int64?
+    let metadata: VercelMCPMetadata?
+
+    var teamNameOrSlug: String? {
+        metadata?.teamName ?? metadata?.teamSlug ?? metadata?.userEmail
+    }
+}
+
 @MainActor
 final class IntegrationsManager: ObservableObject {
     static let shared = IntegrationsManager()
@@ -63,6 +81,7 @@ final class IntegrationsManager: ObservableObject {
     @Published var notionStatus: NotionConnectionStatus?
     @Published var gmailStatus: GmailConnectionStatus?
     @Published var githubStatus: GitHubConnectionStatus?
+    @Published var vercelMcpStatus: VercelMCPConnectionStatus?
 
     @Published var isLoading = false
     @Published var isLoadingGoogleStatus = false
@@ -297,6 +316,12 @@ final class IntegrationsManager: ObservableObject {
         } else if url.path == "/github" {
             if connected {
                 Task { await fetchGitHubStatus() }
+            }
+            triggerViewRefresh()
+            return true
+        } else if url.path == "/vercel" {
+            if connected {
+                Task { await fetchVercelMCPStatus() }
             }
             triggerViewRefresh()
             return true
@@ -602,6 +627,102 @@ final class IntegrationsManager: ObservableObject {
             NSLog("[Integrations] Failed to uninstall GitHub: %@", error.localizedDescription)
         }
     }
+
+    // MARK: - Vercel MCP
+
+    func fetchVercelMCPStatus() async {
+        guard let url = URL(string: "\(Config.serverURL)/mcp/vercel/status") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                vercelMcpStatus = try JSONDecoder().decode(VercelMCPConnectionStatus.self, from: data)
+            }
+        } catch {
+            NSLog("[Integrations] Failed to fetch Vercel MCP status: %@", error.localizedDescription)
+        }
+    }
+
+    func connectVercelMCP() async {
+        guard let url = URL(string: "\(Config.serverURL)/mcp/vercel/connect") else { return }
+
+        let request = URLRequest(url: url)
+
+        do {
+            let (data, response) = try await APIClient.shared.perform(request)
+            guard let http = response as? HTTPURLResponse else {
+                self.error = "Vercel connect failed: invalid response"
+                NSLog("[Integrations] Vercel MCP connect returned non-HTTP response")
+                return
+            }
+
+            let rawBody = String(data: data, encoding: .utf8) ?? "<non-utf8 body>"
+            NSLog(
+                "[Integrations] Vercel MCP connect response status: %d body: %@",
+                http.statusCode,
+                rawBody
+            )
+
+            guard http.statusCode == 200 else {
+                self.error = "Vercel connect failed (\(http.statusCode))"
+                NSLog(
+                    "[Integrations] Vercel MCP connect failed with status %d",
+                    http.statusCode
+                )
+                return
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                self.error = "Vercel connect failed: invalid JSON response"
+                NSLog("[Integrations] Vercel MCP connect failed: response is not JSON object")
+                return
+            }
+
+            guard let urlString = json["url"] as? String, let authURL = URL(string: urlString) else
+            {
+                self.error = "Vercel connect failed: missing OAuth URL"
+                NSLog("[Integrations] Vercel MCP connect missing/invalid url field in response")
+                return
+            }
+
+            let didOpen = NSWorkspace.shared.open(authURL)
+            NSLog(
+                "[Integrations] Vercel MCP OAuth URL open attempted. success=%@ url=%@",
+                didOpen.description,
+                authURL.absoluteString
+            )
+            if !didOpen {
+                self.error = "Could not open Vercel OAuth URL"
+            }
+        } catch {
+            self.error = "Failed to start Vercel MCP connection"
+            NSLog("[Integrations] Failed to connect Vercel MCP: %@", error.localizedDescription)
+        }
+    }
+
+    func disconnectVercelMCP() async {
+        guard let url = URL(string: "\(Config.serverURL)/mcp/vercel/disconnect") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        do {
+            let (_, response) = try await APIClient.shared.perform(request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                vercelMcpStatus = VercelMCPConnectionStatus(
+                    connected: false,
+                    status: nil,
+                    installedBy: nil,
+                    expiresAt: nil,
+                    metadata: nil
+                )
+            }
+        } catch {
+            NSLog("[Integrations] Failed to disconnect Vercel MCP: %@", error.localizedDescription)
+        }
+    }
 }
 
 @MainActor
@@ -747,6 +868,19 @@ struct IntegrationsView: View {
                             onDisconnect: { Task { await manager.disconnectGitHub() } },
                             badge: "Bot"
                         )
+                        IntegrationTile(
+                            name: "Vercel MCP",
+                            imageName: "GitHubLogo",
+                            backgroundColor: Color(red: 0.10, green: 0.10, blue: 0.10),
+                            detail: "Read runtime logs and deployment context directly from Vercel so Toss can debug production issues, open Linear issues, and trigger follow-up fixes. Coming soon.",
+                            isConnected: manager.vercelMcpStatus?.connected == true,
+                            connectedDetail: manager.vercelMcpStatus?.teamNameOrSlug,
+                            isLoading: manager.isLoading,
+                            onConnect: { Task { await manager.connectVercelMCP() } },
+                            onDisconnect: { Task { await manager.disconnectVercelMCP() } },
+                            badge: "Coming Soon",
+                            isConnectEnabled: false
+                        )
                     }
                 }
 
@@ -782,6 +916,7 @@ struct IntegrationsView: View {
             Task { await manager.fetchNotionStatus() }
             Task { await manager.fetchGmailStatus() }
             Task { await manager.fetchGitHubStatus() }
+            Task { await manager.fetchVercelMCPStatus() }
         }
         // Force full view recreation when returning from OAuth deep link
         // This works around a SwiftUI text rendering bug that can cause upside-down text
@@ -1260,6 +1395,7 @@ struct ComingSoonCard: View {
                     .fill(Color.gray.opacity(0.2))
                 if let imageName, NSImage(named: imageName) != nil {
                     Image(imageName)
+                        .renderingMode(.original)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 28, height: 28)
@@ -1319,6 +1455,7 @@ struct IntegrationTile: View {
     let onConnect: () -> Void
     let onDisconnect: () -> Void
     var badge: String? = nil
+    var isConnectEnabled: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1328,6 +1465,7 @@ struct IntegrationTile: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(backgroundColor)
                     Image(imageName)
+                        .renderingMode(.original)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24, height: 24)
@@ -1383,6 +1521,7 @@ struct IntegrationTile: View {
                     Button("Connect") { onConnect() }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.mini)
+                        .disabled(!isConnectEnabled)
                 }
             }
         }
@@ -1415,6 +1554,7 @@ struct IntegrationTileStatic: View {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(backgroundColor)
                     Image(imageName)
+                        .renderingMode(.original)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 24, height: 24)
@@ -1476,6 +1616,7 @@ struct IntegrationTileComingSoon: View {
                         .fill(Color.gray.opacity(0.2))
                     if let imageName, NSImage(named: imageName) != nil {
                         Image(imageName)
+                            .renderingMode(.original)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 24, height: 24)

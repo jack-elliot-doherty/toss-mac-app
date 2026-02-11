@@ -244,7 +244,10 @@ final class AgentViewModel: ObservableObject {
 
     /// Send a single message to server using new format
     /// Server reconstructs conversation history from database
-    private func streamMessageToServer(_ messageText: String, clipboard: (content: String, ageSeconds: Int)?) async throws {
+    private func streamMessageToServer(
+        _ messageText: String,
+        clipboard: ClipboardMonitor.FreshClipboard?
+    ) async throws {
         guard let token = auth.accessToken else {
             throw NSError(
                 domain: "AgentViewModel", code: 401,
@@ -267,13 +270,50 @@ final class AgentViewModel: ObservableObject {
 
         // Include fresh clipboard context if available
         if let clipboard = clipboard {
-            payload["clipboardContext"] = [
-                "content": clipboard.content,
-                "ageSeconds": clipboard.ageSeconds
-            ]
-            NSLog("[AgentViewModel] Including clipboard context (%d chars, %ds old)", clipboard.content.count, clipboard.ageSeconds)
-            // Mark clipboard as consumed so it won't be sent with subsequent messages
-            ClipboardMonitor.shared.markClipboardConsumed()
+            switch clipboard.content {
+            case .text(let content):
+                payload["clipboardContext"] = [
+                    "content": content,
+                    "ageSeconds": clipboard.ageSeconds
+                ]
+                NSLog(
+                    "[AgentViewModel] Including clipboard text context (%d chars, %ds old)",
+                    content.count, clipboard.ageSeconds
+                )
+                // Mark clipboard as consumed so it won't be sent with subsequent messages
+                ClipboardMonitor.shared.markClipboardConsumed()
+            case .image(let data, let contentType):
+                let maxClipboardImageBytes = 10 * 1024 * 1024
+                guard data.count <= maxClipboardImageBytes else {
+                    NSLog(
+                        "[AgentViewModel] Clipboard image too large (%d bytes), skipping attachment",
+                        data.count
+                    )
+                    break
+                }
+                do {
+                    let upload = try await uploadImageData(
+                        imageData: data.base64EncodedString(),
+                        contentType: contentType
+                    )
+                    payload["clipboardImageContext"] = [
+                        "url": upload.url,
+                        "mediaType": contentType,
+                        "ageSeconds": clipboard.ageSeconds
+                    ]
+                    NSLog(
+                        "[AgentViewModel] Including clipboard image context (%d bytes, %ds old, %@)",
+                        data.count, clipboard.ageSeconds, contentType
+                    )
+                    // Mark clipboard as consumed only after successful upload + payload inclusion.
+                    ClipboardMonitor.shared.markClipboardConsumed()
+                } catch {
+                    NSLog(
+                        "[AgentViewModel] Failed to upload clipboard image, continuing without it: %@",
+                        error.localizedDescription
+                    )
+                }
+            }
         }
 
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
@@ -531,14 +571,50 @@ final class AgentViewModel: ObservableObject {
 
         // Include fresh clipboard context if available (copied within last 90 seconds)
         if let clipboard = ClipboardMonitor.shared.getFreshClipboard(maxAge: 90) {
-            payload["clipboardContext"] = [
-                "content": clipboard.content,
-                "ageSeconds": clipboard.ageSeconds
-            ]
-            NSLog("[AgentViewModel] Including clipboard context (%d chars, %ds old)", clipboard.content.count, clipboard.ageSeconds)
-            // Mark clipboard as consumed so it won't be sent with subsequent messages
-            // (unless the user copies something new)
-            ClipboardMonitor.shared.markClipboardConsumed()
+            switch clipboard.content {
+            case .text(let content):
+                payload["clipboardContext"] = [
+                    "content": content,
+                    "ageSeconds": clipboard.ageSeconds
+                ]
+                NSLog(
+                    "[AgentViewModel] Including clipboard text context (%d chars, %ds old)",
+                    content.count, clipboard.ageSeconds
+                )
+                // Mark clipboard as consumed so it won't be sent with subsequent messages
+                // (unless the user copies something new)
+                ClipboardMonitor.shared.markClipboardConsumed()
+            case .image(let data, let contentType):
+                let maxClipboardImageBytes = 10 * 1024 * 1024
+                guard data.count <= maxClipboardImageBytes else {
+                    NSLog(
+                        "[AgentViewModel] Clipboard image too large (%d bytes), skipping attachment",
+                        data.count
+                    )
+                    break
+                }
+                do {
+                    let upload = try await uploadImageData(
+                        imageData: data.base64EncodedString(),
+                        contentType: contentType
+                    )
+                    payload["clipboardImageContext"] = [
+                        "url": upload.url,
+                        "mediaType": contentType,
+                        "ageSeconds": clipboard.ageSeconds
+                    ]
+                    NSLog(
+                        "[AgentViewModel] Including clipboard image context (%d bytes, %ds old, %@)",
+                        data.count, clipboard.ageSeconds, contentType
+                    )
+                    ClipboardMonitor.shared.markClipboardConsumed()
+                } catch {
+                    NSLog(
+                        "[AgentViewModel] Failed to upload clipboard image, continuing without it: %@",
+                        error.localizedDescription
+                    )
+                }
+            }
         }
 
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
@@ -983,6 +1059,14 @@ final class AgentViewModel: ObservableObject {
             return await executeConnect(provider: "linear", endpoint: "/linear/connect")
         case "connectGoogleCalendar":
             return await executeConnect(provider: "google", endpoint: "/google/connect")
+        case "connectNotion":
+            return await executeConnect(provider: "notion", endpoint: "/notion/connect")
+        case "connectGmail":
+            return await executeConnect(provider: "gmail", endpoint: "/gmail/connect")
+        case "connectGitHub":
+            return await executeConnect(provider: "github", endpoint: "/github/install")
+        case "connectVercel":
+            return await executeConnect(provider: "vercel", endpoint: "/mcp/vercel/connect")
         default:
             return ["error": "Unknown client tool: \(toolCall.name)"]
         }
@@ -1030,6 +1114,54 @@ final class AgentViewModel: ObservableObject {
                     "connected": true,
                     "email": email,
                     "message": "Google Calendar is now connected as \(email).",
+                ]
+            }
+        case "notion":
+            if integrationsManager.notionStatus?.connected == true {
+                let workspace = integrationsManager.notionStatus?.workspaceName ?? "your workspace"
+                NSLog("[AgentViewModel] \(provider) already connected to \(workspace)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "workspaceName": workspace,
+                    "message": "Notion is now connected to \(workspace).",
+                ]
+            }
+        case "gmail":
+            if integrationsManager.gmailStatus?.connected == true {
+                let email = integrationsManager.gmailStatus?.email ?? "your account"
+                NSLog("[AgentViewModel] \(provider) already connected as \(email)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "email": email,
+                    "message": "Gmail is now connected as \(email).",
+                ]
+            }
+        case "github":
+            if integrationsManager.githubStatus?.installed == true {
+                let account = integrationsManager.githubStatus?.accountLogin ?? "your account"
+                NSLog("[AgentViewModel] \(provider) already installed for \(account)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "accountLogin": account,
+                    "message": "GitHub is now connected for \(account).",
+                ]
+            }
+        case "vercel":
+            if integrationsManager.vercelMcpStatus?.connected == true {
+                let teamName = integrationsManager.vercelMcpStatus?.teamNameOrSlug ?? "your team"
+                NSLog("[AgentViewModel] \(provider) already connected to \(teamName)")
+                return [
+                    "success": true,
+                    "provider": provider,
+                    "connected": true,
+                    "teamName": teamName,
+                    "message": "Vercel is now connected to \(teamName).",
                 ]
             }
         default:
@@ -1122,6 +1254,14 @@ final class AgentViewModel: ObservableObject {
 
     /// Upload screenshot image data to server and return URL
     private func uploadScreenshot(imageData: String) async throws -> (url: String, key: String) {
+        try await uploadImageData(imageData: imageData, contentType: "image/png")
+    }
+
+    /// Upload image data to server and return URL
+    private func uploadImageData(
+        imageData: String,
+        contentType: String
+    ) async throws -> (url: String, key: String) {
         guard let token = auth.accessToken else {
             throw NSError(
                 domain: "AgentViewModel", code: 401,
@@ -1136,7 +1276,7 @@ final class AgentViewModel: ObservableObject {
 
         let body: [String: Any] = [
             "imageData": imageData,
-            "contentType": "image/png",
+            "contentType": contentType,
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

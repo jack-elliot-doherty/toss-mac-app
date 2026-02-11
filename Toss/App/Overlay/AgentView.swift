@@ -1552,6 +1552,32 @@ private struct ToolApprovalCard: View {
                     } : nil
             )
 
+        case "connectGitHub":
+            ConnectIntegrationCard(
+                provider: "GitHub",
+                icon: "GitHubLogo",
+                color: Color(hex: "24292F"),
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
+        case "connectVercel":
+            ConnectIntegrationCard(
+                provider: "Vercel",
+                icon: "GitHubLogo",
+                color: Color.black,
+                isExecuting: executing,
+                onConnect: isAwaitingApproval
+                    ? {
+                        isExecuting = true
+                        onApprove()
+                    } : nil
+            )
+
         case "gmailSendEmail":
             GmailSendEmailPreview(
                 params: params,
@@ -1727,6 +1753,8 @@ private struct ConnectToolCard: View {
         case "connectGoogleCalendar": return "Google Calendar"
         case "connectNotion": return "Notion"
         case "connectGmail": return "Gmail"
+        case "connectGitHub": return "GitHub"
+        case "connectVercel": return "Vercel"
         default: return "Integration"
         }
     }
@@ -1738,6 +1766,8 @@ private struct ConnectToolCard: View {
         case "connectGoogleCalendar": return "GoogleCalendarLogo"
         case "connectNotion": return "NotionLogo"
         case "connectGmail": return "GmailLogo"
+        case "connectGitHub": return "GitHubLogo"
+        case "connectVercel": return "GitHubLogo"
         default: return "gearshape"
         }
     }
@@ -1749,6 +1779,8 @@ private struct ConnectToolCard: View {
         case "connectGoogleCalendar": return Color(hex: "4285F4")
         case "connectNotion": return Color.black
         case "connectGmail": return Color(hex: "EA4335")
+        case "connectGitHub": return Color(hex: "24292F")
+        case "connectVercel": return Color.black
         default: return .blue
         }
     }
@@ -1765,6 +1797,10 @@ private struct ConnectToolCard: View {
             return integrationsManager.notionStatus?.connected == true
         case "connectGmail":
             return integrationsManager.gmailStatus?.connected == true
+        case "connectGitHub":
+            return integrationsManager.githubStatus?.installed == true
+        case "connectVercel":
+            return integrationsManager.vercelMcpStatus?.connected == true
         default:
             return false
         }
@@ -1782,6 +1818,10 @@ private struct ConnectToolCard: View {
             return integrationsManager.notionStatus?.workspaceName
         case "connectGmail":
             return integrationsManager.gmailStatus?.email
+        case "connectGitHub":
+            return integrationsManager.githubStatus?.accountLogin
+        case "connectVercel":
+            return integrationsManager.vercelMcpStatus?.teamNameOrSlug
         default:
             return nil
         }
@@ -1907,6 +1947,12 @@ private struct ConnectToolCard: View {
                     await integrationsManager.fetchGoogleStatus()
                 case "connectNotion":
                     await integrationsManager.fetchNotionStatus()
+                case "connectGmail":
+                    await integrationsManager.fetchGmailStatus()
+                case "connectGitHub":
+                    await integrationsManager.fetchGitHubStatus()
+                case "connectVercel":
+                    await integrationsManager.fetchVercelMCPStatus()
                 default:
                     break
                 }
@@ -1933,6 +1979,12 @@ private struct ConnectToolCard: View {
                 await integrationsManager.connectGoogle()
             case "connectNotion":
                 await integrationsManager.connectNotion()
+            case "connectGmail":
+                await integrationsManager.connectGmail()
+            case "connectGitHub":
+                await integrationsManager.connectGitHub()
+            case "connectVercel":
+                await integrationsManager.connectVercelMCP()
             default:
                 break
             }

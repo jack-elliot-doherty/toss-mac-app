@@ -71,6 +71,10 @@ struct ToolCall: Identifiable, Equatable {
             return "Connect Notion"
         case "connectGmail":
             return "Connect Gmail"
+        case "connectGitHub":
+            return "Connect GitHub"
+        case "connectVercel":
+            return "Connect Vercel"
         case "gmailSendEmail":
             return "Send Email"
         case "gmailSearchEmails":

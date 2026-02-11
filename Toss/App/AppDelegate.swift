@@ -1209,12 +1209,14 @@ enum AppActivation {
         file: String = #fileID,
         line: Int = #line
     ) {
+        let isNonActivatingPanel =
+            (window as? NSPanel)?.styleMask.contains(.nonactivatingPanel) == true
         NSLog(
-            "[AppActivation] orderFront reason=\(reason) title='\(window.title)' visible=\(window.isVisible) appActiveBefore=\(NSApp.isActive) source=\(file):\(line)"
+            "[AppActivation] orderFront reason=\(reason) title='\(window.title)' visible=\(window.isVisible) appActiveBefore=\(NSApp.isActive) nonActivatingPanel=\(isNonActivatingPanel) source=\(file):\(line)"
         )
-        guard NSApp.isActive else {
+        guard NSApp.isActive || isNonActivatingPanel else {
             NSLog(
-                "[AppActivation] orderFront SKIPPED reason=\(reason) because app is inactive"
+                "[AppActivation] orderFront SKIPPED reason=\(reason) because app is inactive and window is not a non-activating panel"
             )
             return
         }
