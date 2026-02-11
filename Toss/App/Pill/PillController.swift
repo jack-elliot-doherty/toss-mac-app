@@ -608,8 +608,10 @@ final class PillController {
     private func handleOpenMeetingView(_ meetingId: UUID) {
         NSLog("[PillController] Opening meeting view for \(meetingId)")
 
+        WindowFocusIntent.mark(reason: "pill-open-meeting-view")
+
         // Activate the app
-        NSApp.activate(ignoringOtherApps: true)
+        AppActivation.activate(reason: "pill-open-meeting-view")
 
         // Post notification to navigate to meeting
         NotificationCenter.default.post(
@@ -628,8 +630,10 @@ final class PillController {
     }
 
     private func positionWindowForMeeting() {
+        WindowFocusIntent.mark(reason: "pill-position-window-for-meeting")
+
         // Activate the app
-        NSApp.activate(ignoringOtherApps: true)
+        AppActivation.activate(reason: "pill-position-window-for-meeting")
 
         // Find the main Toss window
         guard
@@ -660,7 +664,7 @@ final class PillController {
             window.animator().setFrame(newFrame, display: true)
         }
 
-        window.makeKeyAndOrderFront(nil)
+        AppActivation.makeKeyAndOrderFront(window, reason: "pill-position-window-for-meeting")
 
         // Navigate to the meeting view
         NotificationCenter.default.post(

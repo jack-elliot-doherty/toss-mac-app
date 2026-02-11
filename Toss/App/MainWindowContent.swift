@@ -48,11 +48,11 @@ private struct WindowKeyPrevention: NSViewRepresentable {
 
             NSLog("[WindowKeyPrevention] Installed key prevention delegate")
 
-            // Ensure window is visible when first created
-            // This handles the race condition where showMainWindow runs before SwiftUI creates the window
-            if AuthManager.shared.isAuthenticated {
-                window.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
+            // If the app is already active and authenticated, ensure the window is visible.
+            // Never force app activation or key focus here, because this callback can fire
+            // during non-user-driven window/lifecycle transitions (e.g. Space switches).
+            if AuthManager.shared.isAuthenticated && NSApp.isActive && !window.isVisible {
+                window.orderFront(nil)
             }
         }
     }
@@ -65,14 +65,8 @@ private struct WindowKeyPrevention: NSViewRepresentable {
         /// Track if user explicitly clicked to activate - only true for a brief moment after click
         private var userClickedOnWindow = false
 
-        /// Track if activation came from dock icon or menu bar
-        private var activatedFromDockOrMenu = false
-
         /// Event monitor for mouse clicks
         private var clickMonitor: Any?
-
-        /// Observer for reopen events (dock icon clicks)
-        private var reopenObserver: NSObjectProtocol?
 
         init(originalDelegate: NSWindowDelegate?, window: NSWindow) {
             self.originalDelegate = originalDelegate
@@ -97,34 +91,11 @@ private struct WindowKeyPrevention: NSViewRepresentable {
                 }
                 return event
             }
-
-            // Listen for dock icon clicks (applicationShouldHandleReopen sends this)
-            reopenObserver = NotificationCenter.default.addObserver(
-                forName: NSApplication.didBecomeActiveNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                // Check if the mouse is in the dock area (bottom of screen)
-                let mouseLocation = NSEvent.mouseLocation
-                if NSScreen.main != nil {
-                    let dockHeight: CGFloat = 80  // Approximate dock area height
-                    if mouseLocation.y < dockHeight {
-                        NSLog("[WindowKeyPrevention] Activation likely from dock click")
-                        self?.activatedFromDockOrMenu = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                            self?.activatedFromDockOrMenu = false
-                        }
-                    }
-                }
-            }
         }
 
         deinit {
             if let monitor = clickMonitor {
                 NSEvent.removeMonitor(monitor)
-            }
-            if let observer = reopenObserver {
-                NotificationCenter.default.removeObserver(observer)
             }
         }
 
@@ -143,21 +114,14 @@ private struct WindowKeyPrevention: NSViewRepresentable {
         func windowDidBecomeKey(_ notification: Notification) {
             guard let window = notification.object as? NSWindow else { return }
 
-            // Allow key focus if user clicked on window, clicked dock icon, or came from deep link
-            let userInitiated = userClickedOnWindow || activatedFromDockOrMenu || DeepLinkActivation.isActive
+            // Allow key focus only for explicit user intent.
+            let userInitiated = userClickedOnWindow || WindowFocusIntent.isActive || DeepLinkActivation.isActive
 
             if !userInitiated {
-                // The window became key without user clicking on it
-                // Delay the check because deep link handler runs AFTER windowDidBecomeKey
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                    guard let self = self else { return }
-                    // Re-check - if a deep link was processed in the meantime, don't resign
-                    let stillUnwanted = !self.userClickedOnWindow && !self.activatedFromDockOrMenu && !DeepLinkActivation.isActive
-                    if stillUnwanted {
-                        window.resignKey()
-                        window.resignMain()
-                    }
-                }
+                NSLog("[WindowKeyPrevention] Preventing unsolicited key focus on main window")
+                window.resignKey()
+                window.resignMain()
+                return
             }
 
             originalDelegate?.windowDidBecomeKey?(notification)
@@ -256,7 +220,7 @@ private struct MainWindowConfigurationView: NSViewRepresentable {
 
         // Resizable
         window.styleMask.insert(.resizable)
-        window.collectionBehavior.insert(.fullScreenPrimary)
+        window.collectionBehavior.formUnion([.fullScreenPrimary, .moveToActiveSpace])
 
         // Size constraints
         // Note: minWidth must be less than sidebar collapse threshold (700) in MainAppView

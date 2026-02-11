@@ -241,9 +241,10 @@ final class UpdateManager: NSObject, ObservableObject {
 
         // Focus the main app window so the modal is visible
         // (especially important if triggered from agent panel)
-        NSApp.activate(ignoringOtherApps: true)
+        WindowFocusIntent.mark(reason: "force-update-required")
+        AppActivation.activate(reason: "force-update-required")
         if let mainWindow = NSApp.windows.first(where: { $0.title.contains("Toss") || $0.isMainWindow }) {
-            mainWindow.makeKeyAndOrderFront(nil)
+            AppActivation.makeKeyAndOrderFront(mainWindow, reason: "force-update-required")
         }
 
         // Also trigger update check to get latest version info

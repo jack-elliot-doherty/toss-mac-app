@@ -54,7 +54,7 @@ final class ToastPanelController {
         hosting.frame = NSRect(origin: .zero, size: panel.frame.size)
         hosting.autoresizingMask = [.width, .height]
         positionAboveAnchor(offset: offsetAboveAnchor)
-        panel.orderFrontRegardless()
+        AppActivation.orderFront(panel, reason: "toast-show")
 
         dismissTask?.cancel()
         // Only auto-dismiss if no interactive actions

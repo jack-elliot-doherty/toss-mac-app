@@ -130,8 +130,8 @@ final class AuthManager: ObservableObject {
     func handleDeepLink(url: URL) -> Bool {
         NSLog("[AuthManager] handleDeepLink called with URL: \(url.absoluteString)")
         
-        // toss://auth/callback?state=... or toss-dev://auth/callback?state=...
-        guard (url.scheme == "toss" || url.scheme == "toss-dev"), url.host == "auth", url.path == "/callback" else {
+        // Accept only the build-specific callback scheme.
+        guard url.scheme == Config.urlScheme, url.host == "auth", url.path == "/callback" else {
             NSLog("[AuthManager] handleDeepLink - URL doesn't match auth callback pattern")
             return false
         }
@@ -423,7 +423,7 @@ final class AuthManager: ObservableObject {
                 // Activate app to bring to foreground and trigger UI update
                 // Only activate if not already active to avoid window flash
                 if !NSApp.isActive {
-                    NSApp.activate(ignoringOtherApps: true)
+                    AppActivation.activate(reason: "auth-exchange-state-success")
                 }
 
                 await SubscriptionManager.shared.checkSubscription()

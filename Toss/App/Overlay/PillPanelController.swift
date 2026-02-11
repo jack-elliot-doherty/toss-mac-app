@@ -8,6 +8,7 @@ final class PillPanelController {
     private let hostingView: NSHostingView<PillView>
     let viewModel: PillViewModel
     private var cancellables = Set<AnyCancellable>()
+    private var activeSpaceObserver: NSObjectProtocol?
 
     // Drag state
     private var customPosition: NSPoint? = nil
@@ -26,6 +27,9 @@ final class PillPanelController {
         }
         if let monitor = localDragMonitor {
             NSEvent.removeMonitor(monitor)
+        }
+        if let observer = activeSpaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
     }
 
@@ -93,6 +97,16 @@ final class PillPanelController {
         viewModel.onDragEnd = { [weak self] in
             self?.stopDragging()
         }
+
+        activeSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleActiveSpaceDidChange()
+            }
+        }
     }
 
     private func intrinsicPillSize(for state: PillVisualState) -> NSSize {
@@ -147,7 +161,7 @@ final class PillPanelController {
         } else {
             positionBottomCenter()
         }
-        panel.orderFrontRegardless()
+        AppActivation.orderFront(panel, reason: "pill-show")
     }
 
     func hide() {
@@ -176,7 +190,7 @@ final class PillPanelController {
             positionRightEdge()  // Snap to right edge immediately
             viewModel.visualState = state
             if !panel.isVisible {
-                panel.orderFrontRegardless()
+                AppActivation.orderFront(panel, reason: "pill-set-state-meeting-recording")
             }
             return
         }
@@ -202,7 +216,7 @@ final class PillPanelController {
 
         // Ensure panel is visible for non-idle states (or idle when preference is off)
         if !panel.isVisible {
-            panel.orderFrontRegardless()
+            AppActivation.orderFront(panel, reason: "pill-set-state")
         }
     }
 
@@ -212,7 +226,7 @@ final class PillPanelController {
             if PreferencesManager.shared.hideIdlePill {
                 panel.orderOut(nil)
             } else {
-                panel.orderFrontRegardless()
+                AppActivation.orderFront(panel, reason: "pill-update-idle-visibility")
             }
         }
     }
@@ -398,6 +412,19 @@ final class PillPanelController {
             panel.sharingType = .none
         } else {
             panel.sharingType = .readOnly
+        }
+    }
+
+    private func handleActiveSpaceDidChange() {
+        guard panel.isVisible else { return }
+
+        if customPosition != nil {
+            let constrained = constrainToScreen(origin: panel.frame.origin, size: panel.frame.size)
+            panel.setFrameOrigin(constrained)
+            customPosition = constrained
+            viewModel.customPillPosition = constrained
+        } else {
+            positionBottomCenter()
         }
     }
 

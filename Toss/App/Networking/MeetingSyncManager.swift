@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 
 /// Represents a meeting that failed to sync and needs retry
@@ -9,6 +10,7 @@ struct PendingSync: Codable, Equatable {
     var lastAttempt: Date?
     var operation: SyncOperation
     var serverBaseURL: String?
+    var accountScope: String?
 
     enum SyncOperation: String, Codable {
         case sync  // Create or update meeting
@@ -34,6 +36,16 @@ final class MeetingSyncManager: ObservableObject {
     private let maxRetries = 10
     private let retryInterval: TimeInterval = 5 * 60  // 5 minutes
     private var currentServerScope: String { Config.serverBaseURL.absoluteString }
+    private var currentAccountScope: String? {
+        // Use hashed auth token scope to partition retries by signed-in identity/org context.
+        if let refresh = AuthManager.shared.refreshToken, !refresh.isEmpty {
+            return hashedScope(refresh)
+        }
+        if let access = AuthManager.shared.accessToken, !access.isEmpty {
+            return hashedScope(access)
+        }
+        return nil
+    }
 
     private init() {
         self.queueFileURL = Config.appSupportFileURL("sync_queue.json")
@@ -154,6 +166,10 @@ final class MeetingSyncManager: ObservableObject {
         NSLog("[MeetingSyncManager] Processing sync queue (\(pendingSyncs.count) pending)")
 
         guard !pendingSyncs.isEmpty else { return }
+        guard let accountScope = currentAccountScope else {
+            NSLog("[MeetingSyncManager] Skipping queue processing: account scope unavailable")
+            return
+        }
 
         // Take a copy to iterate
         let syncsToProcess = pendingSyncs
@@ -165,7 +181,17 @@ final class MeetingSyncManager: ObservableObject {
                     pending.meetingId.uuidString,
                     pending.operation.rawValue
                 )
-                removePending(meetingId: pending.meetingId, operation: pending.operation)
+                removePending(entry: pending)
+                continue
+            }
+
+            guard pending.accountScope == accountScope else {
+                NSLog(
+                    "[MeetingSyncManager] Dropping queue item from different account scope: %@ (%@)",
+                    pending.meetingId.uuidString,
+                    pending.operation.rawValue
+                )
+                removePending(entry: pending)
                 continue
             }
 
@@ -185,7 +211,7 @@ final class MeetingSyncManager: ObservableObject {
                 NSLog(
                     "[MeetingSyncManager] Max retries exceeded for \(pending.meetingId), removing from queue"
                 )
-                removePending(meetingId: pending.meetingId, operation: pending.operation)
+                removePending(entry: pending)
                 continue
             }
 
@@ -221,17 +247,27 @@ final class MeetingSyncManager: ObservableObject {
 
     private func queueForRetry(meetingId: UUID, operation: PendingSync.SyncOperation) {
         let serverScope = currentServerScope
+        guard let accountScope = currentAccountScope else {
+            NSLog(
+                "[MeetingSyncManager] Not queueing retry for %@ (%@): account scope unavailable",
+                meetingId.uuidString,
+                operation.rawValue
+            )
+            return
+        }
 
         // Check if already in queue
         if let index = pendingSyncs.firstIndex(where: {
             $0.meetingId == meetingId
                 && $0.operation == operation
                 && $0.serverBaseURL == serverScope
+                && $0.accountScope == accountScope
         }) {
             // Update existing entry
             pendingSyncs[index].retryCount += 1
             pendingSyncs[index].lastAttempt = Date()
             pendingSyncs[index].serverBaseURL = serverScope
+            pendingSyncs[index].accountScope = accountScope
         } else {
             // Add new entry
             let pending = PendingSync(
@@ -240,7 +276,8 @@ final class MeetingSyncManager: ObservableObject {
                 retryCount: 0,
                 lastAttempt: Date(),
                 operation: operation,
-                serverBaseURL: serverScope
+                serverBaseURL: serverScope,
+                accountScope: accountScope
             )
             pendingSyncs.append(pending)
         }
@@ -250,10 +287,42 @@ final class MeetingSyncManager: ObservableObject {
         NSLog("[MeetingSyncManager] Queued for retry: \(meetingId) (\(operation))")
     }
 
-    private func removePending(meetingId: UUID, operation: PendingSync.SyncOperation) {
-        pendingSyncs.removeAll { $0.meetingId == meetingId && $0.operation == operation }
+    private func removePending(entry: PendingSync) {
+        pendingSyncs.removeAll {
+            $0.meetingId == entry.meetingId
+                && $0.operation == entry.operation
+                && $0.serverBaseURL == entry.serverBaseURL
+                && $0.accountScope == entry.accountScope
+        }
         pendingSyncCount = pendingSyncs.count
         saveQueue()
+    }
+
+    private func removePending(
+        meetingId: UUID,
+        operation: PendingSync.SyncOperation
+    ) {
+        pendingSyncs.removeAll {
+            $0.meetingId == meetingId
+                && $0.operation == operation
+                && $0.serverBaseURL == currentServerScope
+                && $0.accountScope == currentAccountScope
+        }
+        pendingSyncCount = pendingSyncs.count
+        saveQueue()
+    }
+
+    func clearPendingQueue(reason: String) {
+        guard !pendingSyncs.isEmpty else { return }
+        let clearedCount = pendingSyncs.count
+        pendingSyncs.removeAll()
+        pendingSyncCount = 0
+        saveQueue()
+        NSLog(
+            "[MeetingSyncManager] Cleared %d pending sync operation(s): %@",
+            clearedCount,
+            reason
+        )
     }
 
     // MARK: - Persistence
@@ -268,6 +337,15 @@ final class MeetingSyncManager: ObservableObject {
                 guard let queuedScope = pending.serverBaseURL else {
                     NSLog(
                         "[MeetingSyncManager] Discarding legacy unscoped queue item for safety: %@ (%@)",
+                        pending.meetingId.uuidString,
+                        pending.operation.rawValue
+                    )
+                    return false
+                }
+
+                guard pending.accountScope != nil else {
+                    NSLog(
+                        "[MeetingSyncManager] Discarding legacy unscoped account queue item for safety: %@ (%@)",
                         pending.meetingId.uuidString,
                         pending.operation.rawValue
                     )
@@ -321,5 +399,10 @@ final class MeetingSyncManager: ObservableObject {
     func configure(repository: PersistentMeetingRepository) {
         self.repository = repository
         NSLog("[MeetingSyncManager] Configured with repository")
+    }
+
+    private func hashedScope(_ token: String) -> String {
+        let digest = SHA256.hash(data: Data(token.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

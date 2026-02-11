@@ -239,8 +239,8 @@ final class IntegrationsManager: ObservableObject {
     }
 
     func handleDeepLink(url: URL) -> Bool {
-        // toss://integrations/slack?connected=1 or toss-dev://integrations/slack?connected=1
-        guard url.scheme == "toss" || url.scheme == "toss-dev", url.host == "integrations" else {
+        // Accept only the build-specific deep-link scheme.
+        guard url.scheme == Config.urlScheme, url.host == "integrations" else {
             return false
         }
 

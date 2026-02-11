@@ -199,7 +199,7 @@ final class AgentPanelController {
 
         // Fade in animation
         panel.alphaValue = 0
-        panel.makeKeyAndOrderFront(nil)  // Make key AND order front for text input
+        AppActivation.makeKeyAndOrderFront(panel, reason: "agent-show-empty")  // Make key AND order front for text input
 
         NSAnimationContext.runAnimationGroup(
             { ctx in
@@ -242,7 +242,7 @@ final class AgentPanelController {
 
         // Fade in animation
         panel.alphaValue = 0
-        panel.orderFrontRegardless()
+        AppActivation.orderFront(panel, reason: "agent-show-with-message")
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.2
@@ -348,7 +348,7 @@ final class AgentPanelController {
 
         // Fade in animation
         panel.alphaValue = 0
-        panel.orderFrontRegardless()
+        AppActivation.orderFront(panel, reason: "agent-restore")
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.2

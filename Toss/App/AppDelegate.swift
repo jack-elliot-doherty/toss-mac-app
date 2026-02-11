@@ -337,7 +337,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.closeSignInWindow()
                     // Small delay to let window fully close
                     let workItem = DispatchWorkItem { [weak self] in
-                        self?.showMainWindow()
+                        self?.showMainWindow(
+                            userInitiated: false,
+                            reason: "auth-transition"
+                        )
                     }
                     self.pendingWindowWorkItem = workItem
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
@@ -364,7 +367,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Then show the appropriate window after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             if AuthManager.shared.isAuthenticated {
-                self?.showMainWindow()
+                self?.showMainWindow(
+                    userInitiated: false,
+                    reason: "launch-initial-state"
+                )
                 // Start menu bar meetings feature on launch
                 self?.startMenuBarMeetingsFeature()
             } else {
@@ -373,6 +379,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showSignInWindow()
             }
         }
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        let eventType = NSApp.currentEvent.map { "\($0.type)" } ?? "nil"
+        NSLog(
+            "[AppLifecycle] didBecomeActive eventType=\(eventType) windowFocusIntent=\(WindowFocusIntent.isActive) deepLinkIntent=\(DeepLinkActivation.isActive) keyWindow='\(NSApp.keyWindow?.title ?? "nil")' mainWindow='\(NSApp.mainWindow?.title ?? "nil")'"
+        )
+    }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        NSLog(
+            "[AppLifecycle] didResignActive keyWindow='\(NSApp.keyWindow?.title ?? "nil")' mainWindow='\(NSApp.mainWindow?.title ?? "nil")'"
+        )
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
@@ -387,16 +406,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // When user clicks dock icon, show the main window
         if !flag {
-            // No visible windows, create/show the main window
-            if let window = NSApp.windows.first(where: {
-                $0.title == "Toss" || $0.identifier?.rawValue == "main"
-            }) {
-                NSApp.activate(ignoringOtherApps: true)
-                window.makeKeyAndOrderFront(nil)
-            } else {
-                // If window doesn't exist, activate app (SwiftUI will recreate it)
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            showMainWindow(userInitiated: true, reason: "dock-reopen")
         }
         return true
     }
@@ -444,7 +454,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Activates the main window smoothly for deep link callbacks
     private func activateMainWindowSmoothly() {
         guard let mainWindow = NSApp.windows.first(where: { $0.title == "Toss" && !($0 is NSPanel) }) else {
-            NSApp.activate(ignoringOtherApps: true)
+            AppActivation.activate(reason: "deep-link-no-main-window")
             return
         }
 
@@ -454,8 +464,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Activate app and bring window to front
-        NSApp.activate(ignoringOtherApps: true)
-        mainWindow.makeKeyAndOrderFront(nil)
+        AppActivation.activate(reason: "deep-link-main-window")
+        AppActivation.makeKeyAndOrderFront(mainWindow, reason: "deep-link-main-window")
     }
 
     private func cacheTranscript(_ text: String) -> ThreadModel {
@@ -471,10 +481,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             restoreFromAccessoryMode()
             return
         }
-        NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title == "Toss" }) {
-            window.makeKeyAndOrderFront(nil)
-        }
+        showMainWindow(userInitiated: true, reason: "menu-open")
     }
 
     @objc private func openSettings() {
@@ -509,13 +516,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         // Small delay to let the activation policy change take effect
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.showMainWindow()
+            self?.showMainWindow(userInitiated: true, reason: "accessory-restore")
         }
     }
 
     @objc private func handleUserAccountChanged() {
         // When a different user signs in, clear local data and fetch their meetings from the server
         NSLog("[AppDelegate] User account changed - clearing local data and fetching from server")
+        MeetingSyncManager.shared.clearPendingQueue(reason: "user account changed")
         meetingRepository.clearAllData()
         History.shared.clear()
 
@@ -529,6 +537,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // When the user switches organizations, clear local data and fetch meetings for the new org
         let newOrgId = AuthManager.shared.currentOrg?.id ?? "unknown"
         NSLog("[AppDelegate] Organization changed to \(newOrgId) - clearing local data and fetching from server")
+        MeetingSyncManager.shared.clearPendingQueue(reason: "organization changed to \(newOrgId)")
         meetingRepository.clearAllData()
         History.shared.clear()
 
@@ -601,8 +610,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog(
                 "[AppDelegate] showSignInWindow - reusing existing window (visible=\(existing.isVisible))"
             )
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            AppActivation.makeKeyAndOrderFront(existing, reason: "show-signin-reuse")
+            AppActivation.activate(reason: "show-signin-reuse")
             NSLog("[AppDelegate] showSignInWindow END (reused)")
             return
         }
@@ -654,13 +663,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.signInWindow = window
 
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        AppActivation.makeKeyAndOrderFront(window, reason: "show-signin-new")
+        AppActivation.activate(reason: "show-signin-new")
         NSLog("[AppDelegate] showSignInWindow END")
     }
 
-    func showMainWindow() {
-        NSLog("[AppDelegate] showMainWindow START")
+    func showMainWindow(userInitiated: Bool = false, reason: String = "unknown") {
+        NSLog("[AppDelegate] showMainWindow START (userInitiated=\(userInitiated), reason=\(reason), appActive=\(NSApp.isActive))")
 
         // If we're in accessory mode (soft quit), restore to regular mode first
         if NSApp.activationPolicy() == .accessory {
@@ -671,14 +680,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Find existing main window
         for window in NSApp.windows {
             if window.title == "Toss" && window !== signInWindow {
-                window.makeKeyAndOrderFront(nil)
-                NSApp.activate(ignoringOtherApps: true)
+                if userInitiated {
+                    // Explicit user intent (dock/menu/deep link): activate + key window.
+                    WindowFocusIntent.mark(reason: "show-main-\(reason)")
+                    AppActivation.makeKeyAndOrderFront(window, reason: "show-main-\(reason)")
+                    AppActivation.activate(reason: "show-main-\(reason)")
+                } else if NSApp.isActive {
+                    // Passive lifecycle path: only reveal while already active.
+                    if !window.isVisible {
+                        window.orderFront(nil)
+                    }
+                }
                 NSLog("[AppDelegate] showMainWindow END (found)")
                 return
             }
         }
-        // No existing window - SwiftUI should create it, just activate
-        NSApp.activate(ignoringOtherApps: true)
+        // No existing window - only activate for explicit user intent.
+        if userInitiated {
+            AppActivation.activate(reason: "show-main-no-window-\(reason)")
+        }
         NSLog("[AppDelegate] showMainWindow END (not found)")
     }
 
@@ -1149,8 +1169,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "[AppDelegate] Opening meeting page for \(localMeeting.id) (from upcoming: \(upcomingId))"
         )
 
+        WindowFocusIntent.mark(reason: "open-upcoming-meeting")
+
         // Activate the app
-        NSApp.activate(ignoringOtherApps: true)
+        AppActivation.activate(reason: "open-upcoming-meeting")
 
         // Post notification to navigate to meeting
         NotificationCenter.default.post(
@@ -1158,6 +1180,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             userInfo: ["meetingId": localMeeting.id]
         )
+    }
+}
+
+enum AppActivation {
+    static func activate(reason: String, file: String = #fileID, line: Int = #line) {
+        NSLog(
+            "[AppActivation] activate reason=\(reason) appActiveBefore=\(NSApp.isActive) source=\(file):\(line)"
+        )
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    static func makeKeyAndOrderFront(
+        _ window: NSWindow,
+        reason: String,
+        file: String = #fileID,
+        line: Int = #line
+    ) {
+        NSLog(
+            "[AppActivation] makeKeyAndOrderFront reason=\(reason) title='\(window.title)' visible=\(window.isVisible) source=\(file):\(line)"
+        )
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    static func orderFront(
+        _ window: NSWindow,
+        reason: String,
+        file: String = #fileID,
+        line: Int = #line
+    ) {
+        NSLog(
+            "[AppActivation] orderFront reason=\(reason) title='\(window.title)' visible=\(window.isVisible) appActiveBefore=\(NSApp.isActive) source=\(file):\(line)"
+        )
+        guard NSApp.isActive else {
+            NSLog(
+                "[AppActivation] orderFront SKIPPED reason=\(reason) because app is inactive"
+            )
+            return
+        }
+        window.orderFront(nil)
+    }
+}
+
+/// Tracks explicit user intent to focus the main window.
+/// WindowKeyPrevention uses this to allow key focus for a short window.
+enum WindowFocusIntent {
+    private static var _isActive = false
+
+    static var isActive: Bool { _isActive }
+
+    static func mark(reason: String, duration: TimeInterval = 0.8) {
+        _isActive = true
+        NSLog("[WindowFocusIntent] mark reason=\(reason) duration=\(duration)s")
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            _isActive = false
+            NSLog("[WindowFocusIntent] clear reason=\(reason)")
+        }
     }
 }
 
